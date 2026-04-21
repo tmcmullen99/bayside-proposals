@@ -1,30 +1,30 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Phase 1.5 — Preview & Publish (Sprint 1)
+// Phase 1.5 Sprint 1 — Preview & Publish
 //
-// What changed from 1.4:
+// Changes from 1.4:
 //
-//   1. Section 06 editor gains a "Hero image URL" field (paste Webflow CDN
-//      link). Auto-saves to proposals.hero_image_url with 600ms debounce,
-//      same pattern as the Loom URL.
+//   1. Section 06 editor UI: the "Hero image URL" paste field is gone. In its
+//      place, a visual HERO IMAGE PICKER — a grid of every image on this
+//      proposal (bid-PDF-extracted + manually uploaded, mixed). Click an
+//      image → that image's public URL writes to proposals.hero_image_url.
+//      Selected image gets a green ring + "HERO" badge. Empty state when no
+//      images exist yet.
 //
 //   2. Published page template:
-//        - Hero image banner renders at the top of the hero section when
-//          hero_image_url is set.
-//        - Materials section is now grouped by application_area with category
-//          headers. Cards are bigger (280→320px minmax) and each card shows
-//          two action buttons when data is available:
-//            [View cut sheet ↗]   (when belgard_materials.cut_sheet_url is set)
-//            [See installation ↗] (when installation_guide_id is set — routed
-//                                   through Sprint 2 once guides are parsed)
-//        - New "Why preparation matters" section between materials and photos.
-//          Content is hardcoded in Sprint 1. Sprint 2 replaces it with dynamic
-//          content pulled from the installation_guides table.
-//
-//   3. Section order: header → hero (with optional image) → loom → 01 scope
-//      → 02 materials → 03 why prep matters → 04 photos → footer CTAs.
+//        • Hero image banner at the top of the hero section (unchanged from
+//          1.5 plan — same data source, just populated by click instead of
+//          paste).
+//        • Materials grouped by application_area with bigger cards (4:3
+//          aspect, hover lift, cut-sheet + install-guide action buttons when
+//          catalog fields are populated).
+//        • "Why our preparation matters" hardcoded ICPI section between
+//          materials and photos. Sprint 2 will replace hardcoded content
+//          with dynamic content from the installation_guides table.
+//        • Section order: header → hero → loom → 01 scope → 02 materials
+//          → 03 why prep matters → 04 photos → footer CTAs.
 //
 // No changes to publish/slug/history mechanics — that infrastructure from
-// 1.4 stays intact, just renders different HTML.
+// 1.4 stays intact, just renders different HTML and takes a different input.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase-client.js';
@@ -33,13 +33,12 @@ const INSTALL_GUIDE_URL = 'https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf
 const BAYSIDE_LOGO_URL = 'https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69a04f4369bc9cc20b8d2155_BaysidePavers_original%20(2)%20(1).png';
 const TIM_PHONE = '408-313-1301';
 const TIM_PHONE_HREF = '+14083131301';
+const BUCKET = 'proposal-photos';
 
 let proposalId = null;
 let container = null;
 let onSaveCb = null;
-let currentData = null; // { proposal, sections, materials, photos, history }
-let loomSaveTimer = null;
-let heroSaveTimer = null;
+let currentData = null; // { proposal, sections, materials, photos, heroCandidates, history }
 
 // ───────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -59,20 +58,27 @@ export async function initPublish(opts) {
 async function reload() {
   setStatus('Loading…');
 
-  const [proposalQ, sectionsQ, materialsQ, photosQ, historyQ] = await Promise.all([
+  // heroCandidates query: all property_condition images (extracted + manual),
+  // since those are the viable hero sources. Small bid_pdf_asset images are
+  // excluded to keep the picker grid readable.
+  const [proposalQ, sectionsQ, materialsQ, photosQ, heroCandidatesQ, historyQ] = await Promise.all([
     supabase.from('proposals').select('*').eq('id', proposalId).single(),
     supabase.from('proposal_sections').select('*').eq('proposal_id', proposalId)
       .order('display_order', { ascending: true }),
     supabase.from('proposal_materials').select('*')
       .eq('proposal_id', proposalId).order('display_order', { ascending: true }),
     supabase.from('proposal_images').select('*').eq('proposal_id', proposalId)
+      .eq('category', 'property_condition')
       .order('display_order', { ascending: true }),
+    supabase.from('proposal_images').select('*').eq('proposal_id', proposalId)
+      .eq('category', 'property_condition')
+      .order('width', { ascending: false, nullsFirst: false }),
     supabase.from('published_proposals').select('id, slug, title, published_at')
       .eq('proposal_id', proposalId).order('published_at', { ascending: false }),
   ]);
 
   const err = proposalQ.error || sectionsQ.error || materialsQ.error
-    || photosQ.error || historyQ.error;
+    || photosQ.error || heroCandidatesQ.error || historyQ.error;
   if (err) {
     setStatus('');
     showError('Could not load data: ' + err.message);
@@ -117,6 +123,7 @@ async function reload() {
     sections: sectionsQ.data || [],
     materials,
     photos: photosQ.data || [],
+    heroCandidates: heroCandidatesQ.data || [],
     history: historyQ.data || [],
   };
 
@@ -129,22 +136,131 @@ async function reload() {
 // ───────────────────────────────────────────────────────────────────────────
 function renderShell() {
   container.innerHTML = `
+    <style>
+      /* Hero picker */
+      .bp-hero-picker-section {
+        margin-bottom: 32px;
+        padding: 20px 22px;
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 10px;
+      }
+      .bp-hero-picker-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 4px;
+        gap: 12px;
+      }
+      .bp-hero-picker-label {
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #353535;
+        font-weight: 700;
+      }
+      .bp-hero-picker-count {
+        font-size: 12px;
+        color: #999;
+      }
+      .bp-hero-picker-hint {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 14px;
+        line-height: 1.5;
+      }
+      .bp-hero-picker-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 10px;
+      }
+      .bp-hero-picker-item {
+        position: relative;
+        aspect-ratio: 4 / 3;
+        border-radius: 6px;
+        overflow: hidden;
+        cursor: pointer;
+        background: #faf8f3;
+        border: 2px solid transparent;
+        transition: border-color 0.15s, transform 0.15s;
+      }
+      .bp-hero-picker-item:hover {
+        border-color: #c9d3cb;
+        transform: translateY(-1px);
+      }
+      .bp-hero-picker-item.is-selected {
+        border-color: #5d7e69;
+        box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.15);
+      }
+      .bp-hero-picker-item img {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .bp-hero-picker-badge {
+        position: absolute;
+        top: 8px; left: 8px;
+        padding: 3px 7px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-radius: 3px;
+        background: #5d7e69;
+        color: #fff;
+      }
+      .bp-hero-picker-source {
+        position: absolute;
+        bottom: 6px; right: 6px;
+        padding: 2px 6px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border-radius: 3px;
+        background: rgba(0,0,0,0.55);
+        color: #fff;
+      }
+      .bp-hero-picker-empty {
+        padding: 28px 20px;
+        text-align: center;
+        background: #faf8f3;
+        border: 1px dashed #d5d5d5;
+        border-radius: 8px;
+        color: #666;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .bp-hero-picker-clear {
+        display: inline-block;
+        margin-top: 10px;
+        font-size: 12px;
+        color: #b04040;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        text-decoration: underline;
+      }
+      .bp-hero-picker-clear:hover { color: #8a2020; }
+    </style>
+
     <div class="section-header">
       <span class="eyebrow">Section 06</span>
       <h2>Preview &amp; publish</h2>
     </div>
 
     <div class="bp-publish">
-      <div class="bp-publish-loom-row">
-        <label class="bp-publish-loom-label">
-          Hero image URL
-          <input type="url" id="bpPublishHero" class="bp-publish-loom-input"
-            placeholder="https://cdn.prod.website-files.com/...">
-        </label>
-        <p class="bp-publish-loom-hint">
-          Paste a rendering URL (Webflow CDN works). Optional — if set, the
-          image appears as a full-width banner at the top of the published page.
+      <div class="bp-hero-picker-section" id="bpHeroPickerSection">
+        <div class="bp-hero-picker-header">
+          <span class="bp-hero-picker-label">Hero image</span>
+          <span class="bp-hero-picker-count" id="bpHeroCount"></span>
+        </div>
+        <p class="bp-hero-picker-hint">
+          Click any image to set it as the full-width banner at the top of the published proposal.
+          Images come from the bid PDF (auto-extracted) or from Section 05 (manual uploads).
         </p>
+        <div id="bpHeroPickerGrid"></div>
       </div>
 
       <div class="bp-publish-loom-row">
@@ -203,8 +319,6 @@ function renderShell() {
     .addEventListener('click', () => reload());
   document.getElementById('bpPublishLoom')
     .addEventListener('input', handleLoomInput);
-  document.getElementById('bpPublishHero')
-    .addEventListener('input', handleHeroInput);
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -214,15 +328,87 @@ function renderBody() {
   const { proposal, history } = currentData;
 
   document.getElementById('bpPublishLoom').value = proposal.loom_url || '';
-  document.getElementById('bpPublishHero').value = proposal.hero_image_url || '';
 
   const nextSlug = slugifyBase(proposal.project_address, new Date());
   const origin = window.location.origin;
   document.getElementById('bpPublishNextSlug').textContent =
     `${origin}/p/${nextSlug}`;
 
+  renderHeroPicker();
   renderHistory(history, origin);
   renderPreview();
+}
+
+function renderHeroPicker() {
+  const { heroCandidates, proposal } = currentData;
+  const grid = document.getElementById('bpHeroPickerGrid');
+  const count = document.getElementById('bpHeroCount');
+
+  const heroUrl = proposal.hero_image_url || null;
+
+  count.textContent = heroCandidates.length > 0
+    ? `${heroCandidates.length} image${heroCandidates.length === 1 ? '' : 's'} available`
+    : '';
+
+  if (heroCandidates.length === 0) {
+    grid.innerHTML = `
+      <div class="bp-hero-picker-empty">
+        <strong>No images yet.</strong><br>
+        Commit a bid PDF in Section 02 to auto-extract images, or upload photos in Section 05.
+      </div>
+    `;
+    return;
+  }
+
+  const items = heroCandidates.map(img => {
+    const thumb = img.thumbnail_path ? publicUrl(img.thumbnail_path) : publicUrl(img.storage_path);
+    const full = publicUrl(img.storage_path);
+    const isSelected = heroUrl && full === heroUrl;
+    const sourceBadge = img.extraction_source === 'bid_pdf_extract'
+      ? `<div class="bp-hero-picker-source">PDF${img.source_page ? ' p.' + img.source_page : ''}</div>`
+      : `<div class="bp-hero-picker-source">Uploaded</div>`;
+
+    return `
+      <div class="bp-hero-picker-item ${isSelected ? 'is-selected' : ''}"
+           data-url="${escapeAttr(full)}">
+        <img src="${escapeAttr(thumb)}" alt="" loading="lazy">
+        ${isSelected ? `<div class="bp-hero-picker-badge">Hero</div>` : ''}
+        ${sourceBadge}
+      </div>
+    `;
+  }).join('');
+
+  const clearBtn = heroUrl
+    ? `<button type="button" class="bp-hero-picker-clear" id="bpHeroClear">Clear hero selection</button>`
+    : '';
+
+  grid.innerHTML = `<div class="bp-hero-picker-grid">${items}</div>${clearBtn}`;
+
+  // Wire up click-to-select
+  grid.querySelectorAll('.bp-hero-picker-item').forEach(el => {
+    el.addEventListener('click', () => setHero(el.dataset.url));
+  });
+
+  const clearEl = grid.querySelector('#bpHeroClear');
+  if (clearEl) clearEl.addEventListener('click', () => setHero(null));
+}
+
+async function setHero(url) {
+  // Save immediately — no debounce needed, clicks are discrete events.
+  const { error } = await supabase
+    .from('proposals')
+    .update({ hero_image_url: url || null })
+    .eq('id', proposalId);
+
+  if (error) {
+    showError(`Could not set hero: ${error.message}`);
+    return;
+  }
+
+  if (currentData) currentData.proposal.hero_image_url = url || null;
+  renderHeroPicker();
+  renderPreview();
+  onSaveCb();
 }
 
 function renderHistory(history, origin) {
@@ -273,30 +459,22 @@ function renderPreview() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Auto-save handlers (debounced) — identical pattern for loom_url + hero_image_url
+// Auto-save handler for Loom URL (debounced)
 // ───────────────────────────────────────────────────────────────────────────
+let loomSaveTimer = null;
 function handleLoomInput(e) {
-  debouncedFieldSave('loom_url', e.target.value, 'loomSaveTimer');
-}
-
-function handleHeroInput(e) {
-  debouncedFieldSave('hero_image_url', e.target.value, 'heroSaveTimer');
-}
-
-const debounceTimers = { loomSaveTimer: null, heroSaveTimer: null };
-function debouncedFieldSave(column, rawValue, timerKey) {
-  const val = rawValue.trim();
-  clearTimeout(debounceTimers[timerKey]);
-  debounceTimers[timerKey] = setTimeout(async () => {
+  const val = e.target.value.trim();
+  clearTimeout(loomSaveTimer);
+  loomSaveTimer = setTimeout(async () => {
     const { error } = await supabase
       .from('proposals')
-      .update({ [column]: val || null })
+      .update({ loom_url: val || null })
       .eq('id', proposalId);
     if (error) {
-      showError(`Could not save ${column}: ${error.message}`);
+      showError(`Could not save loom_url: ${error.message}`);
       return;
     }
-    if (currentData) currentData.proposal[column] = val || null;
+    if (currentData) currentData.proposal.loom_url = val || null;
     renderPreview();
     onSaveCb();
   }, 600);
@@ -460,7 +638,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos }) {
     padding: 72px 32px 80px;
     text-align: center;
   }
-  .pub-hero-banner + .pub-hero-body {
+  .pub-hero-banner-wrap + .pub-hero-body {
     padding-top: 56px;
   }
   .pub-hero-eyebrow {
@@ -848,7 +1026,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos }) {
   @media (max-width: 640px) {
     .pub-header { padding: 20px; }
     .pub-hero-body { padding: 48px 20px 56px; }
-    .pub-hero-banner + .pub-hero-body { padding-top: 40px; }
+    .pub-hero-banner-wrap + .pub-hero-body { padding-top: 40px; }
     .pub-hero-banner { min-height: 240px; max-height: 340px; }
     .pub-section { padding: 56px 20px; }
     .pub-prep-inner { padding: 72px 20px; }
@@ -1154,8 +1332,12 @@ function groupPhotosByLocation(photos) {
 
 function storagePublicUrl(path) {
   if (!path) return '';
-  const { data } = supabase.storage.from('proposal-photos').getPublicUrl(path);
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return data?.publicUrl || '';
+}
+
+function publicUrl(path) {
+  return storagePublicUrl(path);
 }
 
 function buildLoomEmbed(loomUrl) {
