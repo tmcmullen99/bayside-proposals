@@ -1359,8 +1359,13 @@ function extractMaterialInfo(m, categoryToSection) {
     const bm = m.belgard_material;
     return {
       name: bm.product_name || 'Belgard product',
-      imageUrl: bm.primary_image_url
-        || bm.swatch_url
+      // Preference order (Sprint 3 Part A): per-color swatch beats the
+      // generic product hero. Once a variant has its Scandina Gray / Sepia /
+      // etc. swatch uploaded, it displays instead of the shared Catalina
+      // Grana beauty shot. Falls back to primary_image_url (category-level
+      // hero from Sprint 2A) and then to legacy image_url.
+      imageUrl: bm.swatch_url
+        || bm.primary_image_url
         || bm.image_url
         || '',
       cutSheetUrl: bm.cut_sheet_url || '',
