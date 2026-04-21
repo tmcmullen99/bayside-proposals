@@ -1,35 +1,49 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Phase 1.5 Sprint 1 — Preview & Publish
+// Phase 1.5 Sprint 2 Part B.2 — Preview & Publish
 //
-// Changes from 1.4:
+// Changes from Sprint 1:
 //
-//   1. Section 06 editor UI: the "Hero image URL" paste field is gone. In its
-//      place, a visual HERO IMAGE PICKER — a grid of every image on this
-//      proposal (bid-PDF-extracted + manually uploaded, mixed). Click an
-//      image → that image's public URL writes to proposals.hero_image_url.
-//      Selected image gets a green ring + "HERO" badge. Empty state when no
-//      images exist yet.
+//   1. "Why preparation matters" section is now DYNAMIC.
+//      • Queries installation_guide_sections joined via
+//        installation_guide_section_categories for the Belgard categories
+//        actually present in this proposal's materials.
+//      • Renders one card per unique section with real ICPI-standard
+//        summary + 3-5 key technical points extracted by Claude from the
+//        Belgard Product Installation Guide PDF.
+//      • Each card has a "View the full installation standards →" link
+//        pointing at the master PDF with a #page={N} anchor.
+//      • Falls back to the hardcoded 4-card version when no install_guide
+//        data is linked (so the page never renders empty).
 //
-//   2. Published page template:
-//        • Hero image banner at the top of the hero section (unchanged from
-//          1.5 plan — same data source, just populated by click instead of
-//          paste).
-//        • Materials grouped by application_area with bigger cards (4:3
-//          aspect, hover lift, cut-sheet + install-guide action buttons when
-//          catalog fields are populated).
-//        • "Why our preparation matters" hardcoded ICPI section between
-//          materials and photos. Sprint 2 will replace hardcoded content
-//          with dynamic content from the installation_guides table.
-//        • Section order: header → hero → loom → 01 scope → 02 materials
-//          → 03 why prep matters → 04 photos → footer CTAs.
+//   2. Per-material "View installation guide" button is now page-anchored.
+//      • When a Belgard material's category has a mapped install guide
+//        section, the button links to the master PDF at the relevant page
+//        ({BELGARD_MASTER_PDF}#page=N).
+//      • Falls back to the generic Bayside install guide if the material's
+//        category isn't mapped (preserves prior behavior — no regressions
+//        for materials without section linkage).
 //
-// No changes to publish/slug/history mechanics — that infrastructure from
-// 1.4 stays intact, just renders different HTML and takes a different input.
+// Preserved from Sprint 1 / Sprint 1.5:
+//   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
+//   • Hero banner at top of published page
+//   • Materials grouped by application_area with 4:3 aspect cards
+//   • Cut sheet + install guide action buttons on each card
+//   • Publish / slug / history infrastructure
+//   • Section order: header → hero → loom → 01 scope → 02 materials
+//     → 03 why prep → 04 photos → footer CTAs
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase-client.js';
 
+// Bayside-branded installation guide PDF — remains the bottom footer CTA.
+// This is the client-facing "Here's how we install" document.
 const INSTALL_GUIDE_URL = 'https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf3c6e47/68d2db027d1d1b4ad1543f05_Bayside%20Pavers%20Presentation%20(1)_compressed%20(1).pdf';
+
+// Belgard master Product Installation Guide — the 110+ page PDF we parsed
+// in Sprint 2 Part B.1. Used for page-anchored deep links per section since
+// its pagination is what installation_guide_sections.page_start references.
+const BELGARD_MASTER_INSTALL_GUIDE_URL = 'https://www.belgard.com/wp-content/uploads/2025/05/Product-Installation-Guide_WEB_BEL24-D-298050.pdf';
+
 const BAYSIDE_LOGO_URL = 'https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69a04f4369bc9cc20b8d2155_BaysidePavers_original%20(2)%20(1).png';
 const TIM_PHONE = '408-313-1301';
 const TIM_PHONE_HREF = '+14083131301';
@@ -38,7 +52,7 @@ const BUCKET = 'proposal-photos';
 let proposalId = null;
 let container = null;
 let onSaveCb = null;
-let currentData = null; // { proposal, sections, materials, photos, heroCandidates, history }
+let currentData = null; // { proposal, sections, materials, photos, heroCandidates, history, installSections, categoryToSection }
 
 // ───────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -118,6 +132,17 @@ async function reload() {
       ? thirdPartyMap.get(m.third_party_material_id) : null,
   }));
 
+  // ───────────────────────────────────────────────────────────────────────
+  // Sprint 2 Part B.2: load install guide sections for the Belgard categories
+  // present in this proposal's materials. Powers the dynamic "Why preparation
+  // matters" section and per-material page-anchored install guide CTAs.
+  //
+  // Third-party materials are NOT included here — the install guide was
+  // parsed from Belgard's master PDF and its page numbers only apply to
+  // Belgard products. Third-party materials retain prior behavior.
+  // ───────────────────────────────────────────────────────────────────────
+  const { installSections, categoryToSection } = await loadInstallGuideData(belgardQ.data || []);
+
   currentData = {
     proposal: proposalQ.data,
     sections: sectionsQ.data || [],
@@ -125,10 +150,63 @@ async function reload() {
     photos: photosQ.data || [],
     heroCandidates: heroCandidatesQ.data || [],
     history: historyQ.data || [],
+    installSections,
+    categoryToSection,
   };
 
   renderBody();
   setStatus('');
+}
+
+async function loadInstallGuideData(belgardRows) {
+  const usedCategoryIds = [...new Set(
+    belgardRows.map(b => b.category_id).filter(Boolean)
+  )];
+
+  if (usedCategoryIds.length === 0) {
+    return { installSections: [], categoryToSection: new Map() };
+  }
+
+  // Fetch the join-table rows that link a category to a section
+  const { data: linksData, error: linksErr } = await supabase
+    .from('installation_guide_section_categories')
+    .select('section_id, category_id')
+    .in('category_id', usedCategoryIds);
+
+  if (linksErr) {
+    // Non-fatal — the Why Prep section falls back to hardcoded content
+    // and material cards fall back to the generic install guide URL.
+    console.error('Could not load install guide category links:', linksErr);
+    return { installSections: [], categoryToSection: new Map() };
+  }
+
+  const linkRows = linksData || [];
+  const sectionIds = [...new Set(linkRows.map(l => l.section_id))];
+
+  if (sectionIds.length === 0) {
+    return { installSections: [], categoryToSection: new Map() };
+  }
+
+  const { data: sectionsData, error: sectionsErr } = await supabase
+    .from('installation_guide_sections')
+    .select('*')
+    .in('id', sectionIds);
+
+  if (sectionsErr) {
+    console.error('Could not load install guide sections:', sectionsErr);
+    return { installSections: [], categoryToSection: new Map() };
+  }
+
+  const installSections = sectionsData || [];
+  const sectionById = new Map(installSections.map(s => [s.id, s]));
+
+  const categoryToSection = new Map();
+  for (const link of linkRows) {
+    const section = sectionById.get(link.section_id);
+    if (section) categoryToSection.set(link.category_id, section);
+  }
+
+  return { installSections, categoryToSection };
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -557,7 +635,7 @@ function slugifyBase(address, date) {
 // ───────────────────────────────────────────────────────────────────────────
 // HTML snapshot builder — full standalone document
 // ───────────────────────────────────────────────────────────────────────────
-function buildHtmlSnapshot({ proposal, sections, materials, photos }) {
+function buildHtmlSnapshot({ proposal, sections, materials, photos, installSections, categoryToSection }) {
   const address = proposal.project_address || '';
   const cityLine = [proposal.project_city, proposal.project_state,
     proposal.project_zip].filter(Boolean).join(', ');
@@ -569,8 +647,8 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos }) {
   const heroBanner = buildHeroBanner(proposal.hero_image_url);
 
   const scopeHtml = renderScopeSection(sections, proposal.bid_total_amount);
-  const materialsHtml = renderMaterialsSection(materials);
-  const whyPrepHtml = renderWhyPrepSection();
+  const materialsHtml = renderMaterialsSection(materials, categoryToSection);
+  const whyPrepHtml = renderWhyPrepSection(installSections);
   const photosHtml = renderPhotosSection(photos);
 
   return `<!DOCTYPE html>
@@ -904,7 +982,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos }) {
   }
   .pub-prep-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 20px;
   }
   .pub-prep-card {
@@ -914,7 +992,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos }) {
     padding: 32px 28px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
   }
   .pub-prep-card-number {
     font-family: 'JetBrains Mono', monospace;
@@ -934,6 +1012,55 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos }) {
     font-size: 15px;
     line-height: 1.65;
   }
+
+  /* Dynamic-section-only additions (Sprint 2 Part B.2) */
+  .pub-prep-card-summary {
+    color: var(--charcoal);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  .pub-prep-card-points {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pub-prep-card-points li {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+    padding-left: 18px;
+    position: relative;
+  }
+  .pub-prep-card-points li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+  .pub-prep-card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green-dark);
+    text-decoration: none;
+  }
+  .pub-prep-card-link:hover {
+    color: var(--green);
+    text-decoration: underline;
+  }
+
   .pub-prep-footer {
     margin-top: 48px;
     padding-top: 32px;
@@ -1140,7 +1267,7 @@ function renderScopeSection(sections, totalAmount) {
   `;
 }
 
-function renderMaterialsSection(materials) {
+function renderMaterialsSection(materials, categoryToSection) {
   if (!materials.length) return '';
 
   const groups = groupMaterialsByArea(materials);
@@ -1151,7 +1278,7 @@ function renderMaterialsSection(materials) {
         <div class="pub-materials-group-count">${items.length} ${items.length === 1 ? 'product' : 'products'}</div>
       </div>
       <div class="pub-materials-grid">
-        ${items.map(renderMaterialCard).join('')}
+        ${items.map(m => renderMaterialCard(m, categoryToSection)).join('')}
       </div>
     </div>
   `).join('');
@@ -1166,8 +1293,8 @@ function renderMaterialsSection(materials) {
   `;
 }
 
-function renderMaterialCard(m) {
-  const info = extractMaterialInfo(m);
+function renderMaterialCard(m, categoryToSection) {
+  const info = extractMaterialInfo(m, categoryToSection);
   const imgHtml = info.imageUrl
     ? `<img src="${escapeAttr(info.imageUrl)}" alt="${escapeAttr(info.name)}">`
     : `<div class="pub-material-card-placeholder">${escapeHtml((info.name || 'Material').slice(0, 3).toUpperCase())}</div>`;
@@ -1213,7 +1340,21 @@ function groupMaterialsByArea(materials) {
   return groups;
 }
 
-function extractMaterialInfo(m) {
+function extractMaterialInfo(m, categoryToSection) {
+  // Look up a page-anchored deep link to the master Belgard install guide
+  // PDF based on the material's category. If no section is mapped, fall
+  // back to the generic Bayside install guide URL when installation_guide_id
+  // is set (preserves Sprint 1 behavior for unmapped materials).
+  const lookupInstallGuide = (catalogRow) => {
+    if (categoryToSection && catalogRow.category_id) {
+      const section = categoryToSection.get(catalogRow.category_id);
+      if (section && Number.isFinite(section.page_start)) {
+        return `${BELGARD_MASTER_INSTALL_GUIDE_URL}#page=${section.page_start}`;
+      }
+    }
+    return catalogRow.installation_guide_id ? INSTALL_GUIDE_URL : '';
+  };
+
   if (m.material_source === 'belgard' && m.belgard_material) {
     const bm = m.belgard_material;
     return {
@@ -1223,10 +1364,7 @@ function extractMaterialInfo(m) {
         || bm.image_url
         || '',
       cutSheetUrl: bm.cut_sheet_url || '',
-      // Sprint 2: install guide routing is decided when guides are populated.
-      // For now, show the generic Bayside Install Guide if an FK link exists,
-      // so the button appears on materials that have been categorized.
-      installGuideUrl: bm.installation_guide_id ? INSTALL_GUIDE_URL : '',
+      installGuideUrl: lookupInstallGuide(bm),
     };
   }
   if (m.material_source === 'third_party' && m.third_party_material) {
@@ -1237,6 +1375,8 @@ function extractMaterialInfo(m) {
         || tp.image_url
         || '',
       cutSheetUrl: tp.cut_sheet_url || '',
+      // Third-party materials use the generic Bayside guide — the master
+      // Belgard PDF's page anchors only apply to Belgard products.
       installGuideUrl: tp.installation_guide_id ? INSTALL_GUIDE_URL : '',
     };
   }
@@ -1246,10 +1386,16 @@ function extractMaterialInfo(m) {
 // ───────────────────────────────────────────────────────────────────────────
 // "Why our preparation matters" section
 //
-// Sprint 1: hardcoded ICPI education content.
-// Sprint 2: will pull from installation_guides table after PDF is parsed.
+// Sprint 2 Part B.2: dynamic rendering from installation_guide_sections.
+// Falls back to the hardcoded 4-card version when no sections apply (keeps
+// proposals with uncategorized materials from rendering an empty section).
 // ───────────────────────────────────────────────────────────────────────────
-function renderWhyPrepSection() {
+function renderWhyPrepSection(installSections) {
+  const hasSections = Array.isArray(installSections) && installSections.length > 0;
+  const cardsHtml = hasSections
+    ? renderDynamicPrepCards(installSections)
+    : renderHardcodedPrepCards();
+
   return `
     <section class="pub-prep">
       <div class="pub-prep-inner">
@@ -1259,32 +1405,75 @@ function renderWhyPrepSection() {
           <p>The biggest cost difference between paver installers isn't the pavers themselves — it's what happens <em>before</em> the first stone is placed. Base preparation, compaction, drainage, and edge restraint are the work that determines whether your installation lasts 5 years or 30. Here's what we do that cheaper bids skip.</p>
         </div>
         <div class="pub-prep-grid">
-          <div class="pub-prep-card">
-            <div class="pub-prep-card-number">01</div>
-            <div class="pub-prep-card-title">Proper base preparation</div>
-            <div class="pub-prep-card-body">We excavate to the depth required for long-term stability and install a thick aggregate base below every paver. Skimping here is the most common shortcut — and the most common reason pavers settle, dip, or heave within a few years.</div>
-          </div>
-          <div class="pub-prep-card">
-            <div class="pub-prep-card-number">02</div>
-            <div class="pub-prep-card-title">ICPI-standard compaction</div>
-            <div class="pub-prep-card-body">The Interlocking Concrete Pavement Institute sets compaction standards for every paver installation. We compact the base in multiple lifts with commercial-grade equipment to reach the required density at every layer — not just the top.</div>
-          </div>
-          <div class="pub-prep-card">
-            <div class="pub-prep-card-number">03</div>
-            <div class="pub-prep-card-title">Edge restraints and drainage</div>
-            <div class="pub-prep-card-body">Pavers don't move when they're properly restrained and when water can't pool underneath. We install permanent edge restraints and grade every site for positive drainage away from your home.</div>
-          </div>
-          <div class="pub-prep-card">
-            <div class="pub-prep-card-number">04</div>
-            <div class="pub-prep-card-title">Lifetime workmanship warranty</div>
-            <div class="pub-prep-card-body">Because we follow ICPI standards and document our process, we back every installation with a lifetime warranty on workmanship. Ask any installer for their warranty in writing — what you find will tell you a lot.</div>
-          </div>
+          ${cardsHtml}
         </div>
         <div class="pub-prep-footer">
           Want to see what this looks like in practice? Ask Tim for a site visit to an active installation — it's the fastest way to understand what you're paying for.
         </div>
       </div>
     </section>
+  `;
+}
+
+function renderDynamicPrepCards(installSections) {
+  // Order sections by their page_start in the source PDF — this matches the
+  // natural flow of the Belgard guide (pavers → porcelain → walls → accessories
+  // → fire features) and avoids alphabetical-by-section_key awkwardness.
+  const ordered = [...installSections].sort((a, b) =>
+    (a.page_start || 9999) - (b.page_start || 9999)
+  );
+
+  return ordered.map((section, idx) => {
+    const number = String(idx + 1).padStart(2, '0');
+    const summary = section.summary || '';
+    const keyPoints = Array.isArray(section.key_points) ? section.key_points : [];
+    const pointsHtml = keyPoints
+      .map(p => `<li>${escapeHtml(p)}</li>`)
+      .join('');
+    const pdfAnchor = Number.isFinite(section.page_start)
+      ? `${BELGARD_MASTER_INSTALL_GUIDE_URL}#page=${section.page_start}`
+      : BELGARD_MASTER_INSTALL_GUIDE_URL;
+
+    return `
+      <div class="pub-prep-card">
+        <div class="pub-prep-card-number">${number}</div>
+        <div class="pub-prep-card-title">${escapeHtml(section.title || 'Installation standard')}</div>
+        ${summary ? `<div class="pub-prep-card-summary">${escapeHtml(summary)}</div>` : ''}
+        ${pointsHtml ? `<ul class="pub-prep-card-points">${pointsHtml}</ul>` : ''}
+        <a href="${escapeAttr(pdfAnchor)}" target="_blank" rel="noopener"
+          class="pub-prep-card-link">
+          View the full installation standards →
+        </a>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderHardcodedPrepCards() {
+  // Fallback used when no install_guide_sections match the proposal's
+  // material categories. Matches the Sprint 1 content verbatim so the page
+  // never renders empty even for proposals with uncategorized materials.
+  return `
+    <div class="pub-prep-card">
+      <div class="pub-prep-card-number">01</div>
+      <div class="pub-prep-card-title">Proper base preparation</div>
+      <div class="pub-prep-card-body">We excavate to the depth required for long-term stability and install a thick aggregate base below every paver. Skimping here is the most common shortcut — and the most common reason pavers settle, dip, or heave within a few years.</div>
+    </div>
+    <div class="pub-prep-card">
+      <div class="pub-prep-card-number">02</div>
+      <div class="pub-prep-card-title">ICPI-standard compaction</div>
+      <div class="pub-prep-card-body">The Interlocking Concrete Pavement Institute sets compaction standards for every paver installation. We compact the base in multiple lifts with commercial-grade equipment to reach the required density at every layer — not just the top.</div>
+    </div>
+    <div class="pub-prep-card">
+      <div class="pub-prep-card-number">03</div>
+      <div class="pub-prep-card-title">Edge restraints and drainage</div>
+      <div class="pub-prep-card-body">Pavers don't move when they're properly restrained and when water can't pool underneath. We install permanent edge restraints and grade every site for positive drainage away from your home.</div>
+    </div>
+    <div class="pub-prep-card">
+      <div class="pub-prep-card-number">04</div>
+      <div class="pub-prep-card-title">Lifetime workmanship warranty</div>
+      <div class="pub-prep-card-body">Because we follow ICPI standards and document our process, we back every installation with a lifetime warranty on workmanship. Ask any installer for their warranty in writing — what you find will tell you a lot.</div>
+    </div>
   `;
 }
 
