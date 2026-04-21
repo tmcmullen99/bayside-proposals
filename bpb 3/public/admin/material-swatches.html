@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Material Swatches · Bayside Proposal Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #5d7e69;
+      --green-dark: #4a6654;
+      --green-soft: #e8eee9;
+      --charcoal: #353535;
+      --tan: #dad7c5;
+      --cream: #faf8f3;
+      --navy: #1a1f2e;
+      --border: #e5e5e5;
+      --muted: #666;
+      --danger: #b04040;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--charcoal);
+      background: #fafafa;
+      line-height: 1.6;
+      font-size: 15px;
+      min-height: 100vh;
+    }
+    a { color: var(--green-dark); }
+
+    /* Header */
+    .admin-header {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .admin-header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--navy);
+    }
+    .admin-header nav a {
+      font-size: 13px;
+      text-decoration: none;
+      color: var(--muted);
+      margin-right: 18px;
+    }
+    .admin-header nav a:hover { color: var(--green-dark); }
+
+    /* Shell */
+    .shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px;
+    }
+
+    /* Intro */
+    .intro {
+      margin-bottom: 28px;
+    }
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--green);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .intro h2 {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .intro p {
+      color: var(--muted);
+      max-width: 680px;
+      font-size: 15px;
+    }
+    .intro-help {
+      margin-top: 14px;
+      padding: 14px 18px;
+      background: var(--green-soft);
+      border-left: 3px solid var(--green);
+      border-radius: 4px;
+      font-size: 13px;
+      color: var(--charcoal);
+      line-height: 1.6;
+    }
+    .intro-help strong { color: var(--navy); }
+    .intro-help ol { margin: 8px 0 0 18px; padding: 0; }
+    .intro-help li { margin-bottom: 3px; }
+
+    /* Controls */
+    .controls {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .controls input[type="search"],
+    .controls select {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 14px;
+      background: #fff;
+      color: var(--charcoal);
+    }
+    .controls input[type="search"] {
+      flex: 1;
+      min-width: 220px;
+    }
+    .controls input[type="search"]:focus,
+    .controls select:focus {
+      outline: none;
+      border-color: var(--green);
+    }
+    .controls .counter {
+      font-size: 13px;
+      color: var(--muted);
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Status banner */
+    .status {
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .status.visible { display: block; }
+    .status.success { background: var(--green-soft); color: var(--green-dark); }
+    .status.error { background: #fbe6e6; color: var(--danger); }
+
+    /* Product groups */
+    .product-group {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      margin-bottom: 18px;
+    }
+    .product-group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .product-group-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--navy);
+      letter-spacing: -0.01em;
+    }
+    .product-group-title small {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-left: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .product-group-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .product-group-count.complete { color: var(--green-dark); }
+
+    /* Variant grid */
+    .variant-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .variant-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    }
+    .variant-card:hover {
+      border-color: var(--green);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .variant-card.uploading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .variant-card.has-swatch {
+      border-color: var(--green);
+    }
+    .swatch-preview {
+      width: 100%;
+      aspect-ratio: 1/1;
+      background: var(--cream);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .swatch-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .no-swatch {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .variant-info {
+      padding: 12px 14px 8px;
+      flex: 1;
+    }
+    .color-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 2px;
+    }
+    .sizes {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .variant-actions {
+      padding: 0 14px 14px;
+      display: flex;
+      gap: 6px;
+    }
+    .upload-btn {
+      flex: 1;
+      display: inline-block;
+      text-align: center;
+      padding: 9px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+      letter-spacing: 0.02em;
+    }
+    .upload-btn-primary {
+      background: var(--green);
+      color: #fff;
+    }
+    .upload-btn-primary:hover { background: var(--green-dark); }
+    .upload-btn-secondary {
+      background: #fff;
+      color: var(--charcoal);
+      border-color: var(--border);
+    }
+    .upload-btn-secondary:hover {
+      border-color: var(--green);
+      color: var(--green-dark);
+    }
+    .upload-btn-danger {
+      background: #fff;
+      color: var(--danger);
+      border-color: var(--border);
+      flex: 0 0 auto;
+      padding: 9px 12px;
+    }
+    .upload-btn-danger:hover {
+      border-color: var(--danger);
+      background: #fbe6e6;
+    }
+
+    /* Empty/loading */
+    .empty, .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      background: #fff;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+    }
+    .loading .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px;
+      vertical-align: -4px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Mobile */
+    @media (max-width: 640px) {
+      .admin-header { padding: 14px 18px; }
+      .shell { padding: 20px 16px; }
+      .product-group { padding: 16px 16px; }
+      .variant-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="admin-header">
+    <h1>Material Swatches</h1>
+    <nav>
+      <a href="/admin/">← Admin home</a>
+      <a href="/">Dashboard</a>
+    </nav>
+  </header>
+
+  <div class="shell">
+    <div class="intro">
+      <div class="eyebrow">Sprint 3 Part A</div>
+      <h2>Per-color swatch uploads</h2>
+      <p>Upload individual color swatch images for each Belgard product variant. Once a swatch is saved, it replaces the generic product hero on published proposals and in the material picker.</p>
+
+      <div class="intro-help">
+        <strong>How to source swatches from Belgard.com:</strong>
+        <ol>
+          <li>Open any product detail page, e.g. <code>belgard.com/products/pavers/catalina-grana/</code></li>
+          <li>Scroll to the <em>Colors</em> section — each color has a small circular swatch</li>
+          <li>Right-click a swatch → <em>Save Image As…</em> → save with a descriptive name like <code>scandina-gray.jpg</code></li>
+          <li>Come back here, find the matching variant, and click <em>Upload swatch</em></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="controls">
+      <input type="search" id="searchInput" placeholder="Search products… (e.g. Catalina, Belair, Dimension)" autofocus>
+      <select id="filterState">
+        <option value="all">All variants</option>
+        <option value="missing">Missing swatch only</option>
+        <option value="has">Has swatch only</option>
+      </select>
+      <span class="counter" id="counter">loading…</span>
+    </div>
+
+    <div id="statusBanner" class="status"></div>
+
+    <div id="results">
+      <div class="loading"><span class="spinner"></span>Loading catalog…</div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/admin-material-swatches.js"></script>
+</body>
+</html>
