@@ -1,16 +1,18 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Editor coordinator.
+//
 // Loads the proposal, renders the sidebar + main layout, switches between
-// sections. Only the Materials section is "real" in Phase 1.1 — the other
-// five are explanatory placeholders for sections shipping in later phases.
+// sections. Phase 1.1 shipped Materials (section 03). Phase 1.2 ships Bid PDF
+// (section 02). The other four remain explanatory placeholders.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase-client.js';
 import { initMaterials } from './materials.js';
+import { initBidPdf } from './bid-pdf.js';
 
 let proposalId = null;
 let proposal = null;
-let currentSection = 'materials';
+let currentSection = 'bid-pdf';
 let saveTimer = null;
 
 const bootError = document.getElementById('bootError');
@@ -58,7 +60,7 @@ async function loadProposal() {
 }
 
 function renderProjectTitle() {
-  const title = proposal.client_name || 'Untitled draft';
+  const title = proposal.client_name || proposal.project_label || 'Untitled draft';
   const addr = [proposal.project_address, proposal.project_city].filter(Boolean).join(', ');
   projectTitleEl.innerHTML = `
     <span class="title">${escapeHtml(title)}</span>
@@ -83,18 +85,16 @@ function switchSection(name) {
   sectionContent.innerHTML = '';
 
   switch (name) {
+    case 'bid-pdf':
+      initBidPdf({ proposalId, container: sectionContent, onSave: onDataSaved });
+      break;
     case 'materials':
       initMaterials({ proposalId, container: sectionContent, onSave: touchSave });
       break;
     case 'project-info':
       renderPlaceholder('Project info',
-        'Client name, email, address, proposal type, Bayside estimate number, Loom walkthrough link.',
-        'Coming next turn alongside the bid-PDF parser so the two can populate the same fields together.');
-      break;
-    case 'bid-pdf':
-      renderPlaceholder('Bid PDF',
-        'Drop a JobNimbus bid PDF → Claude extracts client info, scope sections, line items, totals.',
-        'Phase 1.2 — needs a CF Pages Function with the server-side Anthropic API key.');
+        'Client name, email, address, Bayside estimate number, Loom walkthrough link.',
+        'Most of these fields are auto-populated when you commit a bid PDF in Section 02 — this section will add manual overrides and a Loom URL field in Phase 1.3.');
       break;
     case 'site-plan':
       renderPlaceholder('Site plan',
@@ -104,7 +104,7 @@ function switchSection(name) {
     case 'photos':
       renderPlaceholder('Photos',
         'Hero, aerial, property condition, 3D renderings, material swatches — tagged and ordered.',
-        'Phase 1.3 — piggy-backs on the Supabase Storage plumbing from the bid-PDF upload.');
+        'Phase 1.3 — piggy-backs on the Supabase Storage plumbing.');
       break;
     case 'export':
       renderPlaceholder('Preview &amp; export',
@@ -123,7 +123,7 @@ function renderPlaceholder(title, description, status) {
     <div class="section-placeholder">
       <p class="lead">${description}</p>
       <div class="status-note"><span class="eyebrow">Status</span><p>${status}</p></div>
-      <p class="hint">Use the Materials section in the meantime — that's the first real one.</p>
+      <p class="hint">Use the Bid PDF or Materials section in the meantime — those are the live ones.</p>
     </div>
   `;
 }
@@ -138,12 +138,27 @@ function touchSave() {
   saveTimer = setTimeout(() => { saveIndicator.textContent = 'Saved'; }, 12000);
 }
 
+// When the Bid PDF section saves, we also want to refresh the project title
+// since client_name / project_address may have just been populated.
+async function onDataSaved() {
+  touchSave();
+  const { data } = await supabase
+    .from('proposals')
+    .select('client_name, project_label, project_address, project_city')
+    .eq('id', proposalId)
+    .single();
+  if (data) {
+    proposal = { ...proposal, ...data };
+    renderProjectTitle();
+  }
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 // Delete proposal
 // ───────────────────────────────────────────────────────────────────────────
 function attachDelete() {
   deleteBtn.addEventListener('click', async () => {
-    if (!confirm('Delete this proposal and all its materials? This cannot be undone.')) return;
+    if (!confirm('Delete this proposal and all its materials, sections, and data? This cannot be undone.')) return;
     const { error } = await supabase.from('proposals').delete().eq('id', proposalId);
     if (error) {
       alert('Delete failed: ' + error.message);
