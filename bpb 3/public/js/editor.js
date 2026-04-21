@@ -3,12 +3,14 @@
 //
 // Loads the proposal, renders the sidebar + main layout, switches between
 // sections. Phase 1.1 shipped Materials (section 03). Phase 1.2 ships Bid PDF
-// (section 02). The other four remain explanatory placeholders.
+// (section 02). Phase 1.3 ships Photos (section 05). The other three remain
+// explanatory placeholders.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase-client.js';
 import { initMaterials } from './materials.js';
 import { initBidPdf } from './bid-pdf.js';
+import { initPhotos } from './photos.js';
 
 let proposalId = null;
 let proposal = null;
@@ -91,20 +93,18 @@ function switchSection(name) {
     case 'materials':
       initMaterials({ proposalId, container: sectionContent, onSave: touchSave });
       break;
+    case 'photos':
+      initPhotos({ proposalId, container: sectionContent, onSave: touchSave });
+      break;
     case 'project-info':
       renderPlaceholder('Project info',
         'Client name, email, address, Bayside estimate number, Loom walkthrough link.',
-        'Most of these fields are auto-populated when you commit a bid PDF in Section 02 — this section will add manual overrides and a Loom URL field in Phase 1.3.');
+        'Most of these fields are auto-populated when you commit a bid PDF in Section 02 — this section will add manual overrides and a Loom URL field in a later phase.');
       break;
     case 'site-plan':
       renderPlaceholder('Site plan',
         'Upload a Cam To Plan PNG → vision extraction → dimensioned polygon with manual correction.',
         'Phase 2 — the spike showed medium-confidence extraction, so this needs a correction UI alongside.');
-      break;
-    case 'photos':
-      renderPlaceholder('Photos',
-        'Hero, aerial, property condition, 3D renderings, material swatches — tagged and ordered.',
-        'Phase 1.3 — piggy-backs on the Supabase Storage plumbing.');
       break;
     case 'export':
       renderPlaceholder('Preview &amp; export',
@@ -123,7 +123,7 @@ function renderPlaceholder(title, description, status) {
     <div class="section-placeholder">
       <p class="lead">${description}</p>
       <div class="status-note"><span class="eyebrow">Status</span><p>${status}</p></div>
-      <p class="hint">Use the Bid PDF or Materials section in the meantime — those are the live ones.</p>
+      <p class="hint">Use the Bid PDF, Materials, or Photos section in the meantime — those are the live ones.</p>
     </div>
   `;
 }
@@ -158,7 +158,7 @@ async function onDataSaved() {
 // ───────────────────────────────────────────────────────────────────────────
 function attachDelete() {
   deleteBtn.addEventListener('click', async () => {
-    if (!confirm('Delete this proposal and all its materials, sections, and data? This cannot be undone.')) return;
+    if (!confirm('Delete this proposal and all its materials, sections, photos, and data? This cannot be undone.')) return;
     const { error } = await supabase.from('proposals').delete().eq('id', proposalId);
     if (error) {
       alert('Delete failed: ' + error.message);
