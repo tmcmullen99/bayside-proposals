@@ -1,22 +1,31 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Photos section (Phase 1.3).
+// Photos section (Phase 1.5 Sprint 1).
 //
-// Property condition / "before" photos for this proposal.
+// Property condition / "before" photos for this proposal — a unified list of
+// images from two sources:
 //
-// Flow:
+//   • extraction_source='manual_upload'  — dragged/picked by Tim here
+//   • extraction_source='bid_pdf_extract' — pulled out of the bid PDF in
+//                                            Section 02 automatically
+//
+// Small extracted assets (logos, icons, sub-400x400 swatches) land with
+// category='bid_pdf_asset' and never appear in this grid — the property
+// condition list only shows usable photos.
+//
+// Rendered rows show a tiny tag pill so Tim can see at a glance where each
+// photo came from: green "FROM BID PDF" vs gray "UPLOADED".
+//
+// Flow for manual uploads is unchanged from Phase 1.3:
 //   1. User drags image onto dropzone OR picks via file input
 //   2. Client-side: Canvas API resizes to max 2400px long edge, JPEG quality 85
 //   3. A 400px thumbnail is generated the same way
 //   4. Both uploaded directly to Supabase Storage (bucket 'proposal-photos')
 //      under paths: {proposalId}/{uuid}.jpg and {proposalId}/{uuid}_thumb.jpg
-//   5. A proposal_images row is inserted with the public URLs + metadata
+//   5. A proposal_images row is inserted with extraction_source='manual_upload'
 //   6. UI re-renders the list
 //
 // Reorder: up/down arrow buttons swap display_order with the neighbor row.
-// Delete: removes Storage objects + DB row.
-//
-// No drag-and-drop reorder library needed — vertical list with arrows is
-// sufficient for single-user tool with typically 5-20 photos per proposal.
+// Delete: removes Storage objects + DB row (including extracted ones).
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase-client.js';
@@ -38,7 +47,7 @@ const state = {
   proposalId: null,
   container: null,
   onSave: null,
-  photos: [],      // rows from proposal_images, sorted by display_order
+  photos: [],      // rows from proposal_images (property_condition only)
   uploading: 0,    // count of in-flight uploads
   error: null
 };
@@ -85,7 +94,48 @@ async function loadPhotos() {
 function render() {
   const { photos, uploading, error } = state;
 
+  // Count extracted vs uploaded for the contextual header hint.
+  const fromPdf = photos.filter(p => p.extraction_source === 'bid_pdf_extract').length;
+  const uploaded = photos.length - fromPdf;
+
   state.container.innerHTML = `
+    <style>
+      .bp-photo-tag {
+        display: inline-block;
+        padding: 3px 8px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-radius: 4px;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+      .bp-photo-tag-pdf {
+        background: #e8eee9;
+        color: #4a6654;
+      }
+      .bp-photo-tag-upload {
+        background: #f0f0f0;
+        color: #666;
+      }
+      .bp-photo-tag-page {
+        color: #999;
+        font-size: 11px;
+        font-weight: 500;
+        margin-left: 6px;
+      }
+      .bp-photo-source-summary {
+        font-size: 13px;
+        color: #666;
+        margin-top: 4px;
+      }
+      .bp-photo-source-summary strong {
+        color: #353535;
+        font-weight: 600;
+      }
+    </style>
+
     <div class="section-header">
       <span class="eyebrow">Section 05</span>
       <h2>Photos — property condition</h2>
@@ -93,6 +143,12 @@ function render() {
         Drag "before" photos of the property here. Images are resized to 2400px and compressed
         automatically. Order and tag them below; the final proposal renders them in this order.
       </p>
+      ${photos.length > 0 ? `
+        <p class="bp-photo-source-summary">
+          <strong>${photos.length}</strong> photo${photos.length === 1 ? '' : 's'} ·
+          ${fromPdf} from bid PDF · ${uploaded} manually uploaded
+        </p>
+      ` : ''}
     </div>
 
     ${error ? `<div class="bp-error-box">${escapeHtml(error)}</div>` : ''}
@@ -117,7 +173,7 @@ function render() {
 
     <div class="bp-photo-list">
       ${photos.length === 0 && uploading === 0
-        ? `<div class="bp-photo-empty">No photos yet — drop some above to get started.</div>`
+        ? `<div class="bp-photo-empty">No photos yet — commit a bid PDF in Section 02 to auto-extract images, or drop some above.</div>`
         : photos.map((p, idx) => renderPhotoRow(p, idx, photos.length)).join('')
       }
     </div>
@@ -137,6 +193,15 @@ function renderPhotoRow(photo, idx, total) {
     </option>
   `).join('');
 
+  // Source pill — green for PDF-extracted, gray for manually uploaded.
+  // Include source_page when we have it, since that's often useful context.
+  const isPdf = photo.extraction_source === 'bid_pdf_extract';
+  const tagPill = isPdf
+    ? `<span class="bp-photo-tag bp-photo-tag-pdf">From bid PDF</span>${
+        photo.source_page ? `<span class="bp-photo-tag-page">p.${photo.source_page}</span>` : ''
+      }`
+    : `<span class="bp-photo-tag bp-photo-tag-upload">Uploaded</span>`;
+
   return `
     <div class="bp-photo-row" data-id="${photo.id}">
       <div class="bp-photo-thumb">
@@ -146,7 +211,7 @@ function renderPhotoRow(photo, idx, total) {
       </div>
       <div class="bp-photo-meta">
         <div class="bp-photo-filename" title="${escapeHtml(photo.original_filename || '')}">
-          ${escapeHtml(photo.original_filename || 'Untitled')}
+          ${tagPill}${escapeHtml(photo.original_filename || 'Untitled')}
         </div>
         <div class="bp-photo-dims">
           ${photo.width && photo.height ? `${photo.width} × ${photo.height}` : ''}
@@ -236,7 +301,7 @@ function attachRowControls() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Upload pipeline
+// Upload pipeline (manual uploads only — extraction uploads happen in bid-pdf.js)
 // ───────────────────────────────────────────────────────────────────────────
 async function handleFiles(files) {
   state.uploading += files.length;
@@ -296,12 +361,13 @@ async function processAndUpload(file) {
   // 6. Determine next display_order
   const maxOrder = state.photos.reduce((m, p) => Math.max(m, p.display_order ?? 0), -1);
 
-  // 7. Insert DB row
+  // 7. Insert DB row — explicit extraction_source so the tag pill renders correctly
   const { error: insertErr } = await supabase
     .from('proposal_images')
     .insert({
       proposal_id: state.proposalId,
       category: 'property_condition',
+      extraction_source: 'manual_upload',
       storage_path: mainPath,
       thumbnail_path: thumbPath,
       original_filename: file.name,
