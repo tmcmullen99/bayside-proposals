@@ -924,3 +924,294 @@ input:focus, textarea:focus, select:focus {
 .text-accent { color: var(--bp-green); }
 .font-mono { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; }
 .tnum { font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+/* BID PDF SECTION                                                          */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── Upload zone ─────────────────────────────────────────────────────── */
+.bp-upload-zone {
+  border: 2px dashed var(--rule);
+  border-radius: 8px;
+  padding: 60px 24px;
+  text-align: center;
+  background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+  cursor: pointer;
+}
+
+.bp-upload-zone:hover,
+.bp-upload-zone.dragover {
+  border-color: var(--bp-green);
+  background: var(--bp-green-soft);
+}
+
+.bp-upload-icon {
+  font-size: 32px;
+  margin-bottom: 14px;
+  opacity: 0.6;
+  filter: grayscale(1);
+}
+
+.bp-upload-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--bp-charcoal);
+  margin-bottom: 4px;
+}
+
+.bp-upload-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 22px;
+}
+
+/* ─── Parsing state ───────────────────────────────────────────────────── */
+.bp-parsing {
+  padding: 80px 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 0.5px solid var(--rule);
+  border-radius: 8px;
+}
+
+.bp-spinner {
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 18px;
+  border: 3px solid var(--rule-soft);
+  border-top-color: var(--bp-green);
+  border-radius: 50%;
+  animation: bp-spin 0.8s linear infinite;
+}
+
+@keyframes bp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.bp-parsing-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--bp-charcoal);
+  margin-bottom: 4px;
+}
+
+.bp-parsing-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ─── Review header ───────────────────────────────────────────────────── */
+.bp-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 0.5px solid var(--rule-soft);
+}
+
+/* ─── Review sections ─────────────────────────────────────────────────── */
+.bp-review-section {
+  margin-bottom: 32px;
+}
+
+.bp-review-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bp-charcoal);
+  margin-bottom: 14px;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.bp-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+}
+
+.bp-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 16px;
+}
+
+.bp-field label {
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.bp-field input {
+  font-size: 13px;
+  padding: 7px 10px;
+}
+
+/* ─── Section cards (inside review) ───────────────────────────────────── */
+.bp-sections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bp-section-card {
+  background: var(--surface);
+  border: 0.5px solid var(--rule);
+  border-radius: 5px;
+  padding: 14px 18px;
+}
+
+.bp-section-head {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 0.5px solid var(--rule-soft);
+}
+
+.bp-section-num {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bp-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.bp-section-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bp-charcoal);
+}
+
+.bp-section-total {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bp-charcoal);
+  font-variant-numeric: tabular-nums;
+}
+
+.bp-section-total.negative {
+  color: var(--accent-red);
+}
+
+.bp-section-items {
+  margin: 10px 0 0;
+  padding-left: 38px;
+  list-style: disc;
+}
+
+.bp-section-items li {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+
+.bp-section-empty {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-style: italic;
+  padding: 8px 0 0 38px;
+}
+
+/* ─── Totals ──────────────────────────────────────────────────────────── */
+.bp-totals {
+  margin-top: 0;
+}
+
+/* ─── Materials mentioned ─────────────────────────────────────────────── */
+.bp-materials-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bp-material-chip {
+  background: var(--surface);
+  border: 0.5px solid var(--rule);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+
+.bp-material-head {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--bp-charcoal);
+}
+
+.bp-material-head strong {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bp-green);
+  white-space: nowrap;
+}
+
+.bp-material-specs {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.bp-material-app {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* ─── Commit bar ──────────────────────────────────────────────────────── */
+.bp-commit-bar {
+  margin-top: 28px;
+  padding: 16px 20px;
+  background: var(--bp-green-soft);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bp-commit-bar .hint {
+  flex: 1;
+  min-width: 180px;
+}
+
+/* ─── Committed state ─────────────────────────────────────────────────── */
+.bp-committed {
+  padding: 26px 30px;
+  background: var(--bp-green-soft);
+  border: 0.5px solid var(--bp-green);
+  border-radius: 8px;
+}
+
+.bp-committed-header {
+  margin-bottom: 18px;
+}
+
+.bp-committed-header .eyebrow {
+  color: var(--accent-green-success);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.bp-committed-header h3 {
+  font-size: 20px;
+  margin: 0;
+  letter-spacing: -0.015em;
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .bp-field-grid { grid-template-columns: 1fr; }
+  .bp-materials-list { grid-template-columns: 1fr; }
+  .bp-section-head { grid-template-columns: 24px 1fr; }
+  .bp-section-total { grid-column: 2; grid-row: 2; padding-left: 0; }
+}
