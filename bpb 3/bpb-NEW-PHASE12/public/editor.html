@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor · Bayside Proposal Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="topbar-brand">
+    <img src="https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69a04f4369bc9cc20b8d2155_BaysidePavers_original%20(2)%20(1).png" alt="Bayside Pavers" class="topbar-logo">
+    <span class="brand-text">
+      <span class="brand-title">Proposal Builder</span>
+      <span class="brand-sub">editor</span>
+    </span>
+  </a>
+  <nav class="topbar-actions">
+    <span id="saveIndicator" class="save-indicator"></span>
+    <a href="/dashboard">← Dashboard</a>
+  </nav>
+</header>
+
+<div id="bootError"></div>
+
+<div class="editor-layout" id="editorLayout" style="display:none;">
+  <aside class="editor-sidebar">
+    <div class="editor-breadcrumb">
+      <span class="eyebrow">Proposal</span>
+      <div class="editor-breadcrumb-title" id="projectTitle">Loading…</div>
+    </div>
+
+    <nav class="editor-nav" id="editorNav">
+      <button data-section="project-info">
+        <span class="nav-num">01</span>
+        <span class="nav-label">Project info</span>
+      </button>
+      <button data-section="bid-pdf">
+        <span class="nav-num">02</span>
+        <span class="nav-label">Bid PDF</span>
+      </button>
+      <button data-section="materials" class="active">
+        <span class="nav-num">03</span>
+        <span class="nav-label">Materials</span>
+      </button>
+      <button data-section="site-plan">
+        <span class="nav-num">04</span>
+        <span class="nav-label">Site plan</span>
+      </button>
+      <button data-section="photos">
+        <span class="nav-num">05</span>
+        <span class="nav-label">Photos</span>
+      </button>
+      <button data-section="export">
+        <span class="nav-num">06</span>
+        <span class="nav-label">Preview &amp; export</span>
+      </button>
+    </nav>
+
+    <div class="editor-sidebar-footer">
+      <button id="deleteProposalBtn" class="btn-link-danger">Delete proposal</button>
+    </div>
+  </aside>
+
+  <main class="editor-main">
+    <div id="sectionContent"></div>
+  </main>
+</div>
+
+<script type="module" src="/js/editor.js"></script>
+</body>
+</html>
