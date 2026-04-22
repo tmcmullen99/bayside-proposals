@@ -100,7 +100,7 @@
       background: #fff;
       border: 2px dashed var(--border);
       border-radius: 14px;
-      padding: 60px 24px;
+      padding: 48px 24px;
       text-align: center;
       transition: all 0.18s ease;
       cursor: pointer;
@@ -112,16 +112,16 @@
       background: var(--green-soft);
     }
     .dropzone-icon {
-      font-size: 48px;
+      font-size: 44px;
       color: var(--green);
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       line-height: 1;
     }
     .dropzone h3 {
       font-size: 18px;
       color: var(--navy);
       font-weight: 600;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .dropzone p {
       color: var(--muted);
@@ -131,39 +131,92 @@
       display: none;
     }
 
-    /* Product family card */
+    /* Global action bar at the top */
+    .global-action-bar {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 22px;
+      margin-bottom: 18px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .global-action-bar.visible { display: flex; }
+
+    .global-summary {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .global-summary-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .global-summary-num {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy);
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1;
+    }
+    .global-summary-num.matched { color: var(--green-dark); }
+    .global-summary-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .global-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* Family card (one per folder dropped) */
     .family-card {
       background: #fff;
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 22px 24px;
-      margin-bottom: 20px;
-      display: none;
+      margin-bottom: 18px;
+      transition: opacity 0.18s ease;
     }
-    .family-card.visible { display: block; }
+    .family-card.is-done { opacity: 0.65; }
+    .family-card.is-uploading { border-color: var(--green); }
 
     .family-header {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: flex-start;
       gap: 16px;
       flex-wrap: wrap;
-      margin-bottom: 18px;
-      padding-bottom: 14px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
       border-bottom: 1px solid var(--border);
     }
+    .family-title-wrap { flex: 1; min-width: 300px; }
     .family-title {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 600;
       color: var(--navy);
+      line-height: 1.3;
     }
     .family-title small {
-      font-size: 12px;
+      display: block;
+      font-size: 11px;
       font-weight: 400;
       color: var(--muted);
-      margin-left: 10px;
+      margin-top: 3px;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
     }
     .family-override {
       display: flex;
@@ -181,42 +234,57 @@
       background: #fff;
     }
 
+    .family-remove {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .family-remove:hover {
+      background: #fbe6e6;
+      color: var(--danger);
+    }
+
     .family-summary {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
     }
     .summary-box {
       background: var(--cream);
-      padding: 12px 14px;
-      border-radius: 8px;
+      padding: 10px 12px;
+      border-radius: 7px;
       text-align: center;
     }
     .summary-num {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 700;
-      color: var(--green-dark);
+      color: var(--navy);
       font-family: 'JetBrains Mono', monospace;
     }
+    .summary-num.green { color: var(--green-dark); }
     .summary-label {
-      font-size: 11px;
+      font-size: 10px;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      margin-top: 3px;
+      margin-top: 2px;
+      line-height: 1.3;
     }
 
     /* Preview grid */
     .preview-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 14px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
     }
     .preview-card {
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 8px;
       overflow: hidden;
       background: #fff;
       display: flex;
@@ -238,9 +306,9 @@
     }
     .preview-status {
       position: absolute;
-      top: 8px;
-      right: 8px;
-      padding: 3px 8px;
+      top: 6px;
+      right: 6px;
+      padding: 2px 7px;
       border-radius: 10px;
       font-size: 10px;
       font-weight: 700;
@@ -249,38 +317,26 @@
       background: #fff;
     }
     .preview-status.match { background: var(--green-soft); color: var(--green-dark); }
+    .preview-status.uploaded { background: var(--green); color: #fff; }
     .preview-status.skip { background: #f0f0f0; color: var(--muted); }
     .preview-status.warn { background: var(--warn-soft); color: var(--warn-text); }
     .preview-status.fail { background: #fbe6e6; color: var(--danger); }
 
     .preview-body {
-      padding: 10px 12px;
-      font-size: 13px;
+      padding: 8px 10px;
+      font-size: 12px;
     }
     .preview-color {
       font-weight: 600;
       color: var(--navy);
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
     .preview-info {
-      font-size: 11px;
+      font-size: 10px;
       color: var(--muted);
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Action bar */
-    .action-bar {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      justify-content: space-between;
-      padding: 18px 22px;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 18px;
-    }
-    .action-bar .msg { color: var(--muted); font-size: 14px; }
     .btn {
       padding: 10px 18px;
       background: var(--green);
@@ -307,6 +363,10 @@
       background: var(--cream);
       border-color: var(--green);
     }
+    .btn-small {
+      padding: 7px 12px;
+      font-size: 13px;
+    }
 
     /* Status banner */
     .status {
@@ -323,13 +383,22 @@
     .status.info { background: #eef3f8; color: #2b4a73; }
 
     /* Progress */
+    .global-progress {
+      display: none;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .global-progress.visible { display: block; }
     .progress-row {
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 13px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
     }
     .progress-bar {
       flex: 1;
@@ -344,23 +413,6 @@
       width: 0%;
       transition: width 0.2s ease;
     }
-
-    /* Loading */
-    .loading {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--muted);
-    }
-    .loading-spinner {
-      width: 36px;
-      height: 36px;
-      border: 3px solid var(--border);
-      border-top-color: var(--green);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 12px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -380,20 +432,21 @@
 <main class="shell">
   <div class="intro">
     <div class="eyebrow">Admin · Bulk Upload</div>
-    <h2>Upload an entire product's color swatches at once</h2>
+    <h2>Upload swatches for every product, all at once</h2>
     <p>
-      Drag a folder of swatch images (downloaded from belgard.com) and this tool
-      auto-matches each image to a catalog variant by color, then uploads all of
-      them in parallel. Faster than one-at-a-time for products with 10+ variants.
+      Drag as many product folders as you have (selected all together in Finder,
+      dropped as one batch) and this tool auto-matches every image to its catalog
+      variant. Each product folder becomes its own card — preview all, then hit
+      <strong>Upload all</strong> once to write the lot.
     </p>
     <div class="intro-help">
       <strong>How this works:</strong>
       <ol>
-        <li>Download all color swatches for one product from belgard.com into its own folder (e.g. <code>Dimensions™ Pavers _ Belgard/</code>)</li>
-        <li>Drop the entire folder into the zone below</li>
-        <li>Tool detects the product family from folder name, parses each image filename to extract color name, and matches to catalog variants</li>
-        <li>Review the preview grid, then click <strong>Upload all</strong></li>
-        <li>Each image uploads once, but writes to every catalog row that shares that color (e.g. Dimensions 12 Scandina Gray + Dimensions 18 Scandina Gray get the same swatch)</li>
+        <li>In Finder, select multiple product folders at once (e.g. the Dimensions folder, the Catalina Grana folder, and the Belair Wall folder all selected)</li>
+        <li>Drag them all into the zone below</li>
+        <li>Tool creates one card per folder, each detecting its own product family from the folder name</li>
+        <li>Review each family's preview grid, optionally override if auto-detection is wrong</li>
+        <li>Click the global <strong>Upload all</strong> at the top — processes every card in sequence</li>
         <li>Variants that already have a swatch are skipped automatically</li>
       </ol>
     </div>
@@ -403,61 +456,45 @@
 
   <label class="dropzone" id="dropzone" for="fileInput">
     <div class="dropzone-icon">📁</div>
-    <h3>Drop a product folder here</h3>
-    <p>or click to select files · JPG/PNG supported</p>
+    <h3>Drop product folders here</h3>
+    <p>one or many · JPG/PNG supported · existing swatches skipped</p>
     <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/webp" webkitdirectory>
   </label>
 
-  <div id="familyCard" class="family-card">
-    <div class="family-header">
-      <div>
-        <span class="family-title" id="familyTitle">—</span>
+  <div id="globalActionBar" class="global-action-bar">
+    <div class="global-summary">
+      <div class="global-summary-item">
+        <div class="global-summary-num" id="gSumFolders">0</div>
+        <div class="global-summary-label">Folders</div>
       </div>
-      <div class="family-override">
-        Wrong product?
-        <select id="familyOverride">
-          <option value="">(auto-detected above)</option>
-        </select>
+      <div class="global-summary-item">
+        <div class="global-summary-num" id="gSumImages">0</div>
+        <div class="global-summary-label">Images</div>
       </div>
-    </div>
-
-    <div class="family-summary">
-      <div class="summary-box">
-        <div class="summary-num" id="sumImages">0</div>
-        <div class="summary-label">Images dropped</div>
+      <div class="global-summary-item">
+        <div class="global-summary-num matched" id="gSumMatched">0</div>
+        <div class="global-summary-label">Matched colors</div>
       </div>
-      <div class="summary-box">
-        <div class="summary-num" id="sumColors">0</div>
-        <div class="summary-label">Unique colors</div>
-      </div>
-      <div class="summary-box">
-        <div class="summary-num" id="sumMatches">0</div>
-        <div class="summary-label">Matched</div>
-      </div>
-      <div class="summary-box">
-        <div class="summary-num" id="sumRows">0</div>
-        <div class="summary-label">Catalog rows<br>to update</div>
+      <div class="global-summary-item">
+        <div class="global-summary-num matched" id="gSumRows">0</div>
+        <div class="global-summary-label">Rows to write</div>
       </div>
     </div>
-
-    <div id="previewGrid" class="preview-grid"></div>
-
-    <div class="action-bar">
-      <div class="msg" id="actionMsg">Click Upload all to write all matched swatches to the catalog.</div>
-      <div style="display: flex; gap: 10px;">
-        <button class="btn btn-secondary" id="resetBtn">Clear & start over</button>
-        <button class="btn" id="uploadBtn">Upload all →</button>
-      </div>
-    </div>
-
-    <div id="progressWrap" style="display:none;">
-      <div class="progress-row">
-        <span id="progressText">Starting…</span>
-        <div class="progress-bar"><div class="progress-bar-inner" id="progressBar"></div></div>
-        <span id="progressPct">0%</span>
-      </div>
+    <div class="global-actions">
+      <button class="btn btn-secondary" id="globalReset">Clear all</button>
+      <button class="btn" id="globalUpload">Upload all →</button>
     </div>
   </div>
+
+  <div id="globalProgress" class="global-progress">
+    <div class="progress-row">
+      <span id="globalProgressText">Starting…</span>
+      <div class="progress-bar"><div class="progress-bar-inner" id="globalProgressBar"></div></div>
+      <span id="globalProgressPct">0%</span>
+    </div>
+  </div>
+
+  <div id="familiesContainer"></div>
 </main>
 
 <script type="module" src="/admin/admin-material-swatches-bulk.js"></script>
