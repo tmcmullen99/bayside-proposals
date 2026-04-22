@@ -1,28 +1,27 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Material picker + catalog image backfill (Phase 1.5 Sprint 1.5).
+// Material picker + catalog image backfill
 //
-// Loads:
-//   1. belgard_materials (the 266-row catalog) — grouped by product_name
-//   2. belgard_categories (filter chips)
-//   3. proposal_materials (what's already selected on THIS proposal) — hydrated
-//      with belgard + third_party data via Supabase's FK-join syntax
-//   4. third_party_materials (available non-Belgard products)
-//   5. proposal_images with extraction_source='bid_pdf_extract' — the pool of
-//      images Claude Vision can match against catalog rows
+// Changes in Sprint 3 Part A (2026-04-22):
+//   • Image preference order flipped from `primary_image_url → swatch_url`
+//     to `swatch_url → primary_image_url → image_url → placeholder` across
+//     all three rendering paths: the product-grid representative image, the
+//     variant modal, and the selected-materials tray.
+//   • Previously primary_image_url won, which meant Catalina Grana Sepia,
+//     Shaded Gray, etc. all showed the same generic product hero even after
+//     per-color swatches were uploaded via the new Material Swatches admin
+//     page.
+//   • This mirrors the same change made to publish.js in Sprint 3 so the
+//     editor picker and the published proposal render colors identically.
+//   • No behavior change for materials that lack a swatch_url — they still
+//     fall through to primary_image_url (Sprint 2A category-level hero) and
+//     then to the legacy image_url slot.
 //
-// New in Sprint 1.5: a "Match images from bid PDF" button that opens a modal
-// with a click-through review flow:
-//
-//   idle   → "Suggest matches with Claude"
-//   analyzing → POST to /api/vision-match with images + materials list
-//   review → per-image rows with Approve / Reject / target-field dropdown
-//   done   → summary, close
-//
-// Writes land on belgard_materials.primary_image_url (or swatch_url) or
-// third_party_materials.primary_image_url (or image_url), depending on Tim's
-// target-field selection. ONLY writes if the selected field is currently NULL;
-// never overwrites existing data. All writes affect the shared catalog —
-// every future proposal using that material inherits the image.
+// Sprint 1.5 backfill flow preserved unchanged: a "Match images from bid
+// PDF" button opens a modal with a click-through review flow (idle →
+// analyzing → review → done). Writes land on belgard_materials.
+// primary_image_url (or swatch_url) or third_party_materials.primary_image_url
+// (or image_url), depending on Tim's target-field selection. ONLY writes if
+// the selected field is currently NULL.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase-client.js';
@@ -55,9 +54,9 @@ const ctx = {
   categories: [],
   thirdParty: [],
   selected: [],
-  bidAssets: [],    // rows from proposal_images, extraction_source='bid_pdf_extract'
+  bidAssets: [],
   filters: { search: '', category: null },
-  backfill: null    // populated when backfill modal is open
+  backfill: null
 };
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -129,10 +128,6 @@ async function loadThirdParty() {
 }
 
 async function loadBidAssets() {
-  // Every image extracted from the bid PDF, regardless of category.
-  // bid_pdf_asset category = small images (hidden from Section 05 Photos).
-  // property_condition category = large images (shown in Photos).
-  // Both are candidates for catalog backfill — the vision model decides.
   const { data, error } = await supabase
     .from('proposal_images')
     .select('id, storage_path, thumbnail_path, width, height, source_page')
@@ -169,10 +164,33 @@ function groupProducts() {
   }
 }
 
+// Sprint 3 Part A: prefer the per-color swatch over the generic product
+// hero. Falls through to primary_image_url (category-level hero from Sprint
+// 2A catalog sync) and then to the legacy image_url slot.
 function getImage(m) {
-  // Priority: primary_image_url (post-backfill) → swatch_url → null.
-  // cut_sheet_url is a PDF so not usable as an <img>.
-  return m.primary_image_url || m.swatch_url || null;
+  return m.swatch_url || m.primary_image_url || m.image_url || null;
+}
+
+// Variant-specific image lookup. Same preference order as getImage, kept as
+// a named helper so the variant modal renderer can share it cleanly.
+function variantImage(v) {
+  return v.swatch_url || v.primary_image_url || v.image_url || null;
+}
+
+// Third-party material image lookup — no swatch_url column on that table,
+// so the chain is primary_image_url → image_url only.
+function thirdPartyImage(tp) {
+  return tp.primary_image_url || tp.image_url || null;
+}
+
+// Unified resolver for proposal_materials hydrated rows. Handles both
+// Belgard (has swatch_url) and third-party (doesn't) sources.
+function hydratedMaterialImage(data, source) {
+  if (!data) return null;
+  if (source === 'belgard') {
+    return data.swatch_url || data.primary_image_url || data.image_url || null;
+  }
+  return data.primary_image_url || data.image_url || null;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -219,8 +237,6 @@ function render() {
 }
 
 function renderBackfillStyles() {
-  // Scoped CSS for the backfill banner + modal. Kept inline so the file ships
-  // as a single unit — no styles.css rewrite required.
   return `
     <style>
       .bf-banner {
@@ -465,9 +481,6 @@ function renderBackfillStyles() {
 }
 
 function renderBackfillBanner() {
-  // Only show banner when there are extracted bid-PDF images AND at least one
-  // selected material. No materials = nothing to match against. No images =
-  // nothing to match with.
   if (ctx.bidAssets.length === 0) return '';
   if (ctx.selected.length === 0) return '';
 
@@ -519,7 +532,7 @@ function renderSelectedTray() {
       `<option value="${a}"${s.application_area === a ? ' selected' : ''}>${a}</option>`
     ).join('');
 
-    const img = data.primary_image_url || data.swatch_url || data.image_url || null;
+    const img = hydratedMaterialImage(data, s.material_source);
     const imgEl = img
       ? `<img src="${escapeHtml(img)}" alt="" class="mp-selected-thumb">`
       : `<div class="mp-selected-thumb mp-placeholder-thumb">${escapeHtml((data.product_name || '??').slice(0, 2).toUpperCase())}</div>`;
@@ -672,7 +685,7 @@ function openProductModal(productName) {
 
   const variantsHtml = variants.map(v => {
     const alreadySelected = ctx.selected.some(s => s.belgard_material_id === v.id);
-    const img = v.primary_image_url || v.swatch_url;
+    const img = variantImage(v);
     const imgEl = img
       ? `<img src="${escapeHtml(img)}" alt="" loading="lazy">`
       : `<div class="mp-variant-placeholder">${escapeHtml((v.color || '??').slice(0, 2))}</div>`;
@@ -745,7 +758,7 @@ function openThirdPartyModal() {
 
   const cards = ctx.thirdParty.map(tp => {
     const alreadySelected = ctx.selected.some(s => s.third_party_material_id === tp.id);
-    const img = tp.primary_image_url || tp.image_url;
+    const img = thirdPartyImage(tp);
     const imgEl = img
       ? `<img src="${escapeHtml(img)}" alt="" loading="lazy">`
       : `<div class="mp-variant-placeholder">${escapeHtml(tp.manufacturer.slice(0, 2))}</div>`;
@@ -854,11 +867,9 @@ function openThirdPartyModal() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Backfill modal — Sprint 1.5 core workflow
+// Backfill modal — Sprint 1.5 core workflow (unchanged from Sprint 1.5)
 // ───────────────────────────────────────────────────────────────────────────
 function openBackfillModal() {
-  // Build the materials payload once at open. If user adds/removes materials
-  // they can close and reopen.
   const materialsPayload = ctx.selected.map(s => {
     const isBelgard = s.material_source === 'belgard';
     const data = isBelgard ? (s.belgard || {}) : (s.third_party || {});
@@ -871,7 +882,6 @@ function openBackfillModal() {
       color: isBelgard ? (data.color || null) : null,
       size_spec: isBelgard ? (data.size_spec || null) : null,
       application_area: s.application_area || null,
-      // Snapshot current image state — for the "already populated" check.
       existing: {
         primary_image_url: data.primary_image_url || null,
         swatch_url: isBelgard ? (data.swatch_url || null) : null,
@@ -894,11 +904,11 @@ function openBackfillModal() {
   ).length;
 
   ctx.backfill = {
-    phase: 'idle',        // idle → analyzing → review → done
+    phase: 'idle',
     materials: materialsPayload,
     images: imagesPayload,
-    matches: [],          // populated after vision call
-    decisions: {},        // image_id → { status: 'pending'|'approved'|'rejected', writeResult?, targetField? }
+    matches: [],
+    decisions: {},
     materialsMissingImages,
     error: null
   };
@@ -1081,7 +1091,6 @@ function renderMatchRow(match) {
     + (mat.color ? ` · ${mat.color}` : '')
     + (mat.size_spec ? ` (${mat.size_spec})` : '');
 
-  // Target field dropdown — only show options that are currently NULL
   const targetFields = mat.source === 'belgard' ? BELGARD_TARGET_FIELDS : THIRDPARTY_TARGET_FIELDS;
   const defaultTarget = match.asset_type === 'color_swatch' && mat.source === 'belgard'
     ? 'swatch_url'
@@ -1195,9 +1204,6 @@ async function runVisionMatch() {
   bf.progress = null;
   renderBackfillModal();
 
-  // Batch images into groups of VISION_MAX_IMAGES_PER_BATCH.
-  // Each batch calls the server once. Merge results, preserving image_index
-  // alignment with the full bf.images array.
   const batches = [];
   for (let i = 0; i < bf.images.length; i += VISION_MAX_IMAGES_PER_BATCH) {
     batches.push({
@@ -1239,7 +1245,6 @@ async function runVisionMatch() {
         throw new Error(json?.error || `HTTP ${res.status}`);
       }
 
-      // Shift image_index by the batch's offset so indexes align with bf.images.
       for (const m of (json.matches || [])) {
         allMatches.push({
           ...m,
@@ -1280,17 +1285,12 @@ async function approveMatch(imageId) {
   const mat = bf.materials[match.material_index];
   if (!img || !mat) return;
 
-  // Read target field from the dropdown in the current DOM
   const modal = ctx.container.querySelector('#mpModal');
   const select = modal?.querySelector(`.bf-target-select[data-image-id="${imageId}"]`);
   const targetField = select?.value || 'primary_image_url';
 
-  // Defensive: re-check that target is currently NULL in catalog. This is the
-  // authoritative check — the in-memory snapshot may be stale if another tab
-  // modified the catalog, so we verify against the DB before writing.
   const tableName = mat.source === 'belgard' ? 'belgard_materials' : 'third_party_materials';
 
-  // Optimistic UI — mark as approving
   bf.decisions[imageId] = { status: 'approving', targetField };
   renderBackfillModal();
 
@@ -1320,14 +1320,9 @@ async function approveMatch(imageId) {
 
     if (writeErr) throw new Error(`Write failed: ${writeErr.message}`);
 
-    // Success — patch local caches so the UI reflects the new image.
     applyCatalogUpdate(mat.source, mat.catalog_id, targetField, img.url);
 
-    // Mark match as approved
     bf.decisions[imageId] = { status: 'approved', targetField };
-
-    // Also update the snapshot in bf.materials so subsequent target-field
-    // dropdowns reflect the new "already set" state.
     mat.existing[targetField] = img.url;
 
     renderBackfillModal();
@@ -1370,9 +1365,6 @@ async function approveAllHighConfidence() {
   }
 }
 
-// Patches ctx.catalog, ctx.thirdParty, ctx.products, and any row in
-// ctx.selected that references this catalog_id so the UI reflects the write
-// without a full page reload.
 function applyCatalogUpdate(source, catalogId, targetField, url) {
   if (source === 'belgard') {
     const row = ctx.catalog.find(c => c.id === catalogId);
@@ -1382,7 +1374,6 @@ function applyCatalogUpdate(source, catalogId, targetField, url) {
     if (row) row[targetField] = url;
   }
 
-  // Update the hydrated data on selected rows referencing this catalog entry
   for (const sel of ctx.selected) {
     if (source === 'belgard' && sel.belgard_material_id === catalogId && sel.belgard) {
       sel.belgard[targetField] = url;
@@ -1392,7 +1383,6 @@ function applyCatalogUpdate(source, catalogId, targetField, url) {
     }
   }
 
-  // Rebuild product groups so product cards show the new representative image
   if (source === 'belgard') groupProducts();
 }
 
