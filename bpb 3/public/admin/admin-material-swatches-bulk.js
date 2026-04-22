@@ -1,60 +1,64 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Bulk Material Swatches Upload (admin)
+// Bulk Material Swatches Upload — MULTI-FOLDER (admin)
 //
 // Workflow:
-//   1. Tim drops a folder of swatch images (e.g. "Dimensions™ Pavers _ Belgard")
-//   2. Tool auto-detects product family from folder name by stripping noise
-//      tokens ("Pavers", "Belgard", ™, ®, etc.) and fuzzy-matching against
-//      belgard_materials.product_name
-//   3. Parses each filename with this regex:
-//        /^imgi_\d+_\d+_(?:NC_)?(.+?)_(?:DF|CM)_D[\dx]+_/
-//      Group 1 = color words (underscore-separated), then converts _ → space
-//   4. Dedupes by color, preferring files matching /1024x1024/ over plain over
-//      " (1)" copies (all three are typically present per color in a bulk
-//      download from Belgard's page)
-//   5. Matches each color to catalog variants (product_name IN family ×
-//      color IN parsed colors). Skips variants that already have a swatch_url.
-//   6. Preview grid shows thumb + match status per color
-//   7. Click Upload all → for each color: upload image ONCE to Supabase Storage
-//      at swatches/{uuid}.{ext}, then UPDATE every catalog row in the family
-//      with matching color to point at that URL
+//   1. Tim drops many product folders at once from Finder (one drop, N folders)
+//   2. Tool walks the dropped directory tree, groups files by their top-level
+//      folder name. Each folder becomes its own "family" object in ctx.families.
+//   3. For each family, runs detectFamily() on the folder name to match against
+//      belgard_materials.product_name. Parses filenames to extract colors.
+//      Matches colors to catalog variants, skipping those that already have
+//      swatch_url populated.
+//   4. Renders one .family-card per folder in the container. User can review,
+//      override product family, or remove individual folders from the batch.
+//   5. Clicks global "Upload all" → iterates every family with matched colors,
+//      uploads each color's image to Supabase Storage once, updates all catalog
+//      rows for that color. Global progress bar tracks across all folders.
+//
+// Filename parser (same as single-folder version):
+//   /^imgi_\d+_\d+_(?:NC_)?(.+?)_(?:DF|CM)_D[\dx]+/i
+//   Group 1: color words (underscore-separated) → replace _ with space
+//
+// Product family detection:
+//   Folder name → strip ™®, _, noise tokens (Pavers, Belgard, Wall, etc.)
+//   → match against DISTINCT product_name list (prefix match, case-insensitive)
+//   → multiple matches returned (Dimensions matches "Dimensions 12" +
+//     "Dimensions 18" etc.)
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
 
-// DOM references
+// ── DOM references ─────────────────────────────────────────────────────────
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
-const familyCard = document.getElementById('familyCard');
-const familyTitle = document.getElementById('familyTitle');
-const familyOverride = document.getElementById('familyOverride');
-const sumImages = document.getElementById('sumImages');
-const sumColors = document.getElementById('sumColors');
-const sumMatches = document.getElementById('sumMatches');
-const sumRows = document.getElementById('sumRows');
-const previewGrid = document.getElementById('previewGrid');
-const actionMsg = document.getElementById('actionMsg');
-const uploadBtn = document.getElementById('uploadBtn');
-const resetBtn = document.getElementById('resetBtn');
+const familiesContainer = document.getElementById('familiesContainer');
+const globalActionBar = document.getElementById('globalActionBar');
+const gSumFolders = document.getElementById('gSumFolders');
+const gSumImages = document.getElementById('gSumImages');
+const gSumMatched = document.getElementById('gSumMatched');
+const gSumRows = document.getElementById('gSumRows');
+const globalReset = document.getElementById('globalReset');
+const globalUpload = document.getElementById('globalUpload');
+const globalProgress = document.getElementById('globalProgress');
+const globalProgressBar = document.getElementById('globalProgressBar');
+const globalProgressText = document.getElementById('globalProgressText');
+const globalProgressPct = document.getElementById('globalProgressPct');
 const statusBox = document.getElementById('status');
-const progressWrap = document.getElementById('progressWrap');
-const progressBar = document.getElementById('progressBar');
-const progressText = document.getElementById('progressText');
-const progressPct = document.getElementById('progressPct');
 
-// State
+// ── State ──────────────────────────────────────────────────────────────────
+// families: { [folderName]: familyObject }
+// familyObject: {
+//   folderName, familyKey, matchedProducts[],
+//   colorsByKey: { [normColor]: { name, colorLabel, file, blobUrl, status, variants[], reason, alreadyHave } },
+//   cardEl (DOM), isDone
+// }
 const ctx = {
-  catalog: [],          // all belgard_materials rows
-  productFamilies: [],  // DISTINCT product_name array from catalog
-  folderName: '',       // original folder name from drop
-  familyKey: '',        // auto-detected family (e.g. "Dimensions")
-  matchedProducts: [],  // catalog products starting with familyKey
-  colorsByKey: {},      // normalized_color → { name, file, blobUrl, status, variants[] }
+  catalog: [],
+  productFamilies: [],
+  families: {},       // keyed by folderName, order preserved via Object insertion
 };
 
-// Noise tokens to strip from folder names when detecting product family.
-// "Pavers", "Belgard", etc. appear in every Belgard folder because that's
-// how Save Page As names the containing folder.
+// Noise tokens to strip when deriving product family from folder name.
 const FOLDER_NOISE = [
   'pavers', 'paver',
   'belgard',
@@ -67,9 +71,10 @@ const FOLDER_NOISE = [
   'concrete',
 ];
 
-// ───────────────────────────────────────────────────────────────────────────
-// Bootstrap
-// ───────────────────────────────────────────────────────────────────────────
+// Regex for Belgard bulk-downloaded filenames
+const FILENAME_REGEX = /^imgi_\d+_\d+_(?:NC_)?(.+?)_(?:DF|CM)_D[\dx]+/i;
+
+// ── Bootstrap ──────────────────────────────────────────────────────────────
 (async function init() {
   await loadCatalog();
   attachEventListeners();
@@ -87,17 +92,11 @@ async function loadCatalog() {
   }
 
   ctx.catalog = data || [];
-  // Unique product names for the override dropdown
   const uniq = Array.from(new Set(ctx.catalog.map(r => r.product_name))).sort();
   ctx.productFamilies = uniq;
-
-  familyOverride.innerHTML =
-    '<option value="">(auto-detected above)</option>' +
-    uniq.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 }
 
 function attachEventListeners() {
-  // Drag/drop
   ['dragenter', 'dragover'].forEach(evt => {
     dropzone.addEventListener(evt, (e) => {
       e.preventDefault();
@@ -112,59 +111,81 @@ function attachEventListeners() {
   });
   dropzone.addEventListener('drop', handleDrop);
 
-  // File picker fallback (click to select)
   fileInput.addEventListener('change', (e) => {
-    handleFileList(Array.from(e.target.files));
+    handleFlatFileList(Array.from(e.target.files));
   });
 
-  // Family override dropdown: re-run matching with manually chosen family
-  familyOverride.addEventListener('change', () => {
-    const chosen = familyOverride.value;
-    if (chosen) {
-      ctx.familyKey = chosen;
-      // Find all catalog products matching this family exactly (since override
-      // picks one specific product_name, we use equality not prefix)
-      ctx.matchedProducts = ctx.catalog
-        .filter(r => r.product_name === chosen)
-        .map(r => r.product_name);
-      ctx.matchedProducts = Array.from(new Set(ctx.matchedProducts));
-      rematchAndRender();
-    }
-  });
-
-  uploadBtn.addEventListener('click', runUpload);
-  resetBtn.addEventListener('click', resetAll);
+  globalUpload.addEventListener('click', runGlobalUpload);
+  globalReset.addEventListener('click', resetAll);
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Drop handling
-// ───────────────────────────────────────────────────────────────────────────
+// ── Drop handling ──────────────────────────────────────────────────────────
+// When user drops N folders at once, dataTransfer.items gives us N entries.
+// Each is a directory (or loose file). We walk each directory and group files
+// by their top-level folder name.
 async function handleDrop(e) {
-  const files = [];
-  const items = e.dataTransfer.items;
+  // folderMap: { folderName: [File, File, ...] }
+  const folderMap = {};
+  const looseFiles = [];
 
-  if (items && items.length && items[0].webkitGetAsEntry) {
-    // Folder-aware drop: walk the directory tree
+  const items = Array.from(e.dataTransfer.items || []);
+  if (items.length && items[0].webkitGetAsEntry) {
     for (const item of items) {
       const entry = item.webkitGetAsEntry?.();
       if (!entry) continue;
       if (entry.isDirectory) {
-        // Capture folder name for product matching
-        if (!ctx.folderName) ctx.folderName = entry.name;
+        const files = [];
         await walkDir(entry, files);
+        folderMap[entry.name] = files;
       } else if (entry.isFile) {
         const file = await entryToFile(entry);
-        if (file) files.push(file);
+        if (file) looseFiles.push(file);
       }
     }
   } else {
     // Fallback: flat file list
-    for (const file of e.dataTransfer.files) {
-      files.push(file);
-    }
+    for (const file of e.dataTransfer.files) looseFiles.push(file);
   }
 
-  handleFileList(files);
+  // If loose files were also dropped (not inside a folder), group them under
+  // a pseudo-folder so they still get processed.
+  if (looseFiles.length > 0) {
+    folderMap['(loose files)'] = (folderMap['(loose files)'] || []).concat(looseFiles);
+  }
+
+  if (Object.keys(folderMap).length === 0) {
+    showStatus('error', 'No folders detected. Drag one or more product folders from Finder.');
+    return;
+  }
+
+  for (const [folderName, files] of Object.entries(folderMap)) {
+    ingestFolder(folderName, files);
+  }
+
+  updateGlobalBar();
+  renderFamilies();
+  scrollToGlobalBar();
+}
+
+// Fallback for file picker (click-select): use webkitRelativePath to group.
+function handleFlatFileList(files) {
+  if (files.length === 0) return;
+
+  const folderMap = {};
+  for (const file of files) {
+    const rel = file.webkitRelativePath || '';
+    const top = rel.split('/')[0] || '(loose files)';
+    if (!folderMap[top]) folderMap[top] = [];
+    folderMap[top].push(file);
+  }
+
+  for (const [folderName, fs] of Object.entries(folderMap)) {
+    ingestFolder(folderName, fs);
+  }
+
+  updateGlobalBar();
+  renderFamilies();
+  scrollToGlobalBar();
 }
 
 function walkDir(dirEntry, out) {
@@ -194,106 +215,74 @@ function entryToFile(entry) {
   });
 }
 
-function handleFileList(files) {
-  // Filter to images only
+// ── Ingest a single folder's files into the state ─────────────────────────
+function ingestFolder(folderName, files) {
+  // Filter to images
   const imageFiles = files.filter(f =>
     /^image\/(jpeg|png|webp)$/.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name)
   );
 
   if (imageFiles.length === 0) {
-    showStatus('error', 'No image files found. Please drop JPG/PNG/WEBP files.');
+    // Skip folders with no images silently
     return;
   }
 
-  // If no folder name yet (user clicked to select files), derive one from
-  // the first file's webkitRelativePath if available
-  if (!ctx.folderName && imageFiles[0].webkitRelativePath) {
-    ctx.folderName = imageFiles[0].webkitRelativePath.split('/')[0];
+  // If this folder was already ingested earlier this session, replace it
+  if (ctx.families[folderName]?.blobUrls) {
+    for (const url of ctx.families[folderName].blobUrls) {
+      URL.revokeObjectURL(url);
+    }
   }
 
-  detectFamily();
-  parseAndMatch(imageFiles);
-  renderPreview();
+  const family = {
+    folderName,
+    familyKey: '',
+    matchedProducts: [],
+    colorsByKey: {},
+    blobUrls: [],
+    isDone: false,
+    isUploading: false,
+  };
 
-  familyCard.classList.add('visible');
-  familyCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  detectFamily(family);
+  parseAndMatch(family, imageFiles);
+
+  ctx.families[folderName] = family;
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Product family detection
-// ───────────────────────────────────────────────────────────────────────────
-function detectFamily() {
-  if (!ctx.folderName) {
-    // No folder name available — force manual override
-    familyTitle.textContent = 'No product detected (choose manually →)';
-    ctx.familyKey = '';
-    ctx.matchedProducts = [];
-    return;
-  }
-
-  // Tokenize: split on whitespace, underscores, non-word chars like ™®_
-  const tokens = ctx.folderName
+// ── Product family detection ───────────────────────────────────────────────
+function detectFamily(family) {
+  const tokens = family.folderName
     .replace(/[®™©]/g, '')
     .replace(/[_\-]/g, ' ')
     .split(/\s+/)
     .map(t => t.trim().toLowerCase())
     .filter(t => t && !FOLDER_NOISE.includes(t));
 
-  // The remaining tokens are the product family name
-  // Re-case them using the catalog as ground truth
   const familyLower = tokens.join(' ').trim();
 
   if (!familyLower) {
-    familyTitle.textContent = 'Could not detect product (choose manually →)';
-    ctx.familyKey = '';
-    ctx.matchedProducts = [];
+    family.familyKey = '';
+    family.matchedProducts = [];
     return;
   }
 
-  // Find all product_name values in the catalog that START WITH this family
-  // (case-insensitive). E.g. "dimensions" matches "Dimensions 12",
-  // "Dimensions 18", "Dimensions 24".
+  // Prefix match in both directions
   const matched = ctx.productFamilies.filter(p =>
     p.toLowerCase().startsWith(familyLower) ||
     familyLower.startsWith(p.toLowerCase())
   );
 
-  if (matched.length === 0) {
-    familyTitle.innerHTML =
-      `<span style="color: var(--danger);">No matching product</span> ` +
-      `<small>folder: "${escapeHtml(ctx.folderName)}"</small>`;
-    ctx.familyKey = '';
-    ctx.matchedProducts = [];
-    return;
-  }
-
-  ctx.familyKey = familyLower;
-  ctx.matchedProducts = matched;
-  familyTitle.innerHTML =
-    `${escapeHtml(matched.join(' · '))} ` +
-    `<small>from folder "${escapeHtml(ctx.folderName)}"</small>`;
+  family.familyKey = familyLower;
+  family.matchedProducts = matched;
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Filename parsing + catalog matching
-// ───────────────────────────────────────────────────────────────────────────
-// Regex breakdown:
-//   ^imgi_         Prefix common to Belgard's Save Page As dumps
-//   \d+_\d+_       Two numeric blocks (ID and category code)
-//   (?:NC_)?       Optional "NC" prefix (Natural Collection or similar)
-//   (.+?)          Group 1: color words (underscore-separated)
-//   _(?:DF|CM)_    Separator: DF or CM (finish code)
-//   D[\dx]+        Size code (D12, D3x12, D6x9, etc.)
-const FILENAME_REGEX = /^imgi_\d+_\d+_(?:NC_)?(.+?)_(?:DF|CM)_D[\dx]+/i;
-
+// ── Parse files + match to catalog ─────────────────────────────────────────
 function parseColor(filename) {
   const base = filename.replace(/\.(jpe?g|png|webp)$/i, '');
   const match = base.match(FILENAME_REGEX);
   if (!match) return null;
-  return match[1]
-    .replace(/_/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return match[1].replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function normalizeColor(s) {
@@ -301,26 +290,25 @@ function normalizeColor(s) {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-// Preference ranking for duplicate files of the same color. Lower is better.
-// Belgard bulk downloads typically give us three copies per color:
-//   Anthracite_DF_D12_Modular-1024x1024.jpg    ← best (full res)
-//   Anthracite_DF_D12_Modular.jpg              ← base (probably the same res)
-//   Anthracite_DF_D12_Modular (1).jpg          ← browser-added duplicate
+// Lower rank = better preferred file when we see duplicates of the same color.
+// Belgard bulk downloads typically include three copies per color:
+//   *-1024x1024.jpg  (best — hi-res)
+//   *.jpg            (base — probably same)
+//   * (1).jpg        (browser-added duplicate — worst)
 function filePreferenceRank(filename) {
   if (/1024x1024/i.test(filename)) return 0;
   if (/\s\(\d+\)\./.test(filename)) return 2;
   return 1;
 }
 
-function parseAndMatch(files) {
-  ctx.colorsByKey = {};
+function parseAndMatch(family, files) {
+  family.colorsByKey = {};
 
   for (const file of files) {
     const color = parseColor(file.name);
     if (!color) {
-      // Unparseable filename — track it as an error entry
       const key = `__unparsed_${file.name}`;
-      ctx.colorsByKey[key] = {
+      family.colorsByKey[key] = {
         name: file.name,
         colorLabel: '(unparseable)',
         file,
@@ -332,16 +320,15 @@ function parseAndMatch(files) {
     }
 
     const key = normalizeColor(color);
-    const existing = ctx.colorsByKey[key];
+    const existing = family.colorsByKey[key];
 
-    // Keep the best-ranked file per color
     if (existing && existing.file) {
       const existingRank = filePreferenceRank(existing.file.name);
       const newRank = filePreferenceRank(file.name);
-      if (newRank >= existingRank) continue; // keep existing
+      if (newRank >= existingRank) continue;
     }
 
-    ctx.colorsByKey[key] = {
+    family.colorsByKey[key] = {
       name: file.name,
       colorLabel: color,
       file,
@@ -350,63 +337,36 @@ function parseAndMatch(files) {
     };
   }
 
-  // Match each detected color to catalog variants
-  for (const key in ctx.colorsByKey) {
-    const entry = ctx.colorsByKey[key];
-    if (entry.status === 'fail') continue;
+  // Match colors to catalog
+  matchFamilyColors(family);
 
-    const candidates = ctx.catalog.filter(row =>
-      ctx.matchedProducts.includes(row.product_name) &&
-      normalizeColor(row.color) === key
-    );
-
-    if (candidates.length === 0) {
-      entry.status = 'warn';
-      entry.variants = [];
-      entry.reason = `No catalog variant matches color "${entry.colorLabel}" in ${ctx.matchedProducts.join(' / ') || 'the selected family'}`;
-      continue;
-    }
-
-    // Filter out variants that already have a swatch_url (skip per user rule)
-    const needSwatch = candidates.filter(c => !c.swatch_url);
-    const alreadyHave = candidates.length - needSwatch.length;
-
-    if (needSwatch.length === 0) {
-      entry.status = 'skip';
-      entry.variants = candidates;
-      entry.reason = `All ${candidates.length} variants already have a swatch (skipping)`;
-    } else {
-      entry.status = 'match';
-      entry.variants = needSwatch;
-      entry.alreadyHave = alreadyHave;
-    }
-  }
-
-  // Build blob URLs for thumbnails (only when the file is still present)
-  for (const key in ctx.colorsByKey) {
-    const entry = ctx.colorsByKey[key];
-    if (entry.file) {
+  // Build blob URLs for thumbnails
+  for (const key in family.colorsByKey) {
+    const entry = family.colorsByKey[key];
+    if (entry.file && !entry.blobUrl) {
       entry.blobUrl = URL.createObjectURL(entry.file);
+      family.blobUrls.push(entry.blobUrl);
     }
   }
 }
 
-function rematchAndRender() {
-  // Used when user changes family override. We rebuild the catalog match
-  // for existing colors without re-parsing files.
-  for (const key in ctx.colorsByKey) {
-    const entry = ctx.colorsByKey[key];
+function matchFamilyColors(family) {
+  for (const key in family.colorsByKey) {
+    const entry = family.colorsByKey[key];
     if (entry.status === 'fail') continue;
+    if (entry.status === 'uploaded') continue; // don't overwrite post-upload state
 
     const candidates = ctx.catalog.filter(row =>
-      ctx.matchedProducts.includes(row.product_name) &&
+      family.matchedProducts.includes(row.product_name) &&
       normalizeColor(row.color) === key
     );
 
     if (candidates.length === 0) {
       entry.status = 'warn';
       entry.variants = [];
-      entry.reason = `No catalog variant matches color "${entry.colorLabel}" in ${ctx.matchedProducts.join(' / ') || 'the selected family'}`;
+      entry.reason = family.matchedProducts.length === 0
+        ? 'No product family matched this folder'
+        : `No catalog variant matches "${entry.colorLabel}" in ${family.matchedProducts.join(' / ')}`;
       continue;
     }
 
@@ -416,50 +376,160 @@ function rematchAndRender() {
     if (needSwatch.length === 0) {
       entry.status = 'skip';
       entry.variants = candidates;
-      entry.reason = `All ${candidates.length} variants already have a swatch (skipping)`;
+      entry.reason = `All ${candidates.length} variants already have a swatch`;
+      entry.alreadyHave = alreadyHave;
     } else {
       entry.status = 'match';
       entry.variants = needSwatch;
       entry.alreadyHave = alreadyHave;
+      entry.reason = '';
     }
   }
-  renderPreview();
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Preview rendering
-// ───────────────────────────────────────────────────────────────────────────
-function renderPreview() {
-  const entries = Object.values(ctx.colorsByKey);
+// ── Rendering ──────────────────────────────────────────────────────────────
+function renderFamilies() {
+  familiesContainer.innerHTML = '';
+
+  const families = Object.values(ctx.families);
+  for (const family of families) {
+    const card = renderFamilyCard(family);
+    familiesContainer.appendChild(card);
+    family.cardEl = card;
+  }
+}
+
+function renderFamilyCard(family) {
+  const card = document.createElement('div');
+  card.className = 'family-card';
+  if (family.isDone) card.classList.add('is-done');
+  if (family.isUploading) card.classList.add('is-uploading');
+
+  const entries = Object.values(family.colorsByKey);
   const imageCount = entries.filter(e => e.file).length;
-  const colorCount = entries.filter(e => e.status !== 'fail').length;
   const matchedEntries = entries.filter(e => e.status === 'match');
+  const skippedEntries = entries.filter(e => e.status === 'skip');
+  const warnEntries = entries.filter(e => e.status === 'warn');
+  const uploadedEntries = entries.filter(e => e.status === 'uploaded');
   const totalRowsToUpdate = matchedEntries.reduce((s, e) => s + e.variants.length, 0);
+  const totalRowsWritten = uploadedEntries.reduce((s, e) => s + (e.variantsWritten || 0), 0);
 
-  sumImages.textContent = imageCount;
-  sumColors.textContent = colorCount;
-  sumMatches.textContent = matchedEntries.length;
-  sumRows.textContent = totalRowsToUpdate;
+  // Header: title (detected family or warning), override dropdown, remove btn
+  const title = family.matchedProducts.length > 0
+    ? escapeHtml(family.matchedProducts.join(' · '))
+    : `<span style="color: var(--danger);">Could not auto-detect product</span>`;
 
-  // Sort: matches first, then skips, then warns, then fails
-  const rank = { match: 0, skip: 1, warn: 2, fail: 3, pending: 99 };
+  const overrideOptions = ['<option value="">(auto-detected)</option>']
+    .concat(ctx.productFamilies.map(p =>
+      `<option value="${escapeHtml(p)}"${family.matchedProducts.length === 1 && family.matchedProducts[0] === p ? ' selected' : ''}>${escapeHtml(p)}</option>`
+    )).join('');
+
+  card.innerHTML = `
+    <div class="family-header">
+      <div class="family-title-wrap">
+        <div class="family-title">
+          ${title}
+          <small>${escapeHtml(family.folderName)}</small>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="family-override">
+          Override:
+          <select data-folder="${escapeHtml(family.folderName)}" class="family-override-select">
+            ${overrideOptions}
+          </select>
+        </div>
+        <button class="family-remove" data-folder="${escapeHtml(family.folderName)}" title="Remove this folder">×</button>
+      </div>
+    </div>
+
+    <div class="family-summary">
+      <div class="summary-box">
+        <div class="summary-num">${imageCount}</div>
+        <div class="summary-label">Images</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-num ${matchedEntries.length > 0 ? 'green' : ''}">${matchedEntries.length}</div>
+        <div class="summary-label">Matched</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-num ${totalRowsToUpdate > 0 ? 'green' : ''}">${totalRowsToUpdate}</div>
+        <div class="summary-label">Rows to write</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-num">${skippedEntries.length}</div>
+        <div class="summary-label">Already had swatch</div>
+      </div>
+      ${warnEntries.length > 0 ? `
+        <div class="summary-box">
+          <div class="summary-num" style="color:var(--warn-text);">${warnEntries.length}</div>
+          <div class="summary-label">No match</div>
+        </div>
+      ` : ''}
+      ${uploadedEntries.length > 0 ? `
+        <div class="summary-box">
+          <div class="summary-num green">${uploadedEntries.length}</div>
+          <div class="summary-label">Uploaded<br>(${totalRowsWritten} rows)</div>
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="preview-grid" data-folder="${escapeHtml(family.folderName)}">
+      ${renderPreviewGrid(family)}
+    </div>
+  `;
+
+  // Wire up the override dropdown
+  card.querySelector('.family-override-select')?.addEventListener('change', (e) => {
+    const chosen = e.target.value;
+    if (chosen) {
+      family.matchedProducts = [chosen];
+      family.familyKey = chosen.toLowerCase();
+    } else {
+      // Re-detect from folder name
+      detectFamily(family);
+    }
+    matchFamilyColors(family);
+    renderFamilies();
+    updateGlobalBar();
+  });
+
+  // Wire up the remove button
+  card.querySelector('.family-remove')?.addEventListener('click', () => {
+    // Revoke blob URLs to free memory
+    for (const url of family.blobUrls) URL.revokeObjectURL(url);
+    delete ctx.families[family.folderName];
+    renderFamilies();
+    updateGlobalBar();
+  });
+
+  return card;
+}
+
+function renderPreviewGrid(family) {
+  const entries = Object.values(family.colorsByKey);
+  // Sort: uploaded first, then match, then skip, then warn, then fail
+  const rank = { uploaded: 0, match: 1, skip: 2, warn: 3, fail: 4, pending: 99 };
   entries.sort((a, b) => (rank[a.status] ?? 99) - (rank[b.status] ?? 99));
 
-  previewGrid.innerHTML = entries.map(e => {
+  return entries.map(e => {
     const statusLabel = {
       match: `${e.variants.length} ✓`,
+      uploaded: `✓ wrote ${e.variantsWritten || 0}`,
       skip: 'skipped',
       warn: 'no match',
-      fail: 'unparseable',
+      fail: 'failed',
     }[e.status] || e.status;
 
     const thumb = e.blobUrl
-      ? `<img src="${e.blobUrl}" alt="">`
-      : `<span style="color:var(--muted);font-size:11px;">no preview</span>`;
+      ? `<img src="${escapeAttr(e.blobUrl)}" alt="">`
+      : `<span style="color:var(--muted);font-size:10px;">no preview</span>`;
 
     const info = e.status === 'match'
-      ? `${e.variants.length} variant${e.variants.length === 1 ? '' : 's'} · ${ctx.matchedProducts.length} product${ctx.matchedProducts.length === 1 ? '' : 's'}${e.alreadyHave ? ` · ${e.alreadyHave} already had` : ''}`
-      : (e.reason || '');
+      ? `${e.variants.length} variant${e.variants.length === 1 ? '' : 's'}${e.alreadyHave ? ` · ${e.alreadyHave} had` : ''}`
+      : e.status === 'uploaded'
+        ? (e.reason || `wrote ${e.variantsWritten || 0} rows`)
+        : (e.reason || '');
 
     return `
       <div class="preview-card">
@@ -474,41 +544,78 @@ function renderPreview() {
       </div>
     `;
   }).join('');
+}
 
-  // Update action bar
-  if (matchedEntries.length === 0) {
-    actionMsg.textContent = 'Nothing to upload — no matches found.';
-    uploadBtn.disabled = true;
+// ── Global summary bar ─────────────────────────────────────────────────────
+function updateGlobalBar() {
+  const families = Object.values(ctx.families);
+  if (families.length === 0) {
+    globalActionBar.classList.remove('visible');
+    return;
+  }
+
+  let totalImages = 0;
+  let totalMatched = 0;
+  let totalRows = 0;
+
+  for (const f of families) {
+    const entries = Object.values(f.colorsByKey);
+    totalImages += entries.filter(e => e.file).length;
+    const matched = entries.filter(e => e.status === 'match');
+    totalMatched += matched.length;
+    totalRows += matched.reduce((s, e) => s + e.variants.length, 0);
+  }
+
+  gSumFolders.textContent = families.length;
+  gSumImages.textContent = totalImages;
+  gSumMatched.textContent = totalMatched;
+  gSumRows.textContent = totalRows;
+
+  globalActionBar.classList.add('visible');
+
+  if (totalMatched === 0) {
+    globalUpload.disabled = true;
+    globalUpload.textContent = 'Nothing to upload';
   } else {
-    actionMsg.textContent = `Ready to upload ${matchedEntries.length} swatches and write ${totalRowsToUpdate} catalog rows.`;
-    uploadBtn.disabled = false;
+    globalUpload.disabled = false;
+    globalUpload.textContent = `Upload all → (${totalRows} rows)`;
   }
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Upload execution
-// ───────────────────────────────────────────────────────────────────────────
-async function runUpload() {
-  const matchedEntries = Object.values(ctx.colorsByKey).filter(e => e.status === 'match');
-  if (matchedEntries.length === 0) return;
+// ── Global upload orchestration ────────────────────────────────────────────
+async function runGlobalUpload() {
+  const families = Object.values(ctx.families);
 
-  uploadBtn.disabled = true;
-  resetBtn.disabled = true;
-  progressWrap.style.display = 'block';
-  actionMsg.textContent = '';
+  // Build a flat list of all match entries across all families
+  const allJobs = [];
+  for (const family of families) {
+    for (const entry of Object.values(family.colorsByKey)) {
+      if (entry.status === 'match') {
+        allJobs.push({ family, entry });
+      }
+    }
+  }
+
+  if (allJobs.length === 0) return;
+
+  globalUpload.disabled = true;
+  globalReset.disabled = true;
+  globalProgress.classList.add('visible');
 
   let done = 0;
-  let uploadedCount = 0;
-  let rowsUpdated = 0;
+  let uploadedColors = 0;
+  let rowsWritten = 0;
   let errors = 0;
 
-  for (const entry of matchedEntries) {
-    progressText.textContent = `Uploading ${entry.colorLabel}… (${done + 1}/${matchedEntries.length})`;
+  for (const job of allJobs) {
+    const { family, entry } = job;
+    family.isUploading = true;
+    if (family.cardEl) family.cardEl.classList.add('is-uploading');
+
+    globalProgressText.textContent =
+      `[${family.folderName}] Uploading ${entry.colorLabel}… (${done + 1}/${allJobs.length})`;
 
     try {
-      // 1. Upload the file to Supabase Storage, keyed by first variant's ID
-      //    (for uniqueness). Using the first variant means re-runs land at
-      //    the same path, avoiding Storage bloat.
       const firstVariantId = entry.variants[0].id;
       const ext = entry.file.name.match(/\.(\w+)$/i)?.[1]?.toLowerCase() || 'jpg';
       const storagePath = `swatches/${firstVariantId}.${ext}`;
@@ -523,103 +630,104 @@ async function runUpload() {
       if (uploadErr) {
         console.error('Upload error', entry.colorLabel, uploadErr);
         entry.status = 'fail';
-        entry.reason = `Storage upload failed: ${uploadErr.message}`;
-        errors++;
-        done++;
-        updateProgress(done, matchedEntries.length);
-        continue;
-      }
-
-      // 2. Get public URL with cache-buster
-      const { data: publicUrlData } = supabase.storage
-        .from('proposal-photos')
-        .getPublicUrl(storagePath);
-      const publicUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`;
-
-      // 3. Update every catalog variant for this color (that didn't already
-      //    have a swatch). This is why we stored entry.variants already
-      //    filtered to needSwatch-only.
-      const ids = entry.variants.map(v => v.id);
-      const { error: updateErr } = await supabase
-        .from('belgard_materials')
-        .update({ swatch_url: publicUrl })
-        .in('id', ids)
-        .is('swatch_url', null); // defensive: only write if still null
-
-      if (updateErr) {
-        console.error('Update error', entry.colorLabel, updateErr);
-        entry.status = 'fail';
-        entry.reason = `Catalog update failed: ${updateErr.message}`;
+        entry.reason = `Storage: ${uploadErr.message}`;
         errors++;
       } else {
-        uploadedCount++;
-        rowsUpdated += entry.variants.length;
-        entry.status = 'skip'; // visually mark as done
-        entry.reason = `✓ Uploaded and wrote to ${entry.variants.length} variants`;
+        const { data: pub } = supabase.storage
+          .from('proposal-photos')
+          .getPublicUrl(storagePath);
+        const publicUrl = `${pub.publicUrl}?v=${Date.now()}`;
+
+        const ids = entry.variants.map(v => v.id);
+        const { error: updateErr } = await supabase
+          .from('belgard_materials')
+          .update({ swatch_url: publicUrl })
+          .in('id', ids)
+          .is('swatch_url', null);
+
+        if (updateErr) {
+          console.error('Update error', entry.colorLabel, updateErr);
+          entry.status = 'fail';
+          entry.reason = `DB: ${updateErr.message}`;
+          errors++;
+        } else {
+          entry.status = 'uploaded';
+          entry.variantsWritten = entry.variants.length;
+          entry.reason = `Wrote to ${entry.variants.length} variants`;
+          uploadedColors++;
+          rowsWritten += entry.variants.length;
+
+          // Patch local catalog so future drops see updated state
+          for (const v of entry.variants) {
+            const cached = ctx.catalog.find(c => c.id === v.id);
+            if (cached) cached.swatch_url = publicUrl;
+          }
+        }
       }
     } catch (err) {
-      console.error('Unexpected error', entry.colorLabel, err);
+      console.error('Unexpected', entry.colorLabel, err);
       entry.status = 'fail';
       entry.reason = `Unexpected: ${err.message}`;
       errors++;
     }
 
     done++;
-    updateProgress(done, matchedEntries.length);
+    const pct = Math.round((done / allJobs.length) * 100);
+    globalProgressBar.style.width = `${pct}%`;
+    globalProgressPct.textContent = `${pct}%`;
   }
 
-  // Final state
-  progressWrap.style.display = 'none';
-  renderPreview();
+  // Mark each family as done if all its match entries are now uploaded
+  for (const family of families) {
+    const stillMatching = Object.values(family.colorsByKey)
+      .some(e => e.status === 'match');
+    if (!stillMatching) {
+      family.isDone = true;
+      family.isUploading = false;
+    }
+  }
+
+  // Re-render to show updated state
+  renderFamilies();
+  updateGlobalBar();
+
+  globalProgress.classList.remove('visible');
+  globalReset.disabled = false;
 
   if (errors === 0) {
     showStatus('success',
-      `✓ Done. Uploaded ${uploadedCount} swatches, updated ${rowsUpdated} catalog rows. ` +
-      `You can close this page or drop another product folder to continue.`);
+      `✓ All done. Uploaded ${uploadedColors} swatches, wrote ${rowsWritten} catalog rows across ${families.length} product${families.length === 1 ? '' : 's'}. ` +
+      `You can drop more folders or close this page.`);
   } else {
     showStatus('error',
-      `Finished with ${errors} errors. ${uploadedCount} succeeded (${rowsUpdated} rows). ` +
-      `Check the preview grid above for which colors failed.`);
+      `Finished with ${errors} errors. Succeeded: ${uploadedColors} swatches, ${rowsWritten} rows. ` +
+      `Check the preview cards above to see which colors failed.`);
   }
-
-  uploadBtn.disabled = false;
-  resetBtn.disabled = false;
-  // Reload catalog so subsequent drops see updated swatch_urls
-  await loadCatalog();
 }
 
-function updateProgress(done, total) {
-  const pct = Math.round((done / total) * 100);
-  progressBar.style.width = `${pct}%`;
-  progressPct.textContent = `${pct}%`;
-}
-
-// ───────────────────────────────────────────────────────────────────────────
-// Reset
-// ───────────────────────────────────────────────────────────────────────────
+// ── Reset ──────────────────────────────────────────────────────────────────
 function resetAll() {
-  // Revoke any outstanding blob URLs
-  for (const key in ctx.colorsByKey) {
-    const entry = ctx.colorsByKey[key];
-    if (entry.blobUrl) URL.revokeObjectURL(entry.blobUrl);
+  for (const family of Object.values(ctx.families)) {
+    for (const url of family.blobUrls) URL.revokeObjectURL(url);
   }
-  ctx.colorsByKey = {};
-  ctx.folderName = '';
-  ctx.familyKey = '';
-  ctx.matchedProducts = [];
-  familyOverride.value = '';
-  familyCard.classList.remove('visible');
+  ctx.families = {};
+  familiesContainer.innerHTML = '';
+  globalActionBar.classList.remove('visible');
+  globalProgress.classList.remove('visible');
   fileInput.value = '';
   hideStatus();
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Utils
-// ───────────────────────────────────────────────────────────────────────────
+// ── Utils ──────────────────────────────────────────────────────────────────
+function scrollToGlobalBar() {
+  setTimeout(() => {
+    globalActionBar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+}
+
 function showStatus(type, msg) {
   statusBox.className = `status visible ${type}`;
   statusBox.textContent = msg;
-  statusBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function hideStatus() {
@@ -632,4 +740,8 @@ function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str);
 }
