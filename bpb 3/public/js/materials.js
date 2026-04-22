@@ -164,15 +164,23 @@ function groupProducts() {
   }
 }
 
-// Sprint 3 Part A: prefer the per-color swatch over the generic product
-// hero. Falls through to primary_image_url (category-level hero from Sprint
-// 2A catalog sync) and then to the legacy image_url slot.
+// Sprint 3 Part A refinement: split the image-lookup logic between the
+// product grid and the variant modal.
+//
+//  • Product grid card image (getImage): prefers the landscape/application
+//    shot (primary_image_url) because grid cards are for browsing — an
+//    evocative "what does this look like in a yard" image is more useful
+//    at that level than a bare color chip. Falls through to swatch_url
+//    only if no landscape shot exists.
+//
+//  • Variant modal / selected tray (variantImage, hydratedMaterialImage):
+//    prefer swatch_url because once you've drilled into a product, true
+//    color accuracy matters more than mood. Scandina Gray should look
+//    like Scandina Gray, not like the product's default beauty shot.
 function getImage(m) {
-  return m.swatch_url || m.primary_image_url || m.image_url || null;
+  return m.primary_image_url || m.swatch_url || m.image_url || null;
 }
 
-// Variant-specific image lookup. Same preference order as getImage, kept as
-// a named helper so the variant modal renderer can share it cleanly.
 function variantImage(v) {
   return v.swatch_url || v.primary_image_url || v.image_url || null;
 }
