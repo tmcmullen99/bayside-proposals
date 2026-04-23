@@ -1,27 +1,42 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Photos section (Phase 1.5 Sprint 1).
+// Photos section (Sprint 3G).
 //
 // Property condition / "before" photos for this proposal — a unified list of
 // images from two sources:
 //
-//   • extraction_source='manual_upload'  — dragged/picked by Tim here
-//   • extraction_source='bid_pdf_extract' — pulled out of the bid PDF in
+//   • extraction_source='manual_upload'   — dragged/picked by Tim here
+//   • extraction_source='bid_pdf_extract' — pulled from the bid PDF in
 //                                            Section 02 automatically
 //
 // Small extracted assets (logos, icons, sub-400x400 swatches) land with
 // category='bid_pdf_asset' and never appear in this grid — the property
 // condition list only shows usable photos.
 //
-// Rendered rows show a tiny tag pill so Tim can see at a glance where each
-// photo came from: green "FROM BID PDF" vs gray "UPLOADED".
+// Sprint 3G change: every image has a display_section classifier that
+// controls which section of the published page it renders in. Tim sets this
+// from a dropdown on each row:
 //
-// Flow for manual uploads is unchanged from Phase 1.3:
+//   'current_photo'    → "Current site conditions" section (04) on the
+//                         published page
+//   'design_rendering' → "Design renderings" section (05)
+//   'hidden'           → not published at all (data-hygiene escape hatch
+//                         for blurry shots, unusable extracts, duplicates)
+//
+// Why the dropdown is needed: extraction_source is a technical signal
+// (where the bytes came from), not a semantic signal (what type of image
+// it is). Bid PDFs can contain real photos; manual uploads can be
+// SketchUp screenshots. display_section decouples the two so classification
+// survives independent of upload origin.
+//
+// Flow for manual uploads is unchanged from Phase 1.5:
 //   1. User drags image onto dropzone OR picks via file input
 //   2. Client-side: Canvas API resizes to max 2400px long edge, JPEG quality 85
 //   3. A 400px thumbnail is generated the same way
 //   4. Both uploaded directly to Supabase Storage (bucket 'proposal-photos')
 //      under paths: {proposalId}/{uuid}.jpg and {proposalId}/{uuid}_thumb.jpg
 //   5. A proposal_images row is inserted with extraction_source='manual_upload'
+//      and display_section='current_photo' (the sensible default for a
+//      hand-uploaded image — Tim can re-classify to rendering if needed)
 //   6. UI re-renders the list
 //
 // Reorder: up/down arrow buttons swap display_order with the neighbor row.
@@ -41,6 +56,15 @@ const LOCATION_TAGS = [
   { value: 'backyard',     label: 'Backyard' },
   { value: 'side_yard',    label: 'Side yard' },
   { value: 'full_property',label: 'Full property' }
+];
+
+// Sprint 3G — the authoritative list of display sections.
+// These MUST match the CHECK constraint in migration 015 and the filter
+// predicates in publish.js (renderCurrentPhotosSection / renderRenderingsSection).
+const DISPLAY_SECTIONS = [
+  { value: 'current_photo',    label: 'Current site conditions' },
+  { value: 'design_rendering', label: 'Design renderings' },
+  { value: 'hidden',           label: '⊘ Hidden (do not publish)' }
 ];
 
 const state = {
@@ -94,9 +118,14 @@ async function loadPhotos() {
 function render() {
   const { photos, uploading, error } = state;
 
-  // Count extracted vs uploaded for the contextual header hint.
-  const fromPdf = photos.filter(p => p.extraction_source === 'bid_pdf_extract').length;
-  const uploaded = photos.length - fromPdf;
+  // Count by display_section for the contextual header — mirrors what the
+  // client will see on the published page.
+  const currentCount    = photos.filter(p => p.display_section === 'current_photo').length;
+  const renderingCount  = photos.filter(p => p.display_section === 'design_rendering').length;
+  const hiddenCount     = photos.filter(p => p.display_section === 'hidden').length;
+  // Legacy rows that predate the 015 migration may have null display_section
+  // — count them so the UI surfaces the issue rather than silently hiding them.
+  const unclassifiedCount = photos.filter(p => !p.display_section).length;
 
   state.container.innerHTML = `
     <style>
@@ -134,6 +163,77 @@ function render() {
         color: #353535;
         font-weight: 600;
       }
+      .bp-photo-source-summary .bp-sep {
+        color: #ccc;
+        margin: 0 8px;
+      }
+
+      /* Sprint 3G — display_section dropdown styling. Pill-shaped select
+         with a left-edge accent color per section so Tim can eyeball at
+         a glance what's classified as what. */
+      .bp-photo-classification {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .bp-photo-classification-label {
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #666;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .bp-photo-classification select {
+        padding: 6px 10px;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 6px;
+        border: 1.5px solid #d5d5d5;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color 0.15s;
+      }
+      .bp-photo-classification select:hover {
+        border-color: #5d7e69;
+      }
+      .bp-photo-classification select[data-value="current_photo"] {
+        border-left: 5px solid #5d7e69;
+        color: #4a6654;
+      }
+      .bp-photo-classification select[data-value="design_rendering"] {
+        border-left: 5px solid #91a1ba;
+        color: #1a1f2e;
+      }
+      .bp-photo-classification select[data-value="hidden"] {
+        border-left: 5px solid #b04040;
+        color: #8a2020;
+        background: #fdf6f6;
+      }
+
+      /* Unclassified-row warning — shown on any row where display_section
+         is NULL (should only happen for pre-migration rows that slipped
+         through the backfill). */
+      .bp-photo-classification select[data-value=""] {
+        border-left: 5px solid #d89a2a;
+        color: #8b5a00;
+        background: #fffbe6;
+      }
+
+      .bp-photo-row.is-hidden {
+        opacity: 0.55;
+      }
+
+      .bp-warn-banner {
+        margin: 16px 0;
+        padding: 12px 16px;
+        background: #fffbe6;
+        border: 1px solid #d89a2a;
+        border-radius: 8px;
+        color: #8b5a00;
+        font-size: 14px;
+      }
     </style>
 
     <div class="section-header">
@@ -141,15 +241,29 @@ function render() {
       <h2>Photos — property condition</h2>
       <p class="lead">
         Drag "before" photos of the property here. Images are resized to 2400px and compressed
-        automatically. Order and tag them below; the final proposal renders them in this order.
+        automatically. Classify each image as <strong>Current site conditions</strong> or
+        <strong>Design renderings</strong> to control which section it renders in on the
+        published proposal. Hidden images stay in the database but don't publish.
       </p>
       ${photos.length > 0 ? `
         <p class="bp-photo-source-summary">
-          <strong>${photos.length}</strong> photo${photos.length === 1 ? '' : 's'} ·
-          ${fromPdf} from bid PDF · ${uploaded} manually uploaded
+          <strong>${photos.length}</strong> photo${photos.length === 1 ? '' : 's'}
+          <span class="bp-sep">·</span>
+          <strong>${currentCount}</strong> current
+          <span class="bp-sep">·</span>
+          <strong>${renderingCount}</strong> rendering${renderingCount === 1 ? '' : 's'}
+          <span class="bp-sep">·</span>
+          <strong>${hiddenCount}</strong> hidden
         </p>
       ` : ''}
     </div>
+
+    ${unclassifiedCount > 0 ? `
+      <div class="bp-warn-banner">
+        <strong>${unclassifiedCount} photo${unclassifiedCount === 1 ? '' : 's'} unclassified.</strong>
+        Set a section below so ${unclassifiedCount === 1 ? 'it appears' : 'they appear'} on the published page.
+      </div>
+    ` : ''}
 
     ${error ? `<div class="bp-error-box">${escapeHtml(error)}</div>` : ''}
 
@@ -193,8 +307,22 @@ function renderPhotoRow(photo, idx, total) {
     </option>
   `).join('');
 
+  // Sprint 3G — display_section dropdown. Includes a blank option only if
+  // the current value is unexpectedly blank (so legacy unclassified rows
+  // don't silently self-assign).
+  const sectionValue = photo.display_section || '';
+  const sectionOptions = [
+    sectionValue === ''
+      ? `<option value="" selected>— unclassified —</option>`
+      : '',
+    ...DISPLAY_SECTIONS.map(s => `
+      <option value="${s.value}" ${sectionValue === s.value ? 'selected' : ''}>
+        ${s.label}
+      </option>
+    `)
+  ].join('');
+
   // Source pill — green for PDF-extracted, gray for manually uploaded.
-  // Include source_page when we have it, since that's often useful context.
   const isPdf = photo.extraction_source === 'bid_pdf_extract';
   const tagPill = isPdf
     ? `<span class="bp-photo-tag bp-photo-tag-pdf">From bid PDF</span>${
@@ -202,8 +330,11 @@ function renderPhotoRow(photo, idx, total) {
       }`
     : `<span class="bp-photo-tag bp-photo-tag-upload">Uploaded</span>`;
 
+  const rowClasses = ['bp-photo-row'];
+  if (sectionValue === 'hidden') rowClasses.push('is-hidden');
+
   return `
-    <div class="bp-photo-row" data-id="${photo.id}">
+    <div class="${rowClasses.join(' ')}" data-id="${photo.id}">
       <div class="bp-photo-thumb">
         <a href="${fullUrl}" target="_blank" rel="noopener">
           <img src="${thumbUrl}" alt="" loading="lazy">
@@ -216,6 +347,15 @@ function renderPhotoRow(photo, idx, total) {
         <div class="bp-photo-dims">
           ${photo.width && photo.height ? `${photo.width} × ${photo.height}` : ''}
         </div>
+
+        <div class="bp-photo-classification">
+          <span class="bp-photo-classification-label">Section</span>
+          <select data-field="display_section" data-id="${photo.id}"
+                  data-value="${escapeAttr(sectionValue)}">
+            ${sectionOptions}
+          </select>
+        </div>
+
         <label class="bp-photo-location">
           <span class="eyebrow">Location</span>
           <select data-field="location_tag" data-id="${photo.id}">
@@ -279,6 +419,9 @@ function attachRowControls() {
     });
   });
 
+  // Handles BOTH location_tag AND display_section dropdowns — same write
+  // pattern (update column, refresh local state, trigger onSave). The
+  // data-field attribute on the <select> tells us which column to touch.
   state.container.querySelectorAll('.bp-photo-row select[data-field]').forEach(sel => {
     sel.addEventListener('change', async () => {
       const id = sel.dataset.id;
@@ -294,6 +437,9 @@ function attachRowControls() {
       } else {
         const row = state.photos.find(p => p.id === id);
         if (row) row[field] = value;
+        // Re-render so the summary counts, hidden-row opacity, and
+        // select-accent color update in-place.
+        render();
         state.onSave?.();
       }
     });
@@ -361,13 +507,19 @@ async function processAndUpload(file) {
   // 6. Determine next display_order
   const maxOrder = state.photos.reduce((m, p) => Math.max(m, p.display_order ?? 0), -1);
 
-  // 7. Insert DB row — explicit extraction_source so the tag pill renders correctly
+  // 7. Insert DB row.
+  //    Sprint 3G: default display_section = 'current_photo' for manual
+  //    uploads because the most common use case is Tim dragging in iPhone
+  //    photos of the existing property. He can re-classify individual
+  //    rows to 'design_rendering' via the dropdown if he uploads a
+  //    SketchUp screenshot instead.
   const { error: insertErr } = await supabase
     .from('proposal_images')
     .insert({
       proposal_id: state.proposalId,
       category: 'property_condition',
       extraction_source: 'manual_upload',
+      display_section: 'current_photo',
       storage_path: mainPath,
       thumbnail_path: thumbPath,
       original_filename: file.name,
@@ -503,4 +655,8 @@ function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str);
 }
