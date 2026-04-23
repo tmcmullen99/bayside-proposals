@@ -1465,11 +1465,15 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 
   <section class="pub-footer-ctas">
     <h2>Ready to move forward?</h2>
-    <p>Questions about the scope, materials, or next steps? Call Tim directly.</p>
-    <div class="pub-cta-row">
-      <a href="tel:${TIM_PHONE_HREF}" class="pub-btn pub-btn-call">
-        Call Tim · ${TIM_PHONE}
-      </a>
+    <p>Questions about the scope, materials, or next steps? Call or email Tim directly.</p>
+       <div class="pub-cta-row">
+         <a href="tel:${TIM_PHONE_HREF}" class="pub-btn pub-btn-call">
+           Call Tim · ${TIM_PHONE}
+         </a>
+         <a href="mailto:${escapeAttr(TIM_EMAIL)}" class="pub-btn pub-btn-call">
+           Email Tim · ${escapeHtml(TIM_EMAIL)}
+         </a>
+         <a href="${escapeAttr(INSTALL_GUIDE_URL)}" class="pub-btn pub-btn-guide"
       <a href="${escapeAttr(INSTALL_GUIDE_URL)}" class="pub-btn pub-btn-guide"
         target="_blank" rel="noopener">
         View Installation Guide
