@@ -1487,10 +1487,10 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 
   /* ═════════ Lightbox (Sprint 3H) ═════════
      Every non-hero image on the published page opens in a full-viewport
-     modal when clicked. Images are grouped by a `data-gallery` attribute
+     modal when clicked. Images are grouped by a data-gallery attribute
      (drawing / materials / photos-04 / photos-05) so the prev/next arrows
      cycle through siblings within the same gallery. The trigger is a
-     transparent button wrapper — it does NOT override the inner <img>
+     transparent button wrapper — it does NOT override the inner img
      sizing, so aspect-ratio and object-fit rules from .pub-material-card
      img, .pub-photos-grid img, etc. still apply. */
   .pub-lightbox-trigger {
