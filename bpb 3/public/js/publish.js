@@ -765,7 +765,6 @@ function slugifyBase(address, date) {
   const dd = String(date.getDate()).padStart(2, '0');
   return `${addr}-${yyyy}-${mm}-${dd}`;
 }
-
 // ───────────────────────────────────────────────────────────────────────────
 // HTML snapshot builder — full standalone document
 // ───────────────────────────────────────────────────────────────────────────
@@ -1483,7 +1482,6 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 </body>
 </html>`;
 }
-
 // ───────────────────────────────────────────────────────────────────────────
 // Template partials
 // ───────────────────────────────────────────────────────────────────────────
@@ -1667,12 +1665,48 @@ function extractMaterialInfo(m, categoryToSection) {
         || tp.image_url
         || '',
       cutSheetUrl: tp.cut_sheet_url || '',
-      // Third-party materials use the generic Bayside guide — the master
-      // Belgard PDF's page anchors only apply to Belgard products.
-      installGuideUrl: tp.installation_guide_id ? INSTALL_GUIDE_URL : '',
+      installGuideUrl: resolveThirdPartyInstallUrl(tp),
     };
   }
   return { name: 'Material', imageUrl: '', cutSheetUrl: '', installGuideUrl: '' };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Third-party install guide router (Sprint 3 Part E)
+//
+// Maps a third_party_materials row to the most appropriate client-facing
+// install/product guide PDF. Routing is pattern-based against manufacturer
+// + product_name + category:
+//
+//   • Tru-Scapes lighting products → TRU_SCAPES_PRODUCT_GUIDE_URL
+//   • Turf products (explicit turf/grass terms OR known MSI turf product
+//     names — Summer Gold, Platinum Spring, Arizona Platinum)
+//     → EVERGRASS_INSTALL_GUIDE_URL
+//   • Anything else with installation_guide_id set → generic Bayside guide
+//   • Otherwise no link (card renders without the "See installation" button,
+//     same as pre-Sprint-3E behavior for unknown products)
+//
+// Patterns are conservative — "MSI" alone isn't enough to trigger the turf
+// route since MSI also makes tile, countertops, and flooring; we require a
+// known turf product line in the name. When Tim adds new MSI turf variants
+// with different SKU names, add them to the TURF_PRODUCT_PATTERNS regex.
+// ───────────────────────────────────────────────────────────────────────────
+const TRU_SCAPES_PATTERN = /tru-?\s*scapes?/i;
+const TURF_PRODUCT_PATTERNS = /\b(turf|artificial\s+grass|synthetic\s+grass|evergrass|summer\s+gold|platinum\s+spring|arizona\s+platinum)\b/i;
+
+function resolveThirdPartyInstallUrl(tp) {
+  const haystack = `${tp.manufacturer || ''} ${tp.product_name || ''} ${tp.category || ''}`;
+
+  if (TRU_SCAPES_PATTERN.test(haystack)) {
+    return TRU_SCAPES_PRODUCT_GUIDE_URL;
+  }
+  if (TURF_PRODUCT_PATTERNS.test(haystack)) {
+    return EVERGRASS_INSTALL_GUIDE_URL;
+  }
+  if (tp.installation_guide_id) {
+    return INSTALL_GUIDE_URL;
+  }
+  return '';
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1824,27 +1858,29 @@ function renderThirdPartyPrepCards(sections, materials, startIndex = 0) {
 }
 
 function proposalHasTurf(sections, materials) {
-  const turfRe = /\b(turf|artificial\s+grass|synthetic\s+grass|evergrass)\b/i;
-  if (scopeContains(sections, turfRe)) return true;
+  // Reuses the TURF_PRODUCT_PATTERNS regex defined above so that any turf
+  // product SKU we recognize (Summer Gold, Platinum Spring, etc.) triggers
+  // the Turf standards card even when the scope text doesn't say "turf"
+  // explicitly.
+  if (scopeContains(sections, TURF_PRODUCT_PATTERNS)) return true;
   for (const m of materials || []) {
     if (m.material_source !== 'third_party') continue;
     const tp = m.third_party_material;
     if (!tp) continue;
     const hay = `${tp.manufacturer || ''} ${tp.product_name || ''} ${tp.category || ''}`;
-    if (turfRe.test(hay)) return true;
+    if (TURF_PRODUCT_PATTERNS.test(hay)) return true;
   }
   return false;
 }
 
 function proposalHasTruScapesLighting(sections, materials) {
-  const re = /tru-?\s*scapes?/i;
-  if (scopeContains(sections, re)) return true;
+  if (scopeContains(sections, TRU_SCAPES_PATTERN)) return true;
   for (const m of materials || []) {
     if (m.material_source !== 'third_party') continue;
     const tp = m.third_party_material;
     if (!tp) continue;
     const hay = `${tp.manufacturer || ''} ${tp.product_name || ''}`;
-    if (re.test(hay)) return true;
+    if (TRU_SCAPES_PATTERN.test(hay)) return true;
   }
   return false;
 }
