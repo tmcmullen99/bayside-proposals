@@ -53,14 +53,20 @@ const ctx = {
 })();
 
 async function loadClients() {
-  // Load clients with nested client_proposals (which have nested proposals)
+  // Load clients with nested client_proposals → proposals → published_proposals.
+  // The slug lives on published_proposals (a given proposal can have many versions);
+  // we pull them all and pick the latest in getLatestSlug().
   const { data, error } = await supabase
     .from('clients')
     .select(`
       id, name, email, phone, address, notes, user_id, created_at,
       client_proposals (
         id, status, sent_at, first_viewed_at, signed_at, created_at,
-        proposal:proposals!proposal_id (id, slug, address, client_name)
+        proposal:proposals!proposal_id (
+          id,
+          address,
+          published_proposals (id, slug, created_at)
+        )
       )
     `)
     .order('created_at', { ascending: false });
@@ -74,10 +80,14 @@ async function loadClients() {
 }
 
 async function loadAllProposals() {
-  // For the "assign proposal" dropdown on each client row
+  // For the "assign proposal" dropdown on each client row.
+  // Pull published_proposals so we can show a slug-derived label when address is NULL.
   const { data, error } = await supabase
     .from('proposals')
-    .select('id, slug, address, client_name, created_at')
+    .select(`
+      id, address, created_at,
+      published_proposals (id, slug, created_at)
+    `)
     .order('created_at', { ascending: false })
     .limit(200);
 
@@ -197,7 +207,7 @@ function renderClientExpand(client) {
           <option value="">Select an existing proposal…</option>
           ${unassignedProposals.map(p => `
             <option value="${escapeAttr(p.id)}">
-              ${escapeHtml(p.address || p.slug || 'Untitled')}${p.client_name ? ` — ${escapeHtml(p.client_name)}` : ''}
+              ${escapeHtml(getDisplayAddress(p))}
             </option>
           `).join('')}
         </select>
@@ -240,258 +250,17 @@ function renderAssignedProposal(a) {
     signed: 'Signed', in_progress: 'In Progress', complete: 'Complete',
   }[a.status] || a.status;
 
+  const slug = getLatestSlug(p);
+  const viewButton = slug
+    ? `<a class="btn btn-small btn-secondary" href="/p/${escapeAttr(slug)}" target="_blank" rel="noopener">View</a>`
+    : `<span class="btn btn-small btn-secondary" style="opacity:0.5;cursor:not-allowed;" title="No published version yet">View</span>`;
+
   return `
     <div class="proposal-row">
       <div class="proposal-row-info">
-        <div class="proposal-row-address">${escapeHtml(p.address || p.slug)}</div>
+        <div class="proposal-row-address">${escapeHtml(getDisplayAddress(p))}</div>
         <div class="proposal-row-meta">
           ${escapeHtml(statusLabel)}
           ${a.sent_at ? ` · Sent ${formatDate(a.sent_at)}` : ''}
           ${a.first_viewed_at ? ` · Viewed ${formatDate(a.first_viewed_at)}` : ''}
         </div>
-      </div>
-      <div style="display:flex; gap:6px;">
-        <a class="btn btn-small btn-secondary" href="/p/${escapeAttr(p.slug)}" target="_blank" rel="noopener">View</a>
-        <button class="btn btn-small btn-danger unassign-btn" data-assignment-id="${escapeAttr(a.id)}">Unassign</button>
-      </div>
-    </div>
-  `;
-}
-
-// ── Event wiring (per-card, after render) ──────────────────────────────────
-function wireCardHandlers(client) {
-  const card = clientsList.querySelector(`[data-client-id="${client.id}"]`);
-  if (!card) return;
-
-  // Toggle expand on row click (but not when clicking buttons/links/selects)
-  card.querySelector('.client-row').addEventListener('click', (e) => {
-    if (e.target.closest('button, select, a, input, textarea')) return;
-    if (ctx.expandedIds.has(client.id)) {
-      ctx.expandedIds.delete(client.id);
-    } else {
-      ctx.expandedIds.add(client.id);
-    }
-    card.classList.toggle('expanded');
-  });
-
-  // Assign
-  card.querySelector('.assign-btn')?.addEventListener('click', async () => {
-    const sel = card.querySelector('.assign-select');
-    const proposalId = sel.value;
-    if (!proposalId) return;
-    await handleAssignProposal(client.id, proposalId);
-  });
-
-  // Send login link
-  card.querySelector('.send-link-btn')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    await handleSendLoginLink(client, btn);
-  });
-
-  // Edit
-  card.querySelector('.edit-btn')?.addEventListener('click', () => {
-    handleEditClient(client);
-  });
-
-  // Delete
-  card.querySelector('.delete-btn')?.addEventListener('click', () => {
-    handleDeleteClient(client);
-  });
-
-  // Unassign individual proposals
-  card.querySelectorAll('.unassign-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const assignmentId = e.currentTarget.dataset.assignmentId;
-      await handleUnassign(assignmentId);
-    });
-  });
-}
-
-// ── Actions ────────────────────────────────────────────────────────────────
-async function handleAddClient() {
-  const name = newName.value.trim();
-  const email = newEmail.value.trim().toLowerCase();
-  const phone = newPhone.value.trim();
-  const address = newAddress.value.trim();
-  const notes = newNotes.value.trim();
-
-  if (!name) return showStatus('error', 'Name is required.');
-  if (!email || !email.includes('@')) return showStatus('error', 'Valid email is required.');
-
-  saveClientBtn.disabled = true;
-
-  const { error } = await supabase
-    .from('clients')
-    .insert({
-      name, email, phone: phone || null,
-      address: address || null,
-      notes: notes || null,
-      created_by: ctx.admin.id,
-    });
-
-  saveClientBtn.disabled = false;
-
-  if (error) {
-    if (error.code === '23505') {
-      return showStatus('error', `A client with email "${email}" already exists.`);
-    }
-    return showStatus('error', `Could not save: ${error.message}`);
-  }
-
-  addForm.classList.remove('visible');
-  clearAddForm();
-  showStatus('success', `Added ${name}. Click their row to expand, then "Send login link" to invite them.`);
-  await loadClients();
-  render();
-}
-
-function clearAddForm() {
-  newName.value = '';
-  newEmail.value = '';
-  newPhone.value = '';
-  newAddress.value = '';
-  newNotes.value = '';
-}
-
-async function handleAssignProposal(clientId, proposalId) {
-  const { error } = await supabase
-    .from('client_proposals')
-    .insert({
-      client_id: clientId,
-      proposal_id: proposalId,
-      status: 'draft',
-    });
-  if (error) {
-    if (error.code === '23505') {
-      return showStatus('error', 'That proposal is already assigned to this client.');
-    }
-    return showStatus('error', `Could not assign: ${error.message}`);
-  }
-  showStatus('success', 'Proposal assigned.');
-  await loadClients();
-  render();
-}
-
-async function handleUnassign(assignmentId) {
-  if (!confirm('Remove this proposal assignment? The proposal itself is not deleted.')) return;
-  const { error } = await supabase
-    .from('client_proposals')
-    .delete()
-    .eq('id', assignmentId);
-  if (error) return showStatus('error', `Could not unassign: ${error.message}`);
-  showStatus('success', 'Unassigned.');
-  await loadClients();
-  render();
-}
-
-async function handleSendLoginLink(client, btn) {
-  btn.disabled = true;
-  const originalText = btn.textContent;
-  btn.textContent = 'Sending…';
-
-  const { error } = await sendMagicLink(client.email, '/client/dashboard.html');
-
-  if (error) {
-    showStatus('error', `Could not send: ${error.message}`);
-    btn.disabled = false;
-    btn.textContent = originalText;
-    return;
-  }
-
-  // Update all client_proposals in status='draft' to 'sent'
-  const draftIds = (client.client_proposals || [])
-    .filter(cp => cp.status === 'draft')
-    .map(cp => cp.id);
-
-  if (draftIds.length > 0) {
-    await supabase
-      .from('client_proposals')
-      .update({ status: 'sent', sent_at: new Date().toISOString() })
-      .in('id', draftIds);
-  }
-
-  showStatus('success', `Login link sent to ${client.email}. They'll receive an email from tim@mcmullen.properties with a sign-in link.`);
-  btn.disabled = false;
-  btn.textContent = 'Resend login link';
-
-  await loadClients();
-  render();
-}
-
-async function handleEditClient(client) {
-  const newNameVal = prompt('Full name:', client.name);
-  if (newNameVal === null) return;
-  const newPhoneVal = prompt('Phone:', client.phone || '');
-  if (newPhoneVal === null) return;
-  const newAddressVal = prompt('Address:', client.address || '');
-  if (newAddressVal === null) return;
-  const newNotesVal = prompt('Notes:', client.notes || '');
-  if (newNotesVal === null) return;
-
-  const { error } = await supabase
-    .from('clients')
-    .update({
-      name: newNameVal.trim() || client.name,
-      phone: newPhoneVal.trim() || null,
-      address: newAddressVal.trim() || null,
-      notes: newNotesVal.trim() || null,
-    })
-    .eq('id', client.id);
-
-  if (error) return showStatus('error', `Could not update: ${error.message}`);
-  showStatus('success', 'Client updated.');
-  await loadClients();
-  render();
-}
-
-async function handleDeleteClient(client) {
-  const count = (client.client_proposals || []).length;
-  const msg = count > 0
-    ? `Remove ${client.name}? This will also unassign ${count} proposal${count === 1 ? '' : 's'}. The proposals themselves won't be deleted. This can't be undone.`
-    : `Remove ${client.name}? This can't be undone.`;
-  if (!confirm(msg)) return;
-
-  const { error } = await supabase
-    .from('clients')
-    .delete()
-    .eq('id', client.id);
-
-  if (error) return showStatus('error', `Could not remove: ${error.message}`);
-  showStatus('success', `Removed ${client.name}.`);
-  ctx.expandedIds.delete(client.id);
-  await loadClients();
-  render();
-}
-
-// ── Utils ──────────────────────────────────────────────────────────────────
-function showStatus(type, msg) {
-  statusBox.className = `status visible ${type}`;
-  statusBox.textContent = msg;
-  statusBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  if (type === 'success') {
-    setTimeout(() => {
-      if (statusBox.textContent === msg) {
-        statusBox.className = 'status';
-        statusBox.textContent = '';
-      }
-    }, 5000);
-  }
-}
-
-function formatDate(iso) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  });
-}
-
-function escapeHtml(str) {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function escapeAttr(str) {
-  return escapeHtml(str);
-}
