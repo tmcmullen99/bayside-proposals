@@ -90,7 +90,7 @@ async function loadProposals() {
         id,
         address,
         created_at,
-        published_proposals (id, slug, created_at)
+        published_proposals (id, slug)
       )
     `)
     .eq('client_id', ctx.client.id)
@@ -212,12 +212,26 @@ signOutBtn.addEventListener('click', async () => {
 });
 
 // ── Slug / address helpers ─────────────────────────────────────────────────
+// Slugs encode publish date + version: "1728-whitham-ave-2026-04-22-3" = v3 on Apr 22.
+function parseSlugSortKey(slug) {
+  if (!slug) return { date: '', version: 0 };
+  const match = String(slug).match(/(\d{4})-(\d{2})-(\d{2})(?:-(\d+))?$/);
+  if (!match) return { date: '', version: 0 };
+  return {
+    date: `${match[1]}-${match[2]}-${match[3]}`,
+    version: parseInt(match[4] || '1', 10),
+  };
+}
+
 function getLatestSlug(proposal) {
   const pubs = proposal?.published_proposals;
   if (!Array.isArray(pubs) || pubs.length === 0) return null;
-  const sorted = [...pubs].sort((a, b) =>
-    new Date(b.created_at || 0) - new Date(a.created_at || 0)
-  );
+  const sorted = [...pubs].sort((a, b) => {
+    const ka = parseSlugSortKey(a.slug);
+    const kb = parseSlugSortKey(b.slug);
+    if (kb.date !== ka.date) return kb.date.localeCompare(ka.date);
+    return kb.version - ka.version;
+  });
   return sorted[0]?.slug || null;
 }
 
