@@ -54,8 +54,8 @@ const ctx = {
 
 async function loadClients() {
   // Load clients with nested client_proposals → proposals → published_proposals.
-  // The slug lives on published_proposals (a given proposal can have many versions);
-  // we pull them all and pick the latest in getLatestSlug().
+  // published_proposals doesn't have created_at, so we pull just (id, slug)
+  // and sort by slug-encoded date+version in getLatestSlug().
   const { data, error } = await supabase
     .from('clients')
     .select(`
@@ -65,7 +65,7 @@ async function loadClients() {
         proposal:proposals!proposal_id (
           id,
           address,
-          published_proposals (id, slug, created_at)
+          published_proposals (id, slug)
         )
       )
     `)
@@ -86,7 +86,7 @@ async function loadAllProposals() {
     .from('proposals')
     .select(`
       id, address, created_at,
-      published_proposals (id, slug, created_at)
+      published_proposals (id, slug)
     `)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -480,13 +480,28 @@ async function handleDeleteClient(client) {
 
 // ── Slug / address helpers ─────────────────────────────────────────────────
 // A proposals row can have many published_proposals (one per publish event).
-// We take the most recent one for "latest published" routing.
+// published_proposals doesn't have created_at, but the slug itself encodes
+// the date and version: "1728-whitham-ave-2026-04-22-3" = April 22, v3.
+// We parse those out to sort reliably, including when version > 9.
+function parseSlugSortKey(slug) {
+  if (!slug) return { date: '', version: 0 };
+  const match = String(slug).match(/(\d{4})-(\d{2})-(\d{2})(?:-(\d+))?$/);
+  if (!match) return { date: '', version: 0 };
+  return {
+    date: `${match[1]}-${match[2]}-${match[3]}`,
+    version: parseInt(match[4] || '1', 10),
+  };
+}
+
 function getLatestSlug(proposal) {
   const pubs = proposal?.published_proposals;
   if (!Array.isArray(pubs) || pubs.length === 0) return null;
-  const sorted = [...pubs].sort((a, b) =>
-    new Date(b.created_at || 0) - new Date(a.created_at || 0)
-  );
+  const sorted = [...pubs].sort((a, b) => {
+    const ka = parseSlugSortKey(a.slug);
+    const kb = parseSlugSortKey(b.slug);
+    if (kb.date !== ka.date) return kb.date.localeCompare(ka.date);
+    return kb.version - ka.version;
+  });
   return sorted[0]?.slug || null;
 }
 
