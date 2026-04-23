@@ -1473,8 +1473,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
          <a href="mailto:${escapeAttr(TIM_EMAIL)}" class="pub-btn pub-btn-call">
            Email Tim · ${escapeHtml(TIM_EMAIL)}
          </a>
-         <a href="${escapeAttr(INSTALL_GUIDE_URL)}" class="pub-btn pub-btn-guide"
-      <a href="${escapeAttr(INSTALL_GUIDE_URL)}" class="pub-btn pub-btn-guide"
+        <a href="${escapeAttr(INSTALL_GUIDE_URL)}" class="pub-btn pub-btn-guide"
         target="_blank" rel="noopener">
         View Installation Guide
       </a>
