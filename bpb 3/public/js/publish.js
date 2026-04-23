@@ -1956,7 +1956,6 @@ function renderPhotosSection(photos) {
     </section>
   `;
 }
-
 function groupPhotosByLocation(photos) {
   const order = ['Front yard', 'Backyard', 'Side yard', 'Full property', 'Other'];
   const groups = {};
