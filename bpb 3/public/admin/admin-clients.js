@@ -1,456 +1,497 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Clients · Bayside Proposal Builder</title>
-  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --green: #5d7e69;
-      --green-dark: #4a6654;
-      --green-soft: #e8eee9;
-      --charcoal: #353535;
-      --tan: #dad7c5;
-      --cream: #faf8f3;
-      --navy: #1a1f2e;
-      --border: #e5e5e5;
-      --muted: #666;
-      --danger: #b04040;
-      --warn-soft: #fff4d4;
-      --warn-text: #7a5a10;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--charcoal);
-      background: #fafafa;
-      line-height: 1.6;
-      font-size: 15px;
-      min-height: 100vh;
-    }
-    a { color: var(--green-dark); }
+// ═══════════════════════════════════════════════════════════════════════════
+// admin-clients.js
+// Admin client management — Tim's interface for managing clients.
+//
+// Auth: requireAdmin() at the top redirects non-admins away.
+//
+// Actions:
+//   - List/search clients (with JOIN to proposal counts)
+//   - Add new client (name, email, phone, address, notes)
+//   - Expand client row → show assigned proposals + assign new one
+//   - Send magic-link invite (Supabase signInWithOtp with client's email)
+//   - Remove client (cascades to client_proposals via FK)
+// ═══════════════════════════════════════════════════════════════════════════
 
-    .admin-header {
-      background: #fff;
-      border-bottom: 1px solid var(--border);
-      padding: 18px 32px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .admin-header h1 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--navy);
-    }
-    .admin-header nav { display: flex; align-items: center; gap: 16px; }
-    .admin-header nav a {
-      font-size: 13px;
-      text-decoration: none;
-      color: var(--muted);
-    }
-    .admin-header nav a:hover { color: var(--green-dark); }
-    .admin-header nav a.active { color: var(--green-dark); font-weight: 600; }
-    .admin-header .signout {
-      font-size: 12px;
-      color: var(--muted);
-      cursor: pointer;
-      background: none;
-      border: none;
-      font-family: inherit;
-      padding: 6px 10px;
-      border-radius: 5px;
-    }
-    .admin-header .signout:hover {
-      background: #f0f0f0;
-      color: var(--navy);
-    }
+import { supabase } from '/js/supabase-client.js';
+import { requireAdmin, sendMagicLink, signOut } from '/js/auth-util.js';
 
-    .shell {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 32px;
-    }
+// DOM
+const loadingState = document.getElementById('loadingState');
+const clientsList = document.getElementById('clientsList');
+const emptyState = document.getElementById('emptyState');
+const searchInput = document.getElementById('searchInput');
+const counter = document.getElementById('counter');
+const statusBox = document.getElementById('status');
+const addClientBtn = document.getElementById('addClientBtn');
+const addForm = document.getElementById('addForm');
+const cancelAddBtn = document.getElementById('cancelAddBtn');
+const saveClientBtn = document.getElementById('saveClientBtn');
+const newName = document.getElementById('newName');
+const newEmail = document.getElementById('newEmail');
+const newPhone = document.getElementById('newPhone');
+const newAddress = document.getElementById('newAddress');
+const newNotes = document.getElementById('newNotes');
+const signOutBtn = document.getElementById('signOutBtn');
 
-    .intro { margin-bottom: 28px; }
-    .eyebrow {
-      font-size: 11px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--green);
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    .intro h2 {
-      font-size: 28px;
-      font-weight: 600;
-      color: var(--navy);
-      margin-bottom: 10px;
-      letter-spacing: -0.01em;
-    }
-    .intro p {
-      color: var(--muted);
-      max-width: 720px;
-      font-size: 15px;
-    }
+// State
+const ctx = {
+  admin: null,
+  clients: [],     // [{ ...client, proposals: [...] }]
+  proposals: [],   // all proposals (for the assign dropdown)
+  expandedIds: new Set(),
+  searchTerm: '',
+};
 
-    .status {
-      padding: 14px 18px;
-      border-radius: 8px;
-      font-size: 14px;
-      margin-bottom: 20px;
-      display: none;
-      line-height: 1.5;
-    }
-    .status.visible { display: block; }
-    .status.success { background: var(--green-soft); color: var(--green-dark); }
-    .status.error { background: #fbe6e6; color: var(--danger); }
-    .status.info { background: #eef3f8; color: #2b4a73; }
+// ── Bootstrap ──────────────────────────────────────────────────────────────
+(async function init() {
+  ctx.admin = await requireAdmin();
+  if (!ctx.admin) return; // redirected
 
-    /* Toolbar */
-    .toolbar {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 18px;
-      flex-wrap: wrap;
-    }
-    .search-input {
-      flex: 1;
-      min-width: 240px;
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      font-family: inherit;
-      font-size: 14px;
-      background: #fff;
-    }
-    .search-input:focus { outline: none; border-color: var(--green); }
-    .counter {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: var(--muted);
-    }
+  await Promise.all([loadClients(), loadAllProposals()]);
+  render();
+  attachEventListeners();
+})();
 
-    .btn {
-      padding: 10px 18px;
-      background: var(--green);
-      color: #fff;
-      border: none;
-      border-radius: 7px;
-      font-family: inherit;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      transition: background 0.15s ease;
-      text-decoration: none;
-      display: inline-block;
-      white-space: nowrap;
-    }
-    .btn:hover { background: var(--green-dark); }
-    .btn:disabled { background: #aaa; cursor: not-allowed; }
-    .btn-secondary {
-      background: #fff;
-      color: var(--charcoal);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover { background: var(--cream); border-color: var(--green); }
-    .btn-small { padding: 7px 12px; font-size: 12px; }
-    .btn-danger {
-      background: #fff;
-      color: var(--danger);
-      border: 1px solid #f0c0c0;
-    }
-    .btn-danger:hover { background: #fbe6e6; }
+async function loadClients() {
+  // Load clients with nested client_proposals (which have nested proposals)
+  const { data, error } = await supabase
+    .from('clients')
+    .select(`
+      id, name, email, phone, address, notes, user_id, created_at,
+      client_proposals (
+        id, status, sent_at, first_viewed_at, signed_at, created_at,
+        proposal:proposals!proposal_id (id, slug, address, client_name)
+      )
+    `)
+    .order('created_at', { ascending: false });
 
-    /* Add client form */
-    .add-form {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 22px 24px;
-      margin-bottom: 18px;
-      display: none;
-    }
-    .add-form.visible { display: block; }
-    .add-form h3 {
-      font-size: 15px;
-      color: var(--navy);
-      margin-bottom: 14px;
-      font-weight: 600;
-    }
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-    .form-row { display: flex; flex-direction: column; gap: 4px; }
-    .form-row.full { grid-column: 1 / -1; }
-    .form-row label {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--charcoal);
-    }
-    .form-row input, .form-row textarea, .form-row select {
-      padding: 9px 11px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 13px;
-      background: #fff;
-    }
-    .form-row input:focus, .form-row textarea:focus, .form-row select:focus {
-      outline: none; border-color: var(--green);
-    }
-    .form-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-    }
+  if (error) {
+    showStatus('error', `Could not load clients: ${error.message}`);
+    ctx.clients = [];
+    return;
+  }
+  ctx.clients = data || [];
+}
 
-    /* Client list */
-    .clients-list {
-      display: grid;
-      gap: 10px;
-    }
-    .client-card {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .client-row {
-      padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      cursor: pointer;
-      transition: background 0.15s ease;
-    }
-    .client-row:hover { background: var(--cream); }
-    .client-info { flex: 1; min-width: 220px; }
-    .client-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--navy);
-      margin-bottom: 2px;
-    }
-    .client-meta {
-      font-size: 12px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .client-badges {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .badge {
-      display: inline-block;
-      padding: 3px 9px;
-      border-radius: 11px;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    .badge.linked { background: var(--green-soft); color: var(--green-dark); }
-    .badge.unlinked { background: #f0f0f0; color: var(--muted); }
-    .badge.proposals { background: #eef3f8; color: #2b4a73; }
+async function loadAllProposals() {
+  // For the "assign proposal" dropdown on each client row
+  const { data, error } = await supabase
+    .from('proposals')
+    .select('id, slug, address, client_name, created_at')
+    .order('created_at', { ascending: false })
+    .limit(200);
 
-    .client-expand {
-      display: none;
-      padding: 18px 24px;
-      border-top: 1px solid var(--border);
-      background: #fcfcfc;
-    }
-    .client-card.expanded .client-expand { display: block; }
-    .client-card.expanded .client-chevron { transform: rotate(90deg); }
-    .client-chevron {
-      color: var(--muted);
-      font-size: 16px;
-      transition: transform 0.15s ease;
-      width: 18px;
-      text-align: center;
-    }
+  if (error) {
+    console.error('Could not load proposals:', error);
+    ctx.proposals = [];
+    return;
+  }
+  ctx.proposals = data || [];
+}
 
-    .expand-section { margin-bottom: 18px; }
-    .expand-section:last-child { margin-bottom: 0; }
-    .expand-section h4 {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--muted);
-      margin-bottom: 10px;
-      font-weight: 600;
-    }
+function attachEventListeners() {
+  searchInput.addEventListener('input', (e) => {
+    ctx.searchTerm = e.target.value.trim().toLowerCase();
+    render();
+  });
 
-    .proposal-row {
-      padding: 10px 12px;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      margin-bottom: 6px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      flex-wrap: wrap;
-    }
-    .proposal-row-info { flex: 1; min-width: 180px; }
-    .proposal-row-address {
-      font-weight: 600;
-      color: var(--navy);
-      margin-bottom: 2px;
-    }
-    .proposal-row-meta {
-      font-size: 11px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-    }
+  addClientBtn.addEventListener('click', () => {
+    addForm.classList.add('visible');
+    newName.focus();
+  });
+  cancelAddBtn.addEventListener('click', () => {
+    addForm.classList.remove('visible');
+    clearAddForm();
+  });
+  saveClientBtn.addEventListener('click', handleAddClient);
 
-    .assign-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      padding: 10px;
-      background: var(--cream);
-      border-radius: 7px;
-    }
-    .assign-row select {
-      flex: 1;
-      padding: 8px 10px;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      font-family: inherit;
-      font-size: 13px;
-      background: #fff;
-    }
+  signOutBtn.addEventListener('click', signOut);
+}
 
-    .actions-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  loadingState.style.display = 'none';
 
-    /* Loading */
-    .loading {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--muted);
-    }
-    .loading-spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid var(--border);
-      border-top-color: var(--green);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 12px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+  const visible = ctx.searchTerm
+    ? ctx.clients.filter(c => {
+        const haystack = [c.name, c.email, c.phone, c.address, c.notes]
+          .filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(ctx.searchTerm);
+      })
+    : ctx.clients;
 
-    .empty {
-      background: #fff;
-      border: 1px dashed var(--border);
-      border-radius: 10px;
-      padding: 40px 20px;
-      text-align: center;
-      color: var(--muted);
-    }
-    .empty-icon { font-size: 32px; margin-bottom: 10px; line-height: 1; }
-    .empty h3 { color: var(--navy); font-size: 16px; margin-bottom: 6px; font-weight: 600; }
-    .empty p { font-size: 13px; }
-  </style>
-</head>
-<body>
+  counter.textContent = `${visible.length} of ${ctx.clients.length} clients`;
 
-<header class="admin-header">
-  <h1>Bayside Proposal Builder · Admin</h1>
-  <nav>
-    <a href="/admin/index.html">Dashboard</a>
-    <a href="/admin/clients.html" class="active">Clients</a>
-    <a href="/admin/belgard-sync.html">Catalog sync</a>
-    <a href="/admin/material-swatches-bulk.html">Swatches</a>
-    <a href="/">← Back to editor</a>
-    <button class="signout" id="signOutBtn" title="Sign out">Sign out</button>
-  </nav>
-</header>
+  if (ctx.clients.length === 0) {
+    emptyState.style.display = 'block';
+    clientsList.style.display = 'none';
+    return;
+  }
 
-<main class="shell">
-  <div class="intro">
-    <div class="eyebrow">Admin · Client Platform</div>
-    <h2>Clients</h2>
-    <p>
-      Manage homeowner client accounts. Each client can have one or more proposals
-      assigned to them. Click <strong>Send login link</strong> to email a magic-link
-      invitation — once they log in, they'll see their assigned proposals in the
-      client portal.
-    </p>
-  </div>
+  emptyState.style.display = 'none';
+  clientsList.style.display = 'grid';
+  clientsList.innerHTML = visible.map(renderClientCard).join('');
 
-  <div id="status" class="status"></div>
+  // Wire up per-card handlers
+  visible.forEach(c => {
+    wireCardHandlers(c);
+  });
+}
 
-  <div class="toolbar">
-    <input type="search" id="searchInput" class="search-input" placeholder="Search by name, email, address…">
-    <span class="counter" id="counter">—</span>
-    <button class="btn" id="addClientBtn">+ Add client</button>
-  </div>
+function renderClientCard(client) {
+  const isExpanded = ctx.expandedIds.has(client.id);
+  const linkedBadge = client.user_id
+    ? '<span class="badge linked">Logged in</span>'
+    : '<span class="badge unlinked">Not yet logged in</span>';
 
-  <div id="addForm" class="add-form">
-    <h3>Add a new client</h3>
-    <div class="form-grid">
-      <div class="form-row">
-        <label for="newName">Full name *</label>
-        <input type="text" id="newName" placeholder="Jane Homeowner">
+  const proposalCount = (client.client_proposals || []).length;
+  const proposalBadge = proposalCount > 0
+    ? `<span class="badge proposals">${proposalCount} proposal${proposalCount === 1 ? '' : 's'}</span>`
+    : '';
+
+  return `
+    <div class="client-card ${isExpanded ? 'expanded' : ''}" data-client-id="${client.id}">
+      <div class="client-row">
+        <div class="client-info">
+          <div class="client-name">${escapeHtml(client.name)}</div>
+          <div class="client-meta">
+            <span>${escapeHtml(client.email)}</span>
+            ${client.phone ? `<span>${escapeHtml(client.phone)}</span>` : ''}
+            ${client.address ? `<span>${escapeHtml(client.address)}</span>` : ''}
+          </div>
+        </div>
+        <div class="client-badges">
+          ${linkedBadge}
+          ${proposalBadge}
+          <span class="client-chevron">›</span>
+        </div>
       </div>
-      <div class="form-row">
-        <label for="newEmail">Email *</label>
-        <input type="email" id="newEmail" placeholder="jane@example.com">
-      </div>
-      <div class="form-row">
-        <label for="newPhone">Phone</label>
-        <input type="tel" id="newPhone" placeholder="(408) 555-1212">
-      </div>
-      <div class="form-row">
-        <label for="newAddress">Project address</label>
-        <input type="text" id="newAddress" placeholder="762 El Sombroso, Los Gatos CA">
-      </div>
-      <div class="form-row full">
-        <label for="newNotes">Notes (internal)</label>
-        <textarea id="newNotes" rows="2" placeholder="Anything worth remembering about this client…"></textarea>
+      <div class="client-expand">
+        ${renderClientExpand(client)}
       </div>
     </div>
-    <div class="form-actions">
-      <button class="btn btn-secondary" id="cancelAddBtn">Cancel</button>
-      <button class="btn" id="saveClientBtn">Save client</button>
+  `;
+}
+
+function renderClientExpand(client) {
+  const assignments = client.client_proposals || [];
+  const assignedProposalIds = new Set(
+    assignments.map(a => a.proposal?.id).filter(Boolean)
+  );
+  const unassignedProposals = ctx.proposals.filter(p => !assignedProposalIds.has(p.id));
+
+  return `
+    <div class="expand-section">
+      <h4>Assigned Proposals</h4>
+      ${assignments.length === 0 ? `
+        <div style="color:var(--muted); font-size:13px; padding:8px 0;">
+          No proposals assigned yet.
+        </div>
+      ` : assignments.map(a => renderAssignedProposal(a)).join('')}
     </div>
-  </div>
 
-  <div id="loadingState" class="loading">
-    <div class="loading-spinner"></div>
-    <div>Loading clients…</div>
-  </div>
+    <div class="expand-section">
+      <h4>Assign a Proposal</h4>
+      <div class="assign-row">
+        <select class="assign-select" data-client-id="${client.id}">
+          <option value="">Select an existing proposal…</option>
+          ${unassignedProposals.map(p => `
+            <option value="${escapeAttr(p.id)}">
+              ${escapeHtml(p.address || p.slug || 'Untitled')}${p.client_name ? ` — ${escapeHtml(p.client_name)}` : ''}
+            </option>
+          `).join('')}
+        </select>
+        <button class="btn btn-small assign-btn" data-client-id="${client.id}">Assign</button>
+      </div>
+      ${unassignedProposals.length === 0 ? `
+        <div style="color:var(--muted); font-size:12px; margin-top:6px;">
+          All proposals are already assigned. Create a new proposal in the editor first.
+        </div>
+      ` : ''}
+    </div>
 
-  <div id="clientsList" class="clients-list" style="display:none;"></div>
+    <div class="expand-section">
+      <h4>Client Actions</h4>
+      <div class="actions-row">
+        <button class="btn btn-small send-link-btn" data-client-id="${client.id}" data-email="${escapeAttr(client.email)}">
+          ${client.user_id ? 'Resend login link' : 'Send login link'}
+        </button>
+        <button class="btn btn-small btn-secondary edit-btn" data-client-id="${client.id}">
+          Edit client
+        </button>
+        <button class="btn btn-small btn-danger delete-btn" data-client-id="${client.id}">
+          Remove client
+        </button>
+      </div>
+      ${client.notes ? `
+        <div style="margin-top:12px; padding:10px 12px; background:#fff; border:1px solid var(--border); border-radius:6px; font-size:12px; color:var(--muted);">
+          <strong style="color:var(--navy);">Notes:</strong> ${escapeHtml(client.notes)}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
 
-  <div id="emptyState" class="empty" style="display:none;">
-    <div class="empty-icon">👤</div>
-    <h3>No clients yet</h3>
-    <p>Click "+ Add client" above to create your first client account.</p>
-  </div>
-</main>
+function renderAssignedProposal(a) {
+  const p = a.proposal;
+  if (!p) return '';
+  const statusLabel = {
+    draft: 'Draft', sent: 'Sent', viewed: 'Viewed',
+    signed: 'Signed', in_progress: 'In Progress', complete: 'Complete',
+  }[a.status] || a.status;
 
-<script type="module" src="/admin/admin-clients.js"></script>
+  return `
+    <div class="proposal-row">
+      <div class="proposal-row-info">
+        <div class="proposal-row-address">${escapeHtml(p.address || p.slug)}</div>
+        <div class="proposal-row-meta">
+          ${escapeHtml(statusLabel)}
+          ${a.sent_at ? ` · Sent ${formatDate(a.sent_at)}` : ''}
+          ${a.first_viewed_at ? ` · Viewed ${formatDate(a.first_viewed_at)}` : ''}
+        </div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <a class="btn btn-small btn-secondary" href="/p/${escapeAttr(p.slug)}" target="_blank" rel="noopener">View</a>
+        <button class="btn btn-small btn-danger unassign-btn" data-assignment-id="${escapeAttr(a.id)}">Unassign</button>
+      </div>
+    </div>
+  `;
+}
 
-</body>
-</html>
+// ── Event wiring (per-card, after render) ──────────────────────────────────
+function wireCardHandlers(client) {
+  const card = clientsList.querySelector(`[data-client-id="${client.id}"]`);
+  if (!card) return;
+
+  // Toggle expand on row click (but not when clicking buttons/links/selects)
+  card.querySelector('.client-row').addEventListener('click', (e) => {
+    if (e.target.closest('button, select, a, input, textarea')) return;
+    if (ctx.expandedIds.has(client.id)) {
+      ctx.expandedIds.delete(client.id);
+    } else {
+      ctx.expandedIds.add(client.id);
+    }
+    card.classList.toggle('expanded');
+  });
+
+  // Assign
+  card.querySelector('.assign-btn')?.addEventListener('click', async () => {
+    const sel = card.querySelector('.assign-select');
+    const proposalId = sel.value;
+    if (!proposalId) return;
+    await handleAssignProposal(client.id, proposalId);
+  });
+
+  // Send login link
+  card.querySelector('.send-link-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    await handleSendLoginLink(client, btn);
+  });
+
+  // Edit
+  card.querySelector('.edit-btn')?.addEventListener('click', () => {
+    handleEditClient(client);
+  });
+
+  // Delete
+  card.querySelector('.delete-btn')?.addEventListener('click', () => {
+    handleDeleteClient(client);
+  });
+
+  // Unassign individual proposals
+  card.querySelectorAll('.unassign-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const assignmentId = e.currentTarget.dataset.assignmentId;
+      await handleUnassign(assignmentId);
+    });
+  });
+}
+
+// ── Actions ────────────────────────────────────────────────────────────────
+async function handleAddClient() {
+  const name = newName.value.trim();
+  const email = newEmail.value.trim().toLowerCase();
+  const phone = newPhone.value.trim();
+  const address = newAddress.value.trim();
+  const notes = newNotes.value.trim();
+
+  if (!name) return showStatus('error', 'Name is required.');
+  if (!email || !email.includes('@')) return showStatus('error', 'Valid email is required.');
+
+  saveClientBtn.disabled = true;
+
+  const { error } = await supabase
+    .from('clients')
+    .insert({
+      name, email, phone: phone || null,
+      address: address || null,
+      notes: notes || null,
+      created_by: ctx.admin.id,
+    });
+
+  saveClientBtn.disabled = false;
+
+  if (error) {
+    if (error.code === '23505') {
+      return showStatus('error', `A client with email "${email}" already exists.`);
+    }
+    return showStatus('error', `Could not save: ${error.message}`);
+  }
+
+  addForm.classList.remove('visible');
+  clearAddForm();
+  showStatus('success', `Added ${name}. Click their row to expand, then "Send login link" to invite them.`);
+  await loadClients();
+  render();
+}
+
+function clearAddForm() {
+  newName.value = '';
+  newEmail.value = '';
+  newPhone.value = '';
+  newAddress.value = '';
+  newNotes.value = '';
+}
+
+async function handleAssignProposal(clientId, proposalId) {
+  const { error } = await supabase
+    .from('client_proposals')
+    .insert({
+      client_id: clientId,
+      proposal_id: proposalId,
+      status: 'draft',
+    });
+  if (error) {
+    if (error.code === '23505') {
+      return showStatus('error', 'That proposal is already assigned to this client.');
+    }
+    return showStatus('error', `Could not assign: ${error.message}`);
+  }
+  showStatus('success', 'Proposal assigned.');
+  await loadClients();
+  render();
+}
+
+async function handleUnassign(assignmentId) {
+  if (!confirm('Remove this proposal assignment? The proposal itself is not deleted.')) return;
+  const { error } = await supabase
+    .from('client_proposals')
+    .delete()
+    .eq('id', assignmentId);
+  if (error) return showStatus('error', `Could not unassign: ${error.message}`);
+  showStatus('success', 'Unassigned.');
+  await loadClients();
+  render();
+}
+
+async function handleSendLoginLink(client, btn) {
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Sending…';
+
+  const { error } = await sendMagicLink(client.email, '/client/dashboard.html');
+
+  if (error) {
+    showStatus('error', `Could not send: ${error.message}`);
+    btn.disabled = false;
+    btn.textContent = originalText;
+    return;
+  }
+
+  // Update all client_proposals in status='draft' to 'sent'
+  const draftIds = (client.client_proposals || [])
+    .filter(cp => cp.status === 'draft')
+    .map(cp => cp.id);
+
+  if (draftIds.length > 0) {
+    await supabase
+      .from('client_proposals')
+      .update({ status: 'sent', sent_at: new Date().toISOString() })
+      .in('id', draftIds);
+  }
+
+  showStatus('success', `Login link sent to ${client.email}. They'll receive an email from tim@mcmullen.properties with a sign-in link.`);
+  btn.disabled = false;
+  btn.textContent = 'Resend login link';
+
+  await loadClients();
+  render();
+}
+
+async function handleEditClient(client) {
+  const newNameVal = prompt('Full name:', client.name);
+  if (newNameVal === null) return;
+  const newPhoneVal = prompt('Phone:', client.phone || '');
+  if (newPhoneVal === null) return;
+  const newAddressVal = prompt('Address:', client.address || '');
+  if (newAddressVal === null) return;
+  const newNotesVal = prompt('Notes:', client.notes || '');
+  if (newNotesVal === null) return;
+
+  const { error } = await supabase
+    .from('clients')
+    .update({
+      name: newNameVal.trim() || client.name,
+      phone: newPhoneVal.trim() || null,
+      address: newAddressVal.trim() || null,
+      notes: newNotesVal.trim() || null,
+    })
+    .eq('id', client.id);
+
+  if (error) return showStatus('error', `Could not update: ${error.message}`);
+  showStatus('success', 'Client updated.');
+  await loadClients();
+  render();
+}
+
+async function handleDeleteClient(client) {
+  const count = (client.client_proposals || []).length;
+  const msg = count > 0
+    ? `Remove ${client.name}? This will also unassign ${count} proposal${count === 1 ? '' : 's'}. The proposals themselves won't be deleted. This can't be undone.`
+    : `Remove ${client.name}? This can't be undone.`;
+  if (!confirm(msg)) return;
+
+  const { error } = await supabase
+    .from('clients')
+    .delete()
+    .eq('id', client.id);
+
+  if (error) return showStatus('error', `Could not remove: ${error.message}`);
+  showStatus('success', `Removed ${client.name}.`);
+  ctx.expandedIds.delete(client.id);
+  await loadClients();
+  render();
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function showStatus(type, msg) {
+  statusBox.className = `status visible ${type}`;
+  statusBox.textContent = msg;
+  statusBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (type === 'success') {
+    setTimeout(() => {
+      if (statusBox.textContent === msg) {
+        statusBox.className = 'status';
+        statusBox.textContent = '';
+      }
+    }, 5000);
+  }
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
+}
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str);
+}
