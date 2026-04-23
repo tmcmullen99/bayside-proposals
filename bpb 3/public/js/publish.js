@@ -49,6 +49,29 @@
 //      narrative) fall through to plain body text — no type chip, no attrs.
 //      See parseLineItem + formatLineItemsHtml.
 //
+//   6. [Sprint 3 Part F] Property photos section split into TWO top-level
+//      sections on the published page — "Current site conditions" (04)
+//      and "Design renderings" (05). Sprint 3F partitioned on
+//      extraction_source as a proxy, which assumed PDF-extracted images
+//      were always renderings and manual uploads were always photos.
+//
+//   7. [Sprint 3 Part G] Photo classification is now user-controlled via
+//      the new proposal_images.display_section column (migration 015).
+//      Each image is tagged 'current_photo', 'design_rendering', or
+//      'hidden' from a dropdown in Section 05 of the BPB editor. This
+//      replaces the extraction_source proxy from Sprint 3F — because a
+//      bid PDF can contain real current-condition photos, and a manual
+//      upload can be a SketchUp screenshot, the old partition inverted
+//      for proposals like Parag's 88 Prospect. Legacy rows with null
+//      display_section fall back to the Sprint 3F logic so nothing
+//      disappears silently during the migration rollout.
+//
+//      Mobile spacing on scope line items also improved in this sprint:
+//      non-structured line items now stack vertically on narrow viewports
+//      (<640px) so the TYPE chip and body text each get full width
+//      instead of the body being compressed into a narrow right column
+//      next to a wide empty left column.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
@@ -1420,9 +1443,40 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     .pub-loom { padding: 0 20px; margin-top: 48px; }
     .pub-scope-item { grid-template-columns: 1fr; gap: 12px; }
     .pub-scope-item-amount { font-size: 18px; }
-    .pub-line-item { padding: 10px 12px; }
-    .pub-line-item--structured { padding: 12px 14px; }
-    .pub-line-item-attrs { gap: 4px 14px; }
+
+    /* Sprint 3G — mobile scope line-item layout fix.
+       Previously the non-structured line items used row flex with a
+       nowrap type chip, which compressed the body text into a narrow
+       right strip next to a wide empty column. Stack vertically on
+       mobile so chip + body each get full width and remain readable. */
+    .pub-line-item {
+      padding: 14px 16px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .pub-line-item-body {
+      width: 100%;
+    }
+    .pub-line-item--structured {
+      padding: 14px 16px;
+      gap: 10px;
+    }
+    .pub-line-item-head {
+      gap: 8px;
+    }
+    .pub-line-item-name {
+      font-size: 15px;
+      line-height: 1.35;
+    }
+    .pub-line-item-attrs {
+      flex-direction: column;
+      gap: 4px;
+    }
+    .pub-line-item-attr {
+      font-size: 13px;
+    }
+
     .pub-footer-ctas { padding: 64px 20px; }
     .pub-materials-group-header {
       flex-direction: column;
@@ -1934,21 +1988,26 @@ function renderHardcodedPrepCards() {
 function renderPhotosSection(photos) {
   if (!photos.length) return '';
 
-  // Sprint 3 Part F — two-section split.
+  // Sprint 3G — partition on display_section (user-controlled classifier).
   //
-  // Real client photos and PDF-extracted design renderings are visually
-  // different content and deserve their own framed sections. We partition
-  // on extraction_source:
-  //   • manual_upload  → "Current site conditions" (numbered 04)
-  //   • bid_pdf_extract → "Design renderings"       (numbered 05)
-  //   • anything else   → HIDDEN (safest default — belongs to Sprint 5
-  //     data-hygiene cleanup with a manual "show/hide" toggle in Section 05)
-  //
-  // Within each section, we preserve the existing location_tag grouping
-  // (Front yard / Backyard / Side yard / Full property / Other) so multi-
-  // zone properties still read cleanly.
-  const currentPhotos = photos.filter(p => p.extraction_source === 'manual_upload');
-  const renderings = photos.filter(p => p.extraction_source === 'bid_pdf_extract');
+  // display_section is set per-image in Section 05 of the BPB editor and
+  // is migrated from extraction_source by 015_display_section.sql. For
+  // rows that somehow still have null display_section (pre-migration,
+  // constraint edge case, or RLS block on UPDATE during backfill), fall
+  // back to the old extraction_source heuristic so nothing ever goes
+  // missing silently.
+  const classify = (p) => {
+    if (p.display_section === 'hidden') return 'hidden';
+    if (p.display_section === 'current_photo') return 'current';
+    if (p.display_section === 'design_rendering') return 'rendering';
+    // Fallback for unmigrated rows — mirrors Sprint 3F behavior.
+    if (p.extraction_source === 'manual_upload') return 'current';
+    if (p.extraction_source === 'bid_pdf_extract') return 'rendering';
+    return 'hidden';
+  };
+
+  const currentPhotos = photos.filter(p => classify(p) === 'current');
+  const renderings    = photos.filter(p => classify(p) === 'rendering');
 
   const currentHtml = renderPhotosBlock(
     currentPhotos,
