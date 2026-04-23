@@ -1958,13 +1958,23 @@ function extractMaterialInfo(m, categoryToSection) {
   }
   if (m.material_source === 'third_party' && m.third_party_material) {
     const tp = m.third_party_material;
+
+    // Sprint 3I — for Tru-Scapes, the single client-facing PDF IS the cut
+    // sheet (no separate install guide document). Route it to the cut sheet
+    // slot so the card renders "View cut sheet" instead of "See installation".
+    // Detection reuses TRU_SCAPES_PATTERN from the install-guide router so
+    // both places stay in sync.
+    const resolvedUrl = resolveThirdPartyInstallUrl(tp);
+    const haystack = `${tp.manufacturer || ''} ${tp.product_name || ''} ${tp.category || ''}`;
+    const isTruScapes = TRU_SCAPES_PATTERN.test(haystack);
+
     return {
       name: tp.product_name || 'Third-party product',
       imageUrl: tp.primary_image_url
         || tp.image_url
         || '',
-      cutSheetUrl: tp.cut_sheet_url || '',
-      installGuideUrl: resolveThirdPartyInstallUrl(tp),
+      cutSheetUrl: tp.cut_sheet_url || (isTruScapes ? resolvedUrl : ''),
+      installGuideUrl: isTruScapes ? '' : resolvedUrl,
     };
   }
   return { name: 'Material', imageUrl: '', cutSheetUrl: '', installGuideUrl: '' };
