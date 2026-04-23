@@ -23,14 +23,40 @@
 //        category isn't mapped (preserves prior behavior — no regressions
 //        for materials without section linkage).
 //
+//   3. [Sprint 3 Part C] "Why preparation matters" now also renders
+//      non-Belgard standards cards when the proposal contains turf or
+//      Tru-Scapes lighting, detected via pattern match on
+//      proposal_sections.line_items and the third-party materials tray.
+//      Content is hardcoded in renderThirdPartyPrepCards; when the
+//      installation_guide_sections schema is extended to cover non-Belgard
+//      categories, this will migrate to a data-driven query.
+//
+//   4. [Sprint 3 Part D] Construction drawing picker + featured page
+//      section. Admin selects one image from proposal_images as the
+//      "construction drawing" (stored as proposals.construction_drawing_url,
+//      added in migration 014); it renders as its own framed full-width
+//      section on the published page between the Loom embed and Scope.
+//
+//   5. [Sprint 3 Part D] Scope line items now render as STRUCTURED blocks
+//      instead of one middle-dot-joined paragraph. Each entry in the
+//      line_items array becomes its own card with:
+//        • a small TYPE chip (extracted from ALL-CAPS "PAVER:" / "TURF:" /
+//          etc. prefixes — 2+ chars, colon-terminated)
+//        • a material-name heading (first pipe-delimited segment)
+//        • a row of Pattern / Color / Part Number attributes (remaining
+//          pipe-delimited "KEY: VALUE" pairs)
+//      Lines without that structure (construction notes, lowercase-prefixed
+//      narrative) fall through to plain body text — no type chip, no attrs.
+//      See parseLineItem + formatLineItemsHtml.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
 //   • Materials grouped by application_area with 4:3 aspect cards
 //   • Cut sheet + install guide action buttons on each card
 //   • Publish / slug / history infrastructure
-//   • Section order: header → hero → loom → 01 scope → 02 materials
-//     → 03 why prep → 04 photos → footer CTAs
+//   • Section order: header → hero → loom → 01 drawing → 02 scope
+//     → 03 materials → 04 why prep → 05 photos → footer CTAs
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase-client.js';
@@ -44,6 +70,13 @@ const INSTALL_GUIDE_URL = 'https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf
 // its pagination is what installation_guide_sections.page_start references.
 const BELGARD_MASTER_INSTALL_GUIDE_URL = 'https://www.belgard.com/wp-content/uploads/2025/05/Product-Installation-Guide_WEB_BEL24-D-298050.pdf';
 
+// Third-party install / product guide URLs — referenced from the dynamic
+// "Why preparation matters" cards when the proposal uses turf or Tru-Scapes
+// lighting. Keep these here rather than in-line so Tim can swap the hosting
+// location (Webflow CDN, Supabase Storage, manufacturer URL) in one place.
+const EVERGRASS_INSTALL_GUIDE_URL = 'https://cdn.msisurfaces.com/files/flyers/evergrass-artificial-turf-pavers.pdf';
+const TRU_SCAPES_PRODUCT_GUIDE_URL = 'https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69e99762031d43f432f14cde_Tru%20Scapes-compressed.pdf';
+
 const BAYSIDE_LOGO_URL = 'https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69a04f4369bc9cc20b8d2155_BaysidePavers_original%20(2)%20(1).png';
 const TIM_PHONE = '408-313-1301';
 const TIM_PHONE_HREF = '+14083131301';
@@ -52,7 +85,7 @@ const BUCKET = 'proposal-photos';
 let proposalId = null;
 let container = null;
 let onSaveCb = null;
-let currentData = null; // { proposal, sections, materials, photos, heroCandidates, history, installSections, categoryToSection }
+let currentData = null; // { proposal, sections, materials, photos, heroCandidates, drawingCandidates, history, installSections, categoryToSection }
 
 // ───────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -75,7 +108,12 @@ async function reload() {
   // heroCandidates query: all property_condition images (extracted + manual),
   // since those are the viable hero sources. Small bid_pdf_asset images are
   // excluded to keep the picker grid readable.
-  const [proposalQ, sectionsQ, materialsQ, photosQ, heroCandidatesQ, historyQ] = await Promise.all([
+  //
+  // drawingCandidates query: ALL proposal_images for this proposal, regardless
+  // of category. The construction drawing can come from a PDF extraction
+  // (bid_pdf_asset) OR a manual upload in any category, so we don't filter —
+  // we just present everything sorted with extracted-images first, then uploads.
+  const [proposalQ, sectionsQ, materialsQ, photosQ, heroCandidatesQ, drawingCandidatesQ, historyQ] = await Promise.all([
     supabase.from('proposals').select('*').eq('id', proposalId).single(),
     supabase.from('proposal_sections').select('*').eq('proposal_id', proposalId)
       .order('display_order', { ascending: true }),
@@ -87,12 +125,15 @@ async function reload() {
     supabase.from('proposal_images').select('*').eq('proposal_id', proposalId)
       .eq('category', 'property_condition')
       .order('width', { ascending: false, nullsFirst: false }),
+    supabase.from('proposal_images').select('*').eq('proposal_id', proposalId)
+      .order('extraction_source', { ascending: true })
+      .order('source_page', { ascending: true, nullsFirst: false }),
     supabase.from('published_proposals').select('id, slug, title, published_at')
       .eq('proposal_id', proposalId).order('published_at', { ascending: false }),
   ]);
 
   const err = proposalQ.error || sectionsQ.error || materialsQ.error
-    || photosQ.error || heroCandidatesQ.error || historyQ.error;
+    || photosQ.error || heroCandidatesQ.error || drawingCandidatesQ.error || historyQ.error;
   if (err) {
     setStatus('');
     showError('Could not load data: ' + err.message);
@@ -149,6 +190,7 @@ async function reload() {
     materials,
     photos: photosQ.data || [],
     heroCandidates: heroCandidatesQ.data || [],
+    drawingCandidates: drawingCandidatesQ.data || [],
     history: historyQ.data || [],
     installSections,
     categoryToSection,
@@ -341,6 +383,19 @@ function renderShell() {
         <div id="bpHeroPickerGrid"></div>
       </div>
 
+      <div class="bp-hero-picker-section" id="bpDrawingPickerSection">
+        <div class="bp-hero-picker-header">
+          <span class="bp-hero-picker-label">Construction drawing</span>
+          <span class="bp-hero-picker-count" id="bpDrawingCount"></span>
+        </div>
+        <p class="bp-hero-picker-hint">
+          Click any image to feature it as the project's construction drawing — it renders
+          in its own framed section between the hero and the scope of work on the published page.
+          Pulls from every image attached to this proposal (extracted + uploaded).
+        </p>
+        <div id="bpDrawingPickerGrid"></div>
+      </div>
+
       <div class="bp-publish-loom-row">
         <label class="bp-publish-loom-label">
           Loom walkthrough URL
@@ -413,6 +468,7 @@ function renderBody() {
     `${origin}/p/${nextSlug}`;
 
   renderHeroPicker();
+  renderDrawingPicker();
   renderHistory(history, origin);
   renderPreview();
 }
@@ -485,6 +541,84 @@ async function setHero(url) {
 
   if (currentData) currentData.proposal.hero_image_url = url || null;
   renderHeroPicker();
+  renderPreview();
+  onSaveCb();
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Construction drawing picker (Sprint 3 Part D)
+//
+// Identical pattern to the hero picker, but backed by a separate DB column
+// (proposals.construction_drawing_url, added in migration 014). Pulls from
+// ALL proposal_images — the drawing can be extracted from the bid PDF or
+// uploaded manually in any category, so we don't filter at the query level.
+// ───────────────────────────────────────────────────────────────────────────
+function renderDrawingPicker() {
+  const { drawingCandidates, proposal } = currentData;
+  const grid = document.getElementById('bpDrawingPickerGrid');
+  const count = document.getElementById('bpDrawingCount');
+
+  const drawingUrl = proposal.construction_drawing_url || null;
+
+  count.textContent = drawingCandidates.length > 0
+    ? `${drawingCandidates.length} image${drawingCandidates.length === 1 ? '' : 's'} available`
+    : '';
+
+  if (drawingCandidates.length === 0) {
+    grid.innerHTML = `
+      <div class="bp-hero-picker-empty">
+        <strong>No images yet.</strong><br>
+        Commit a bid PDF in Section 02 to auto-extract images, or upload photos in Section 05.
+      </div>
+    `;
+    return;
+  }
+
+  const items = drawingCandidates.map(img => {
+    const thumb = img.thumbnail_path ? publicUrl(img.thumbnail_path) : publicUrl(img.storage_path);
+    const full = publicUrl(img.storage_path);
+    const isSelected = drawingUrl && full === drawingUrl;
+    const sourceBadge = img.extraction_source === 'bid_pdf_extract'
+      ? `<div class="bp-hero-picker-source">PDF${img.source_page ? ' p.' + img.source_page : ''}</div>`
+      : `<div class="bp-hero-picker-source">Uploaded</div>`;
+
+    return `
+      <div class="bp-hero-picker-item ${isSelected ? 'is-selected' : ''}"
+           data-url="${escapeAttr(full)}">
+        <img src="${escapeAttr(thumb)}" alt="" loading="lazy">
+        ${isSelected ? `<div class="bp-hero-picker-badge">Drawing</div>` : ''}
+        ${sourceBadge}
+      </div>
+    `;
+  }).join('');
+
+  const clearBtn = drawingUrl
+    ? `<button type="button" class="bp-hero-picker-clear" id="bpDrawingClear">Clear drawing selection</button>`
+    : '';
+
+  grid.innerHTML = `<div class="bp-hero-picker-grid">${items}</div>${clearBtn}`;
+
+  grid.querySelectorAll('.bp-hero-picker-item').forEach(el => {
+    el.addEventListener('click', () => setDrawing(el.dataset.url));
+  });
+
+  const clearEl = grid.querySelector('#bpDrawingClear');
+  if (clearEl) clearEl.addEventListener('click', () => setDrawing(null));
+}
+
+async function setDrawing(url) {
+  const { error } = await supabase
+    .from('proposals')
+    .update({ construction_drawing_url: url || null })
+    .eq('id', proposalId);
+
+  if (error) {
+    showError(`Could not set construction drawing: ${error.message}`);
+    return;
+  }
+
+  if (currentData) currentData.proposal.construction_drawing_url = url || null;
+  renderDrawingPicker();
   renderPreview();
   onSaveCb();
 }
@@ -645,10 +779,11 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   const dateStr = formatDate(new Date());
   const loomEmbed = buildLoomEmbed(proposal.loom_url);
   const heroBanner = buildHeroBanner(proposal.hero_image_url);
+  const drawingSection = buildDrawingSection(proposal.construction_drawing_url);
 
   const scopeHtml = renderScopeSection(sections, proposal.bid_total_amount);
   const materialsHtml = renderMaterialsSection(materials, categoryToSection);
-  const whyPrepHtml = renderWhyPrepSection(installSections);
+  const whyPrepHtml = renderWhyPrepSection(installSections, sections, materials);
   const photosHtml = renderPhotosSection(photos);
 
   return `<!DOCTYPE html>
@@ -806,6 +941,51 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     max-width: 640px;
   }
 
+  /* ═════════ Construction drawing ═════════ */
+  .pub-drawing {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+  }
+  .pub-drawing-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 88px 32px 64px;
+  }
+  .pub-drawing-frame {
+    background: var(--cream);
+    border-radius: 12px;
+    padding: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+    margin-top: 8px;
+  }
+  .pub-drawing-link {
+    display: block;
+    width: 100%;
+    text-align: center;
+    line-height: 0;
+  }
+  .pub-drawing-img {
+    max-width: 100%;
+    max-height: 720px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    border-radius: 4px;
+    cursor: zoom-in;
+    transition: transform 0.2s ease;
+  }
+  .pub-drawing-img:hover { transform: scale(1.01); }
+  .pub-drawing-caption {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
   /* ═════════ Scope of Work ═════════ */
   .pub-scope-list { list-style: none; }
   .pub-scope-item {
@@ -816,16 +996,12 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     gap: 32px;
     align-items: start;
   }
+  .pub-scope-item-body { min-width: 0; }
   .pub-scope-item-name {
     font-size: 19px;
     font-weight: 600;
-    margin-bottom: 10px;
+    margin-bottom: 14px;
     color: var(--navy);
-  }
-  .pub-scope-item-detail {
-    color: var(--muted);
-    font-size: 15px;
-    line-height: 1.7;
   }
   .pub-scope-item-amount {
     font-weight: 600;
@@ -843,6 +1019,87 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     font-weight: 700;
     color: var(--navy);
     border-top: 2px solid var(--charcoal);
+  }
+
+  /* Structured per-material line items inside each scope section (Sprint 3D).
+     Replaces the prior middle-dot-joined paragraph. Each entry in
+     proposal_sections.line_items renders as its own small card — either a
+     structured block with a TYPE chip + name + attribute row, or a plain
+     body line for construction notes without structure. */
+  .pub-line-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .pub-line-item {
+    padding: 12px 16px;
+    background: var(--cream);
+    border-radius: 6px;
+    border-left: 3px solid var(--green-soft);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--muted);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .pub-line-item--structured {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    border-left-color: var(--green);
+    padding: 14px 16px;
+  }
+  .pub-line-item-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pub-line-item-type {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--green-dark);
+    background: #fff;
+    border: 1px solid var(--green-soft);
+    padding: 3px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .pub-line-item-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--navy);
+    line-height: 1.4;
+  }
+  .pub-line-item-body {
+    color: var(--charcoal);
+    flex: 1;
+    min-width: 0;
+  }
+  .pub-line-item-attrs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    font-size: 13px;
+    padding-left: 0;
+  }
+  .pub-line-item-attr {
+    color: var(--muted);
+  }
+  .pub-line-item-attr em {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--charcoal);
+    letter-spacing: 0.02em;
+    margin-right: 4px;
   }
 
   /* ═════════ Materials ═════════ */
@@ -1157,9 +1414,14 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     .pub-hero-banner { min-height: 240px; max-height: 340px; }
     .pub-section { padding: 56px 20px; }
     .pub-prep-inner { padding: 72px 20px; }
+    .pub-drawing-inner { padding: 56px 20px 40px; }
+    .pub-drawing-frame { padding: 14px; }
     .pub-loom { padding: 0 20px; margin-top: 48px; }
     .pub-scope-item { grid-template-columns: 1fr; gap: 12px; }
     .pub-scope-item-amount { font-size: 18px; }
+    .pub-line-item { padding: 10px 12px; }
+    .pub-line-item--structured { padding: 12px 14px; }
+    .pub-line-item-attrs { gap: 4px 14px; }
     .pub-footer-ctas { padding: 64px 20px; }
     .pub-materials-group-header {
       flex-direction: column;
@@ -1190,6 +1452,8 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   </section>
 
   ${loomEmbed}
+
+  ${drawingSection}
 
   ${scopeHtml}
 
@@ -1232,17 +1496,40 @@ function buildHeroBanner(url) {
   `;
 }
 
+// Sprint 3 Part D: construction drawing featured section. Renders as its
+// own framed block between the hero/Loom and the Scope of Work. Returns an
+// empty string when no drawing has been selected, so unselected proposals
+// render unchanged.
+function buildDrawingSection(url) {
+  if (!url) return '';
+  return `
+    <section class="pub-drawing">
+      <div class="pub-drawing-inner">
+        <div class="pub-section-eyebrow">Construction drawing</div>
+        <h2>Your project plan</h2>
+        <p class="pub-section-lede">The working plan-view for your project — dimensions, material zones, and elevations captured in a single reference.</p>
+        <div class="pub-drawing-frame">
+          <a href="${escapeAttr(url)}" target="_blank" rel="noopener" class="pub-drawing-link">
+            <img src="${escapeAttr(url)}" alt="Construction drawing" class="pub-drawing-img">
+          </a>
+        </div>
+        <p class="pub-drawing-caption">Click to view full size.</p>
+      </div>
+    </section>
+  `;
+}
+
 function renderScopeSection(sections, totalAmount) {
   if (!sections.length) return '';
 
   const items = sections.map(s => {
-    const lineItemsText = formatLineItems(s.line_items);
+    const lineItemsHtml = formatLineItemsHtml(s.line_items);
     const amount = s.total_amount != null ? formatMoney(s.total_amount) : '';
     return `
       <li class="pub-scope-item">
-        <div>
+        <div class="pub-scope-item-body">
           <div class="pub-scope-item-name">${escapeHtml(s.name || 'Untitled section')}</div>
-          ${lineItemsText ? `<div class="pub-scope-item-detail">${escapeHtml(lineItemsText)}</div>` : ''}
+          ${lineItemsHtml}
         </div>
         ${amount ? `<div class="pub-scope-item-amount num">${escapeHtml(amount)}</div>` : ''}
       </li>
@@ -1260,7 +1547,7 @@ function renderScopeSection(sections, totalAmount) {
     <section class="pub-section">
       <div class="pub-section-eyebrow">01</div>
       <h2>Scope of work</h2>
-      <p class="pub-section-lede">The complete breakdown of everything included in your project.</p>
+      <p class="pub-section-lede">The complete breakdown of everything included in your project, with materials, colors, and construction details broken out per line.</p>
       <ul class="pub-scope-list">${items}</ul>
       ${totalRow}
     </section>
@@ -1391,15 +1678,26 @@ function extractMaterialInfo(m, categoryToSection) {
 // ───────────────────────────────────────────────────────────────────────────
 // "Why our preparation matters" section
 //
-// Sprint 2 Part B.2: dynamic rendering from installation_guide_sections.
-// Falls back to the hardcoded 4-card version when no sections apply (keeps
-// proposals with uncategorized materials from rendering an empty section).
+// Sprint 2 Part B.2: dynamic rendering from installation_guide_sections for
+// Belgard-category materials.
+// Sprint 3 Part C: extended to also render non-Belgard cards (turf,
+// Tru-Scapes lighting) via pattern match against scope text + third-party
+// materials. See renderThirdPartyPrepCards.
+//
+// Falls back to the hardcoded 4-card version only when neither Belgard
+// sections nor third-party patterns match — keeps proposals with
+// uncategorized materials from rendering an empty section.
 // ───────────────────────────────────────────────────────────────────────────
-function renderWhyPrepSection(installSections) {
-  const hasSections = Array.isArray(installSections) && installSections.length > 0;
-  const cardsHtml = hasSections
+function renderWhyPrepSection(installSections, sections, materials) {
+  const belgardCardsHtml = (Array.isArray(installSections) && installSections.length > 0)
     ? renderDynamicPrepCards(installSections)
-    : renderHardcodedPrepCards();
+    : '';
+
+  const belgardCount = Array.isArray(installSections) ? installSections.length : 0;
+  const thirdPartyCardsHtml = renderThirdPartyPrepCards(sections, materials, belgardCount);
+
+  const combinedHtml = belgardCardsHtml + thirdPartyCardsHtml;
+  const cardsHtml = combinedHtml || renderHardcodedPrepCards();
 
   return `
     <section class="pub-prep">
@@ -1452,6 +1750,115 @@ function renderDynamicPrepCards(installSections) {
       </div>
     `;
   }).join('');
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Third-party quality-standards cards (Sprint 3 Part C)
+//
+// Renders additional "Why preparation matters" cards for non-Belgard
+// categories that need client-facing standards education — currently
+// artificial turf (Evergrass / MSI) and Tru-Scapes® low-voltage lighting.
+//
+// Detection is pattern-based against BOTH:
+//   • proposal_sections.line_items — where scope-line notes live for turf
+//     and Tru-Scapes products (e.g. "TURF: ARIZONA PLATINUM SPRING…",
+//     "TruScape Path Light Bronze")
+//   • proposal_materials (third-party rows) — for structured product picks
+//
+// When the installation_guide_sections schema is extended to cover
+// non-Belgard categories, this function migrates to a data-driven query.
+// ───────────────────────────────────────────────────────────────────────────
+function renderThirdPartyPrepCards(sections, materials, startIndex = 0) {
+  const cards = [];
+
+  if (proposalHasTurf(sections, materials)) {
+    cards.push({
+      title: 'Artificial Turf Installation',
+      summary: "Long-lasting synthetic turf installations depend on base preparation that matches paver-grade standards: 4–6 inches of excavation, compaction of subgrade soil, and a 3–4 inch crushed gravel base compacted in lifts. The difference between a turf installation that stays level and plush for 15 years and one that ripples, pools water, or mats down in two is whether the installer treats the base with the same rigor as a paver base. We do. We also direction-match turf pieces, use S-cut seams for invisible transitions, and finish with silica sand infill to keep blades upright and UV-protected.",
+      keyPoints: [
+        'Minimum 4–6 inches of excavation below finished grade, with existing sprinkler heads capped at pipe level (not the riser) to prevent leakage, and irrigation/electrical lines mapped before any digging',
+        'Subgrade compacted with a minimum 5,000 lb plate compactor — the same machine used for paver bases — followed by a weed barrier on compacted subgrade; plastic sheeting is explicitly prohibited as it traps water and causes turf to heave',
+        'Base layer of 3/4-inch to dust crushed gravel installed in 3–4 inch lifts, compacted with water-assist; minimum 2% slope away from structures to drainage points, identical to our paver drainage spec',
+        'All turf pieces laid with blade direction matched (pile nap running the same way); seams joined via S-cut method with seam tape and synthetic turf adhesive, then secured with U-nails spaced every 6 inches along the full seam length',
+        'Edges tucked with wonder bar into hardscape perimeters; silica sand infill applied via drop spreader and power-brushed into the base of the blades, then watered to settle — the infill is what keeps blades upright and the surface walkable for 15+ years',
+      ],
+      pdfUrl: EVERGRASS_INSTALL_GUIDE_URL,
+      linkLabel: 'View the Evergrass installation guide',
+    });
+  }
+
+  if (proposalHasTruScapesLighting(sections, materials)) {
+    cards.push({
+      title: 'Landscape & Hardscape Lighting',
+      summary: "Your proposal includes Tru-Scapes® low-voltage landscape lighting — a complete outdoor system covering path lights, accent spots, in-ground well lights, paver-integrated fixtures, and Color Control app-based tuning (RGBCW, dimming, zones). The fixture count and budget are set in your bid, but fixture placement is intentionally flexible: we finalize exact positioning during the Pre-Walk with you on-site, so the lighting accents what actually matters — tree canopies, walkway curves, step transitions, architectural features — rather than being locked to a blueprint before we've seen it in context.",
+      keyPoints: [
+        'Low-voltage 12V/15V system with Tru-Scapes® transformers sized to load (100W, 200W, or 400W WiFi-enabled) and tin-plated copper heat-shrink wire connectors for waterproof, lifetime-duty splices',
+        'Color Control available on most fixtures: full-color RGBCW spectrum, warm-to-cool white tuning (2700K–6500K), dimming, and multi-zone scene control via the Tru-Scapes® Bluetooth app',
+        'Fixture library covers every outdoor placement — path, accent, wall-wash, in-ground well, paver-integrated, step riser, post cap, sconce, pendant, bistro, and concrete-embed — so the same system scales from subtle to dramatic without mixing manufacturers',
+        'Final placement decided at Pre-Walk: before wiring is pulled, we walk the site with you and mark each fixture location together — path lights spaced to the actual walkway curve, accent lights aimed at the real tree or feature, step lights positioned for the true stride of each tread',
+        '5-year warranty on fixtures, bulbs, and transformers; all fixtures IP-rated for direct-burial and year-round outdoor use in California climate',
+      ],
+      pdfUrl: TRU_SCAPES_PRODUCT_GUIDE_URL,
+      linkLabel: 'View the Tru-Scapes product guide',
+    });
+  }
+
+  return cards.map((c, i) => {
+    const number = String(startIndex + i + 1).padStart(2, '0');
+    const pointsHtml = c.keyPoints
+      .map(p => `<li>${escapeHtml(p)}</li>`)
+      .join('');
+    return `
+      <div class="pub-prep-card">
+        <div class="pub-prep-card-number">${number}</div>
+        <div class="pub-prep-card-title">${escapeHtml(c.title)}</div>
+        <div class="pub-prep-card-summary">${escapeHtml(c.summary)}</div>
+        <ul class="pub-prep-card-points">${pointsHtml}</ul>
+        <a href="${escapeAttr(c.pdfUrl)}" target="_blank" rel="noopener"
+          class="pub-prep-card-link">
+          ${escapeHtml(c.linkLabel)} →
+        </a>
+      </div>
+    `;
+  }).join('');
+}
+
+function proposalHasTurf(sections, materials) {
+  const turfRe = /\b(turf|artificial\s+grass|synthetic\s+grass|evergrass)\b/i;
+  if (scopeContains(sections, turfRe)) return true;
+  for (const m of materials || []) {
+    if (m.material_source !== 'third_party') continue;
+    const tp = m.third_party_material;
+    if (!tp) continue;
+    const hay = `${tp.manufacturer || ''} ${tp.product_name || ''} ${tp.category || ''}`;
+    if (turfRe.test(hay)) return true;
+  }
+  return false;
+}
+
+function proposalHasTruScapesLighting(sections, materials) {
+  const re = /tru-?\s*scapes?/i;
+  if (scopeContains(sections, re)) return true;
+  for (const m of materials || []) {
+    if (m.material_source !== 'third_party') continue;
+    const tp = m.third_party_material;
+    if (!tp) continue;
+    const hay = `${tp.manufacturer || ''} ${tp.product_name || ''}`;
+    if (re.test(hay)) return true;
+  }
+  return false;
+}
+
+function scopeContains(sections, regex) {
+  for (const s of sections || []) {
+    if (regex.test(s.name || '')) return true;
+    const items = Array.isArray(s.line_items) ? s.line_items : [];
+    for (const li of items) {
+      const text = typeof li === 'string' ? li : (li?.description || li?.text || '');
+      if (regex.test(text)) return true;
+    }
+  }
+  return false;
 }
 
 function renderHardcodedPrepCards() {
@@ -1554,6 +1961,121 @@ function loomUrlToEmbed(url) {
   return `https://www.loom.com/embed/${m[1]}`;
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// Scope line item rendering (Sprint 3 Part D)
+//
+// Each entry in proposal_sections.line_items comes in as either a string or
+// an object with { description } / { text }. The strings follow a loose
+// contractor convention that we parse into three visible pieces:
+//
+//   1. TYPE prefix — an ALL-CAPS phrase (2+ chars, may contain spaces,
+//      slashes, en-dashes) terminated by a colon. Examples: "PAVER:",
+//      "TURF:", "STEP:", "STRUCTURAL RETAINING WALL:", "PLANT INSTALLATION
+//      – LABOR ONLY:". We require ALL-CAPS so we don't false-match things
+//      like "Gravel:" or "Install 3/4\" pipe:" which are narrative, not type
+//      tags.
+//
+//   2. Primary name/description — everything up to the first pipe `|`.
+//      For a structured material line ("PAVER: BELGARD DIMENSIONS 12 |
+//      PATTERN: RANDOM | COLOR: DURAFUSION") this is the material name.
+//      For a narrative line ("STEP: Provide and install bullnose step...")
+//      this is the body sentence.
+//
+//   3. Attribute pairs — remaining pipe-delimited segments, each expected
+//      in "KEY: VALUE" shape. Gets rendered as a row of little
+//      "Pattern: Random · Color: Durafusion" chips.
+//
+// Lines that don't match the TYPE pattern still render — they just skip the
+// type chip and fall through to a plain body-text treatment. Same for lines
+// with no pipes (no attributes row).
+// ───────────────────────────────────────────────────────────────────────────
+function formatLineItemsHtml(lineItems) {
+  if (!lineItems) return '';
+
+  const rawItems = Array.isArray(lineItems) ? lineItems : [lineItems];
+  const parsed = rawItems
+    .map(parseLineItem)
+    .filter(Boolean);
+
+  if (parsed.length === 0) return '';
+
+  return `<ul class="pub-line-items">${parsed.map(renderLineItem).join('')}</ul>`;
+}
+
+function parseLineItem(raw) {
+  const text = (typeof raw === 'string'
+    ? raw
+    : (raw?.description || raw?.text || '')).trim();
+  if (!text) return null;
+
+  let type = '';
+  let rest = text;
+
+  // ALL-CAPS prefix ending in colon. Requires the type to be at least 2
+  // characters long so single-letter prefixes don't false-match. Allows
+  // spaces, slashes, en-dashes, ampersands inside the type phrase.
+  const typeMatch = text.match(/^([A-Z][A-Z\s\/\u2013&-]*?):\s*(.+)$/s);
+  if (typeMatch && typeMatch[1].trim().length >= 2) {
+    type = typeMatch[1].trim();
+    rest = typeMatch[2].trim();
+  }
+
+  const parts = rest.split('|').map(p => p.trim()).filter(Boolean);
+  const primary = parts[0] || '';
+  const attrs = parts.slice(1).map(part => {
+    const kv = part.match(/^([^:]+):\s*(.+)$/);
+    if (kv) return { label: titleCaseLabel(kv[1].trim()), value: kv[2].trim() };
+    return { label: '', value: part };
+  });
+
+  return { type, primary, attrs };
+}
+
+function renderLineItem({ type, primary, attrs }) {
+  const typeTag = type
+    ? `<span class="pub-line-item-type">${escapeHtml(type)}</span>`
+    : '';
+
+  const hasAttrs = attrs && attrs.length > 0;
+
+  if (hasAttrs) {
+    const attrsHtml = attrs.map(a => {
+      if (a.label) {
+        return `<span class="pub-line-item-attr"><em>${escapeHtml(a.label)}:</em>${escapeHtml(a.value)}</span>`;
+      }
+      return `<span class="pub-line-item-attr">${escapeHtml(a.value)}</span>`;
+    }).join('');
+
+    return `
+      <li class="pub-line-item pub-line-item--structured">
+        <div class="pub-line-item-head">
+          ${typeTag}
+          <span class="pub-line-item-name">${escapeHtml(primary)}</span>
+        </div>
+        <div class="pub-line-item-attrs">${attrsHtml}</div>
+      </li>
+    `;
+  }
+
+  return `
+    <li class="pub-line-item">
+      ${typeTag}
+      <span class="pub-line-item-body">${escapeHtml(primary)}</span>
+    </li>
+  `;
+}
+
+// Title-case attribute labels so "PATTERN" renders as "Pattern", "PART
+// NUMBER" as "Part Number", etc. Values are left unchanged — they contain
+// proper nouns, SKU codes, and mixed-case color names that we don't want
+// to re-case.
+function titleCaseLabel(s) {
+  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Legacy string-concatenation formatter. No longer called by renderScopeSection
+// (which now uses formatLineItemsHtml), but kept exported-in-spirit for
+// safety in case other callers reference it.
 function formatLineItems(lineItems) {
   if (!lineItems) return '';
   if (typeof lineItems === 'string') return lineItems;
