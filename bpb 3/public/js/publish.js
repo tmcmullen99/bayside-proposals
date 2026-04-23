@@ -766,6 +766,7 @@ function slugifyBase(address, date) {
   const dd = String(date.getDate()).padStart(2, '0');
   return `${addr}-${yyyy}-${mm}-${dd}`;
 }
+
 // ───────────────────────────────────────────────────────────────────────────
 // HTML snapshot builder — full standalone document
 // ───────────────────────────────────────────────────────────────────────────
@@ -1466,14 +1467,14 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   <section class="pub-footer-ctas">
     <h2>Ready to move forward?</h2>
     <p>Questions about the scope, materials, or next steps? Call or email Tim directly.</p>
-       <div class="pub-cta-row">
-         <a href="tel:${TIM_PHONE_HREF}" class="pub-btn pub-btn-call">
-           Call Tim · ${TIM_PHONE}
-         </a>
-         <a href="mailto:${escapeAttr(TIM_EMAIL)}" class="pub-btn pub-btn-call">
-           Email Tim · ${escapeHtml(TIM_EMAIL)}
-         </a>
-        <a href="${escapeAttr(INSTALL_GUIDE_URL)}" class="pub-btn pub-btn-guide"
+    <div class="pub-cta-row">
+      <a href="tel:${TIM_PHONE_HREF}" class="pub-btn pub-btn-call">
+        Call Tim · ${TIM_PHONE}
+      </a>
+      <a href="mailto:${escapeAttr(TIM_EMAIL)}" class="pub-btn pub-btn-call">
+        Email Tim · ${escapeHtml(TIM_EMAIL)}
+      </a>
+      <a href="${escapeAttr(INSTALL_GUIDE_URL)}" class="pub-btn pub-btn-guide"
         target="_blank" rel="noopener">
         View Installation Guide
       </a>
@@ -1486,6 +1487,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 </body>
 </html>`;
 }
+
 // ───────────────────────────────────────────────────────────────────────────
 // Template partials
 // ───────────────────────────────────────────────────────────────────────────
@@ -1932,12 +1934,47 @@ function renderHardcodedPrepCards() {
 function renderPhotosSection(photos) {
   if (!photos.length) return '';
 
+  // Sprint 3 Part F — two-section split.
+  //
+  // Real client photos and PDF-extracted design renderings are visually
+  // different content and deserve their own framed sections. We partition
+  // on extraction_source:
+  //   • manual_upload  → "Current site conditions" (numbered 04)
+  //   • bid_pdf_extract → "Design renderings"       (numbered 05)
+  //   • anything else   → HIDDEN (safest default — belongs to Sprint 5
+  //     data-hygiene cleanup with a manual "show/hide" toggle in Section 05)
+  //
+  // Within each section, we preserve the existing location_tag grouping
+  // (Front yard / Backyard / Side yard / Full property / Other) so multi-
+  // zone properties still read cleanly.
+  const currentPhotos = photos.filter(p => p.extraction_source === 'manual_upload');
+  const renderings = photos.filter(p => p.extraction_source === 'bid_pdf_extract');
+
+  const currentHtml = renderPhotosBlock(
+    currentPhotos,
+    '04',
+    'Current site conditions',
+    'Photos of the property as it exists today.'
+  );
+  const renderingsHtml = renderPhotosBlock(
+    renderings,
+    '05',
+    'Design renderings',
+    'How your completed project will look — 3D renderings generated from the design plan.'
+  );
+
+  return currentHtml + renderingsHtml;
+}
+
+function renderPhotosBlock(photos, number, heading, lede) {
+  if (!photos.length) return '';
+
   const groups = groupPhotosByLocation(photos);
   const groupsHtml = Object.entries(groups).map(([label, items]) => {
     const imgs = items.map(p => {
       const url = storagePublicUrl(p.storage_path);
       if (!url) return '';
-      return `<img src="${escapeAttr(url)}" alt="${escapeAttr(p.original_filename || 'Property photo')}" loading="lazy">`;
+      return `<img src="${escapeAttr(url)}" alt="${escapeAttr(p.original_filename || heading)}" loading="lazy">`;
     }).join('');
     return `
       <div class="pub-photos-group">
@@ -1949,13 +1986,14 @@ function renderPhotosSection(photos) {
 
   return `
     <section class="pub-section">
-      <div class="pub-section-eyebrow">04</div>
-      <h2>Property photos</h2>
-      <p class="pub-section-lede">Current site conditions.</p>
+      <div class="pub-section-eyebrow">${escapeHtml(number)}</div>
+      <h2>${escapeHtml(heading)}</h2>
+      <p class="pub-section-lede">${escapeHtml(lede)}</p>
       ${groupsHtml}
     </section>
   `;
 }
+
 function groupPhotosByLocation(photos) {
   const order = ['Front yard', 'Backyard', 'Side yard', 'Full property', 'Other'];
   const groups = {};
