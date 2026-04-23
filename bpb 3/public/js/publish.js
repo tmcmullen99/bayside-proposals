@@ -78,8 +78,8 @@ const EVERGRASS_INSTALL_GUIDE_URL = 'https://cdn.msisurfaces.com/files/flyers/ev
 const TRU_SCAPES_PRODUCT_GUIDE_URL = 'https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69e99762031d43f432f14cde_Tru%20Scapes-compressed.pdf';
 
 const BAYSIDE_LOGO_URL = 'https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69a04f4369bc9cc20b8d2155_BaysidePavers_original%20(2)%20(1).png';
-const TIM_PHONE = '408-313-1301';
-const TIM_PHONE_HREF = '+14083131301';
+const TIM_PHONE = '415-691-9272';
+const TIM_PHONE_HREF = '+14156919272';
 const BUCKET = 'proposal-photos';
 
 let proposalId = null;
