@@ -1,133 +1,233 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// client-login.js
-// Unified login page — sends magic link via Supabase Auth (routed through
-// Resend SMTP at the project level). Works for both admin (Tim) and clients.
-//
-// URL params:
-//   ?return=<path>  — path to redirect to after successful auth
-//   ?admin=1        — shows admin-flavored copy (Tim logging into /admin)
-//
-// Flow:
-//   1. User enters email → click "Send login link"
-//   2. Supabase signInWithOtp triggers email via Resend
-//   3. Success view shows "check your email for <email>"
-//   4. User clicks link in email → lands back here with auth token in URL
-//      hash → Supabase client picks up session → redirect to return path
-// ═══════════════════════════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in · Bayside Client Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #5d7e69;
+      --green-dark: #4a6654;
+      --green-soft: #e8eee9;
+      --charcoal: #353535;
+      --tan: #dad7c5;
+      --cream: #faf8f3;
+      --navy: #1a1f2e;
+      --border: #e5e5e5;
+      --muted: #666;
+      --danger: #b04040;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--charcoal);
+      background: #fafafa;
+      line-height: 1.6;
+      font-size: 15px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
 
-import { supabase } from '/js/supabase-client.js';
-import { sendMagicLink, getCurrentUser, isAdminUser } from '/js/auth-util.js';
+    .login-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 44px 40px 40px;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+    }
 
-// DOM
-const formView = document.getElementById('formView');
-const successView = document.getElementById('successView');
-const emailInput = document.getElementById('email');
-const submitBtn = document.getElementById('submitBtn');
-const statusBox = document.getElementById('status');
-const sentToEmail = document.getElementById('sentToEmail');
-const tryAgainLink = document.getElementById('tryAgainLink');
-const headline = document.getElementById('headline');
-const subtitle = document.getElementById('subtitle');
-const brandName = document.getElementById('brandName');
+    .brand {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .brand-logo {
+      font-size: 32px;
+      margin-bottom: 10px;
+      line-height: 1;
+    }
+    .brand-name {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green);
+      font-weight: 700;
+    }
 
-// URL params
-const params = new URLSearchParams(window.location.search);
-const returnPath = params.get('return') || '';
-const isAdminMode = params.get('admin') === '1';
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+      text-align: center;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
 
-// Adapt copy for admin mode
-if (isAdminMode) {
-  brandName.textContent = 'Bayside Proposal Builder';
-  headline.textContent = 'Admin Login';
-  subtitle.textContent = 'Enter your admin email to manage clients and proposals.';
-}
+    .form-row { margin-bottom: 18px; }
+    .form-row label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--charcoal);
+      margin-bottom: 6px;
+    }
+    .form-row input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 15px;
+      background: #fff;
+      color: var(--charcoal);
+    }
+    .form-row input:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.1);
+    }
 
-// ── Check for existing session ─────────────────────────────────────────────
-// If the user lands here with a magic-link hash in the URL, Supabase will
-// pick it up automatically and set a session. If they're already signed in
-// from a prior session, we redirect immediately.
-(async function checkExistingSession() {
-  // Small delay to allow Supabase to process URL hash (onAuthStateChange)
-  await new Promise(r => setTimeout(r, 200));
-  const user = await getCurrentUser();
-  if (user) {
-    redirectAuthenticated(user);
-  }
-})();
+    .btn {
+      width: 100%;
+      padding: 13px 18px;
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn:hover { background: var(--green-dark); }
+    .btn:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
 
-// Listen for auth state changes (magic link completion)
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' && session?.user) {
-    redirectAuthenticated(session.user);
-  }
-});
+    .status {
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 20px;
+      line-height: 1.5;
+      display: none;
+    }
+    .status.visible { display: block; }
+    .status.success {
+      background: var(--green-soft);
+      color: var(--green-dark);
+    }
+    .status.error {
+      background: #fbe6e6;
+      color: var(--danger);
+    }
 
-function redirectAuthenticated(user) {
-  // Determine where to go
-  let destination = returnPath;
-  if (!destination) {
-    destination = isAdminUser(user) ? '/admin/clients.html' : '/client/dashboard.html';
-  }
-  // Preserve admin landing even if return was unspecified
-  if (isAdminMode && !returnPath && isAdminUser(user)) {
-    destination = '/admin/clients.html';
-  }
-  window.location.href = destination;
-}
+    .success-state {
+      display: none;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .success-state.visible { display: block; }
+    .success-icon {
+      font-size: 44px;
+      margin-bottom: 14px;
+      line-height: 1;
+    }
+    .success-state h2 {
+      font-size: 18px;
+      color: var(--navy);
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    .success-state p {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 18px;
+    }
+    .success-state code {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--cream);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: var(--navy);
+    }
+    .try-again {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .try-again a {
+      color: var(--green-dark);
+      cursor: pointer;
+      text-decoration: underline;
+    }
 
-// ── Handle form submission ─────────────────────────────────────────────────
-submitBtn.addEventListener('click', handleSubmit);
-emailInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') handleSubmit();
-});
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .footer a {
+      color: var(--green-dark);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
 
-async function handleSubmit() {
-  const email = emailInput.value.trim();
-  if (!email || !email.includes('@')) {
-    showStatus('error', 'Please enter a valid email address.');
-    return;
-  }
+<div class="login-card">
+  <div class="brand">
+    <div class="brand-logo">🧱</div>
+    <div class="brand-name" id="brandName">Bayside Client Portal</div>
+  </div>
 
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Sending…';
-  hideStatus();
+  <div id="formView">
+    <h1 id="headline">Welcome back</h1>
+    <p class="subtitle" id="subtitle">Enter your email and we'll send you a login link — no password needed.</p>
 
-  // Pick redirect path based on mode
-  const redirectPath = returnPath ||
-    (isAdminMode ? '/admin/clients.html' : '/client/dashboard.html');
+    <div class="form-row">
+      <label for="email">Email address</label>
+      <input type="email" id="email" autocomplete="email" placeholder="you@example.com" required>
+    </div>
 
-  const { error } = await sendMagicLink(email, redirectPath);
+    <button class="btn" id="submitBtn">Send login link</button>
 
-  if (error) {
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Send login link';
-    showStatus('error', `Could not send login link: ${error.message}`);
-    return;
-  }
+    <div class="status" id="status"></div>
+  </div>
 
-  // Show success view
-  sentToEmail.textContent = email;
-  formView.style.display = 'none';
-  successView.classList.add('visible');
-}
+  <div class="success-state" id="successView">
+    <div class="success-icon">✉️</div>
+    <h2>Check your email</h2>
+    <p>We sent a login link to <br><code id="sentToEmail"></code></p>
+    <p style="font-size:12px;">Click the link in the email to sign in. It expires in 1 hour.</p>
+    <div class="try-again">
+      Didn't get it? Check your spam folder, or <a id="tryAgainLink">try a different email</a>.
+    </div>
+  </div>
 
-tryAgainLink.addEventListener('click', (e) => {
-  e.preventDefault();
-  successView.classList.remove('visible');
-  formView.style.display = 'block';
-  emailInput.value = '';
-  emailInput.focus();
-  submitBtn.disabled = false;
-  submitBtn.textContent = 'Send login link';
-});
+  <div class="footer">
+    Having trouble? Email <a href="mailto:tim@mcmullen.properties">tim@mcmullen.properties</a>
+  </div>
+</div>
 
-// ── Utils ──────────────────────────────────────────────────────────────────
-function showStatus(type, msg) {
-  statusBox.className = `status visible ${type}`;
-  statusBox.textContent = msg;
-}
+<script type="module" src="/client/client-login.js"></script>
 
-function hideStatus() {
-  statusBox.className = 'status';
-  statusBox.textContent = '';
-}
+</body>
+</html>
