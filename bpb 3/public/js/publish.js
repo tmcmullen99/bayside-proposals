@@ -1484,6 +1484,120 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
       gap: 4px;
     }
   }
+
+  /* ═════════ Lightbox (Sprint 3H) ═════════
+     Every non-hero image on the published page opens in a full-viewport
+     modal when clicked. Images are grouped by a `data-gallery` attribute
+     (drawing / materials / photos-04 / photos-05) so the prev/next arrows
+     cycle through siblings within the same gallery. The trigger is a
+     transparent button wrapper — it does NOT override the inner <img>
+     sizing, so aspect-ratio and object-fit rules from .pub-material-card
+     img, .pub-photos-grid img, etc. still apply. */
+  .pub-lightbox-trigger {
+    display: block;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+    line-height: 0;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+  }
+  .pub-lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(12, 14, 18, 0.92);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    touch-action: pan-y;
+  }
+  .pub-lightbox.is-open {
+    display: flex;
+    opacity: 1;
+  }
+  .pub-lightbox-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 80px;
+    box-sizing: border-box;
+  }
+  .pub-lightbox-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+    cursor: zoom-out;
+  }
+  .pub-lightbox-close,
+  .pub-lightbox-nav {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+    font-family: inherit;
+    padding: 0;
+  }
+  .pub-lightbox-close:hover,
+  .pub-lightbox-nav:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+  .pub-lightbox-close {
+    top: 20px;
+    right: 20px;
+    font-size: 22px;
+    line-height: 1;
+  }
+  .pub-lightbox-nav {
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 28px;
+    line-height: 1;
+  }
+  .pub-lightbox-nav--prev { left: 20px; }
+  .pub-lightbox-nav--next { right: 20px; }
+  .pub-lightbox-nav[hidden] { display: none; }
+  .pub-lightbox-counter {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  @media (max-width: 640px) {
+    .pub-lightbox-stage { padding: 60px 12px; }
+    .pub-lightbox-close,
+    .pub-lightbox-nav {
+      width: 40px;
+      height: 40px;
+    }
+    .pub-lightbox-close { top: 12px; right: 12px; font-size: 18px; }
+    .pub-lightbox-nav { font-size: 22px; }
+    .pub-lightbox-nav--prev { left: 8px; }
+    .pub-lightbox-nav--next { right: 8px; }
+  }
 </style>
 </head>
 <body>
@@ -1538,6 +1652,121 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   <div class="pub-bottom">
     Proposal prepared by Tim McMullen · Bayside Pavers
   </div>
+
+  <!-- Lightbox modal (Sprint 3H) -->
+  <div class="pub-lightbox" id="pubLightbox" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="pub-lightbox-stage">
+      <button type="button" class="pub-lightbox-nav pub-lightbox-nav--prev" id="pubLbPrev"
+              aria-label="Previous image">‹</button>
+      <img class="pub-lightbox-img" id="pubLbImg" src="" alt="">
+      <button type="button" class="pub-lightbox-nav pub-lightbox-nav--next" id="pubLbNext"
+              aria-label="Next image">›</button>
+      <button type="button" class="pub-lightbox-close" id="pubLbClose"
+              aria-label="Close">✕</button>
+      <div class="pub-lightbox-counter" id="pubLbCounter"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var modal    = document.getElementById('pubLightbox');
+      var imgEl    = document.getElementById('pubLbImg');
+      var closeEl  = document.getElementById('pubLbClose');
+      var prevEl   = document.getElementById('pubLbPrev');
+      var nextEl   = document.getElementById('pubLbNext');
+      var counter  = document.getElementById('pubLbCounter');
+      if (!modal || !imgEl) return;
+
+      var currentList  = [];  // array of { src, alt }
+      var currentIndex = 0;
+
+      // Collect every trigger on the page and bucket by gallery so prev/next
+      // cycles through images in the same section (renderings, current photos,
+      // materials, drawing). Triggers with no data-gallery form a singleton.
+      var triggers = Array.prototype.slice.call(
+        document.querySelectorAll('.pub-lightbox-trigger')
+      );
+      var galleries = {};
+      triggers.forEach(function (el) {
+        var key = el.getAttribute('data-gallery') || ('lb-' + Math.random());
+        if (!galleries[key]) galleries[key] = [];
+        galleries[key].push({
+          src: el.getAttribute('data-lightbox-src') || '',
+          alt: el.getAttribute('data-lightbox-alt') || '',
+          el:  el
+        });
+      });
+
+      function openAt(list, idx) {
+        currentList  = list;
+        currentIndex = idx;
+        update();
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function close() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        // Clear src after transition so we don't flash the previous image
+        // if the modal reopens quickly.
+        setTimeout(function () { imgEl.src = ''; }, 200);
+      }
+
+      function update() {
+        var item = currentList[currentIndex];
+        if (!item) return;
+        imgEl.src = item.src;
+        imgEl.alt = item.alt;
+        var hasSiblings = currentList.length > 1;
+        prevEl.hidden = !hasSiblings;
+        nextEl.hidden = !hasSiblings;
+        counter.textContent = hasSiblings
+          ? (currentIndex + 1) + ' / ' + currentList.length
+          : '';
+      }
+
+      function step(delta) {
+        if (currentList.length <= 1) return;
+        currentIndex = (currentIndex + delta + currentList.length) % currentList.length;
+        update();
+      }
+
+      // Wire each trigger — identify which gallery it belongs to, find its
+      // index, and open the lightbox positioned there.
+      Object.keys(galleries).forEach(function (key) {
+        var list = galleries[key];
+        list.forEach(function (item, idx) {
+          item.el.addEventListener('click', function (e) {
+            e.preventDefault();
+            openAt(list, idx);
+          });
+        });
+      });
+
+      // Click the backdrop (not the image itself) to close. Click the image
+      // to close too — it already has cursor: zoom-out.
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal || e.target === imgEl ||
+            e.target.classList.contains('pub-lightbox-stage')) {
+          close();
+        }
+      });
+      closeEl.addEventListener('click', close);
+      prevEl.addEventListener('click',  function (e) { e.stopPropagation(); step(-1); });
+      nextEl.addEventListener('click',  function (e) { e.stopPropagation(); step(+1); });
+
+      // Keyboard: Esc closes, arrows navigate.
+      document.addEventListener('keydown', function (e) {
+        if (!modal.classList.contains('is-open')) return;
+        if (e.key === 'Escape')     close();
+        else if (e.key === 'ArrowLeft')  step(-1);
+        else if (e.key === 'ArrowRight') step(+1);
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
@@ -1567,9 +1796,13 @@ function buildDrawingSection(url) {
         <h2>Your project plan</h2>
         <p class="pub-section-lede">The working plan-view for your project — dimensions, material zones, and elevations captured in a single reference.</p>
         <div class="pub-drawing-frame">
-          <a href="${escapeAttr(url)}" target="_blank" rel="noopener" class="pub-drawing-link">
+          <button type="button" class="pub-lightbox-trigger pub-drawing-link"
+                  data-lightbox-src="${escapeAttr(url)}"
+                  data-lightbox-alt="Construction drawing"
+                  data-gallery="drawing"
+                  aria-label="Open construction drawing full size">
             <img src="${escapeAttr(url)}" alt="Construction drawing" class="pub-drawing-img">
-          </a>
+          </button>
         </div>
         <p class="pub-drawing-caption">Click to view full size.</p>
       </div>
@@ -1641,7 +1874,13 @@ function renderMaterialsSection(materials, categoryToSection) {
 function renderMaterialCard(m, categoryToSection) {
   const info = extractMaterialInfo(m, categoryToSection);
   const imgHtml = info.imageUrl
-    ? `<img src="${escapeAttr(info.imageUrl)}" alt="${escapeAttr(info.name)}">`
+    ? `<button type="button" class="pub-lightbox-trigger"
+              data-lightbox-src="${escapeAttr(info.imageUrl)}"
+              data-lightbox-alt="${escapeAttr(info.name)}"
+              data-gallery="materials"
+              aria-label="Open ${escapeAttr(info.name)} full size">
+         <img src="${escapeAttr(info.imageUrl)}" alt="${escapeAttr(info.name)}">
+       </button>`
     : `<div class="pub-material-card-placeholder">${escapeHtml((info.name || 'Material').slice(0, 3).toUpperCase())}</div>`;
 
   const cutSheetBtn = info.cutSheetUrl ? `
@@ -2028,12 +2267,24 @@ function renderPhotosSection(photos) {
 function renderPhotosBlock(photos, number, heading, lede) {
   if (!photos.length) return '';
 
+  // Sprint 3H — lightbox galleries. Use the section number as the gallery
+  // key so prev/next arrows cycle through images in the same section
+  // (04 = current photos, 05 = design renderings) and don't mix the two.
+  const gallery = 'photos-' + number;
+
   const groups = groupPhotosByLocation(photos);
   const groupsHtml = Object.entries(groups).map(([label, items]) => {
     const imgs = items.map(p => {
       const url = storagePublicUrl(p.storage_path);
       if (!url) return '';
-      return `<img src="${escapeAttr(url)}" alt="${escapeAttr(p.original_filename || heading)}" loading="lazy">`;
+      const altText = p.original_filename || heading;
+      return `<button type="button" class="pub-lightbox-trigger"
+                data-lightbox-src="${escapeAttr(url)}"
+                data-lightbox-alt="${escapeAttr(altText)}"
+                data-gallery="${escapeAttr(gallery)}"
+                aria-label="Open ${escapeAttr(altText)} full size">
+                <img src="${escapeAttr(url)}" alt="${escapeAttr(altText)}" loading="lazy">
+              </button>`;
     }).join('');
     return `
       <div class="pub-photos-group">
