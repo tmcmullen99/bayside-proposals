@@ -86,7 +86,12 @@ async function loadProposals() {
     .from('client_proposals')
     .select(`
       id, status, sent_at, first_viewed_at, signed_at, created_at,
-      proposal:proposals!proposal_id (id, slug, address, client_name, created_at)
+      proposal:proposals!proposal_id (
+        id,
+        address,
+        created_at,
+        published_proposals (id, slug, created_at)
+      )
     `)
     .eq('client_id', ctx.client.id)
     .order('created_at', { ascending: false });
@@ -142,20 +147,27 @@ function renderProposalCard(cp) {
     ? new Date(cp.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : 'Not sent yet';
 
+  const slug = getLatestSlug(p);
+  const viewButton = slug
+    ? `<button class="btn proposal-view-btn"
+               data-cp-id="${escapeAttr(cp.id)}"
+               data-slug="${escapeAttr(slug)}">
+         View proposal →
+       </button>`
+    : `<button class="btn" disabled style="opacity:0.5;cursor:not-allowed;">
+         Not available yet
+       </button>`;
+
   return `
     <div class="proposal-card">
       <div class="proposal-card-info">
-        <div class="proposal-card-address">${escapeHtml(p.address || 'Untitled proposal')}</div>
+        <div class="proposal-card-address">${escapeHtml(getDisplayAddress(p))}</div>
         <div class="proposal-card-meta">
           <span class="status-badge ${cp.status}">${escapeHtml(statusLabel)}</span>
           <span>Sent ${escapeHtml(sentDate)}</span>
         </div>
       </div>
-      <button class="btn proposal-view-btn"
-              data-cp-id="${escapeAttr(cp.id)}"
-              data-slug="${escapeAttr(p.slug)}">
-        View proposal →
-      </button>
+      ${viewButton}
     </div>
   `;
 }
@@ -198,6 +210,31 @@ async function handleProposalView(cpId, slug) {
 signOutBtn.addEventListener('click', async () => {
   await signOut();
 });
+
+// ── Slug / address helpers ─────────────────────────────────────────────────
+function getLatestSlug(proposal) {
+  const pubs = proposal?.published_proposals;
+  if (!Array.isArray(pubs) || pubs.length === 0) return null;
+  const sorted = [...pubs].sort((a, b) =>
+    new Date(b.created_at || 0) - new Date(a.created_at || 0)
+  );
+  return sorted[0]?.slug || null;
+}
+
+function getDisplayAddress(proposal) {
+  if (proposal?.address) return proposal.address;
+  const slug = getLatestSlug(proposal);
+  if (slug) {
+    const stripped = slug.replace(/-\d{4}-\d{2}-\d{2}(-\d+)?$/, '');
+    if (stripped) {
+      return stripped
+        .split('-')
+        .map(w => w ? w[0].toUpperCase() + w.slice(1) : w)
+        .join(' ');
+    }
+  }
+  return 'Untitled proposal';
+}
 
 // ── Utils ──────────────────────────────────────────────────────────────────
 function escapeHtml(str) {
