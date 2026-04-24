@@ -72,6 +72,25 @@
 //      instead of the body being compressed into a narrow right column
 //      next to a wide empty left column.
 //
+//   8. [Sprint 3 Part J] Turf prep-card false-positive fix. Sprint 3C's
+//      turf detection scanned scope line_items with a single regex that
+//      included a bare \bturf\b alternate — which matches demolition
+//      language like "Remove and dispose of existing turf/flagstone/tile
+//      material" on proposals where no synthetic turf is actually being
+//      installed (e.g. 1728 Whitham Ave). The regex is now split into
+//      TURF_GENERIC_PATTERN (plain "turf", "artificial grass", "synthetic
+//      grass") and TURF_SPECIFIC_PATTERN (brand/product names: evergrass,
+//      summer gold, platinum spring, arizona platinum). Scope-text scanning
+//      uses ONLY the specific pattern, so an off-hand "turf" mention in
+//      demolition or "sod installation" no longer triggers the prep card.
+//      The materials-list check still uses the combined pattern —
+//      third_party_materials rows are explicitly categorized, so any turf
+//      signal there is authoritative. resolveThirdPartyInstallUrl() also
+//      still uses the combined pattern for material-row URL routing.
+//      Tru-Scapes detection is unchanged — "Tru-Scapes"/"TruScape" is a
+//      specific brand mark with no ambiguous contexts, so scope-text
+//      scanning for it remains safe.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
@@ -1998,10 +2017,38 @@ function extractMaterialInfo(m, categoryToSection) {
 // Patterns are conservative — "MSI" alone isn't enough to trigger the turf
 // route since MSI also makes tile, countertops, and flooring; we require a
 // known turf product line in the name. When Tim adds new MSI turf variants
-// with different SKU names, add them to the TURF_PRODUCT_PATTERNS regex.
+// with different SKU names, add them to the TURF_SPECIFIC_PATTERN regex.
+//
+// Sprint 3J note — the turf patterns were split into GENERIC (plain "turf",
+// "artificial grass", "synthetic grass") and SPECIFIC (brand/product names)
+// so the prep-card detection logic can scan scope text safely with only the
+// specific pattern. This router still uses the COMBINED TURF_PRODUCT_PATTERNS
+// because a third_party_materials row is authoritative — if it's categorized
+// as turf at all, route it to the Evergrass PDF.
 // ───────────────────────────────────────────────────────────────────────────
 const TRU_SCAPES_PATTERN = /tru-?\s*scapes?/i;
-const TURF_PRODUCT_PATTERNS = /\b(turf|artificial\s+grass|synthetic\s+grass|evergrass|summer\s+gold|platinum\s+spring|arizona\s+platinum)\b/i;
+
+// Split from the original single TURF_PRODUCT_PATTERNS in Sprint 3J so that
+// prep-card scope scanning doesn't false-positive on demolition language.
+//
+// GENERIC — the word "turf" and its synonyms. These show up in too many
+// non-install contexts to scan scope text with: demolition ("remove existing
+// turf"), sod installation ("sod/lawn"), site descriptions, etc. These only
+// trigger the turf prep card when they appear on a third_party_materials row.
+const TURF_GENERIC_PATTERN = /\b(turf|artificial\s+grass|synthetic\s+grass)\b/i;
+
+// SPECIFIC — product/brand names that only appear in proposals where that
+// product is actually being installed. Safe to match in scope line items
+// even when the product hasn't been catalogued as a material yet.
+const TURF_SPECIFIC_PATTERN = /\b(evergrass|summer\s+gold|platinum\s+spring|arizona\s+platinum)\b/i;
+
+// Combined pattern — used by resolveThirdPartyInstallUrl and the
+// materials-list branch of proposalHasTurf, where any turf signal on an
+// explicit third_party_materials row is authoritative.
+const TURF_PRODUCT_PATTERNS = new RegExp(
+  TURF_GENERIC_PATTERN.source + '|' + TURF_SPECIFIC_PATTERN.source,
+  'i'
+);
 
 function resolveThirdPartyInstallUrl(tp) {
   const haystack = `${tp.manufacturer || ''} ${tp.product_name || ''} ${tp.category || ''}`;
@@ -2026,6 +2073,10 @@ function resolveThirdPartyInstallUrl(tp) {
 // Sprint 3 Part C: extended to also render non-Belgard cards (turf,
 // Tru-Scapes lighting) via pattern match against scope text + third-party
 // materials. See renderThirdPartyPrepCards.
+// Sprint 3 Part J: tightened turf scope-text detection to specific product
+// names only, so "remove existing turf" demolition lines and sod/lawn
+// references no longer trigger the turf card. Tru-Scapes detection is
+// unchanged because "Tru-Scapes"/"TruScape" is unambiguous.
 //
 // Falls back to the hardcoded 4-card version only when neither Belgard
 // sections nor third-party patterns match — keeps proposals with
@@ -2103,10 +2154,14 @@ function renderDynamicPrepCards(installSections) {
 // artificial turf (Evergrass / MSI) and Tru-Scapes® low-voltage lighting.
 //
 // Detection is pattern-based against BOTH:
-//   • proposal_sections.line_items — where scope-line notes live for turf
-//     and Tru-Scapes products (e.g. "TURF: ARIZONA PLATINUM SPRING…",
-//     "TruScape Path Light Bronze")
-//   • proposal_materials (third-party rows) — for structured product picks
+//   • proposal_sections.line_items — where scope-line notes live for products
+//     that haven't been catalogued as materials yet. Sprint 3J narrowed the
+//     turf scan here to TURF_SPECIFIC_PATTERN only, avoiding false positives
+//     from demolition language. Tru-Scapes scan remains unchanged — the
+//     brand name is specific enough to never false-match.
+//   • proposal_materials (third-party rows) — for structured product picks.
+//     Uses the combined TURF_PRODUCT_PATTERNS here since a third_party_materials
+//     row that mentions turf at all is authoritatively a turf product.
 //
 // When the installation_guide_sections schema is extended to cover
 // non-Belgard categories, this function migrates to a data-driven query.
@@ -2166,12 +2221,23 @@ function renderThirdPartyPrepCards(sections, materials, startIndex = 0) {
   }).join('');
 }
 
+// Sprint 3J — turf detection refactored to prevent false positives from
+// demolition language ("remove existing turf") and sod/lawn references.
+//
+// Scope scan uses TURF_SPECIFIC_PATTERN only (brand/product names). The
+// generic word "turf" is no longer enough to trigger the prep card from
+// scope text. Materials-list scan still uses the combined pattern — a
+// third_party_materials row with turf signal is explicit product data,
+// not prose, so any match is authoritative.
 function proposalHasTurf(sections, materials) {
-  // Reuses the TURF_PRODUCT_PATTERNS regex defined above so that any turf
-  // product SKU we recognize (Summer Gold, Platinum Spring, etc.) triggers
-  // the Turf standards card even when the scope text doesn't say "turf"
-  // explicitly.
-  if (scopeContains(sections, TURF_PRODUCT_PATTERNS)) return true;
+  // Scope-text scan: ONLY match on specific product names. Demolition lines
+  // like "Remove and dispose of existing turf/flagstone/tile material" and
+  // grass/sod scope items must not trigger the prep card.
+  if (scopeContains(sections, TURF_SPECIFIC_PATTERN)) return true;
+
+  // Materials-list scan: combined pattern. If Tim added a turf product as
+  // a third_party material, whether by specific name or generic category,
+  // render the turf prep card.
   for (const m of materials || []) {
     if (m.material_source !== 'third_party') continue;
     const tp = m.third_party_material;
