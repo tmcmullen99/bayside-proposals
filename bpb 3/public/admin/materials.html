@@ -6,13 +6,11 @@
 <title>Materials — BPB Admin</title>
 <style>
   /* ═══════════════════════════════════════════════════════════════════════
-     Part A — Materials admin
-     A catalog list + single-entry form + bulk CSV upload. No image/swatch
-     fields on the form per Tim's direction; publish.js treats them as
-     optional already, so they stay NULL until Part D (manufacturer scraping)
-     populates them. Auth is NOT required here — matches existing admin pages
-     /admin/belgard-sync, /admin/material-swatches-bulk that also use the
-     anon key against non-RLS tables.
+     Part A — Materials admin (v2 with paste-link scraper)
+     Third-party catalog list + single-entry form + CSV bulk import + paste
+     manufacturer product URL to auto-fill the add form via
+     /api/scrape-product. Auth is NOT required here — matches existing
+     admin pages /admin/belgard-sync, /admin/material-swatches-bulk.
      ═══════════════════════════════════════════════════════════════════════ */
   :root {
     --bp-green:       #5d7e69;
@@ -31,6 +29,8 @@
     --bp-danger-bg:   #fde8e8;
     --bp-ok:          #2f6b3a;
     --bp-ok-bg:       #e4f1e6;
+    --bp-warn:        #8a6a1a;
+    --bp-warn-bg:     #fdf3dc;
   }
 
   * { box-sizing: border-box; }
@@ -92,7 +92,7 @@
   }
   .bp-mat-sub a { color: var(--bp-green); }
 
-  /* ─── Status ─────────────────────────────────────────────────── */
+  /* ─── Status banners ─────────────────────────────────────────── */
   .bp-mat-status {
     padding: 12px 14px;
     border-radius: 4px;
@@ -110,6 +110,11 @@
     background: var(--bp-danger-bg);
     color: var(--bp-danger);
     border-left: 3px solid var(--bp-danger);
+  }
+  .bp-mat-status.warn {
+    background: var(--bp-warn-bg);
+    color: var(--bp-warn);
+    border-left: 3px solid var(--bp-warn);
   }
 
   /* ─── Toolbar ────────────────────────────────────────────────── */
@@ -195,7 +200,7 @@
     color: #6f1e1e;
   }
 
-  /* ─── Form panel (inline, expandable) ───────────────────────── */
+  /* ─── Panels (shared shell) ──────────────────────────────────── */
   .bp-mat-panel {
     background: var(--bp-card);
     border: 1px solid var(--bp-border);
@@ -213,6 +218,67 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
+
+  /* ─── Scrape (paste-link) panel ──────────────────────────────── */
+  .bp-mat-scrape-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .bp-mat-scrape-row input {
+    flex: 1;
+    min-width: 300px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: "SF Mono", Menlo, monospace;
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 4px;
+    color: var(--bp-text);
+  }
+  .bp-mat-scrape-row input:focus {
+    outline: none;
+    border-color: var(--bp-green);
+    box-shadow: 0 0 0 2px rgba(93, 126, 105, 0.15);
+  }
+  .bp-mat-scrape-hint {
+    font-size: 12px;
+    color: var(--bp-muted);
+    margin-top: 10px;
+  }
+  .bp-mat-scrape-hint strong { color: var(--bp-text); }
+  .bp-mat-scrape-result {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--bp-bg);
+    border-radius: 4px;
+    font-size: 12px;
+    display: none;
+  }
+  .bp-mat-scrape-result.visible { display: block; }
+  .bp-mat-scrape-result ul {
+    margin: 6px 0 0;
+    padding-left: 20px;
+  }
+  .bp-mat-scrape-result li {
+    margin-bottom: 3px;
+    color: var(--bp-muted);
+  }
+  .bp-mat-scrape-result .bp-mat-src-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    margin-left: 6px;
+    border-radius: 2px;
+    background: var(--bp-green-soft);
+    color: var(--bp-green-dark);
+    font-size: 10px;
+    font-family: "SF Mono", Menlo, monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* ─── Form panel ─────────────────────────────────────────────── */
   .bp-mat-form-row {
     display: grid;
     grid-template-columns: 140px 1fr;
@@ -249,6 +315,9 @@
     outline: none;
     border-color: var(--bp-green);
     box-shadow: 0 0 0 2px rgba(93, 126, 105, 0.15);
+  }
+  .bp-mat-form-row input.bp-mat-filled-by-scrape {
+    background: var(--bp-green-soft);
   }
   .bp-mat-form-hint {
     font-size: 11px;
@@ -434,8 +503,8 @@
     </div>
   </div>
   <p class="bp-mat-sub">
-    Third-party material catalog. Manually managed until manufacturer scraping lands in a later sprint.
-    Images, swatches, and cut sheets stay blank here — add one material at a time or bulk-import via CSV.
+    Third-party material catalog. Paste a manufacturer product URL below to auto-fill the form, or add manually / bulk-import via CSV.
+    Color swatches stay blank in v1 — manufacturers load them via JavaScript, so scraping only captures the hero image.
   </p>
 
   <div id="matStatus" class="bp-mat-status"></div>
@@ -450,8 +519,26 @@
     <select id="matFilterCat" class="bp-mat-filter">
       <option value="">All categories</option>
     </select>
+    <button id="matScrapeBtn" class="bp-mat-btn-ghost">Paste product link</button>
     <button id="matAddBtn" class="bp-mat-btn">+ Add material</button>
     <button id="matCsvBtn" class="bp-mat-btn-ghost">Bulk import (CSV)</button>
+  </div>
+
+  <!-- ───── Paste-link scrape panel ───── -->
+  <div id="matScrapePanel" class="bp-mat-panel">
+    <h2>Paste product URL</h2>
+    <div class="bp-mat-scrape-row">
+      <input type="url" id="matScrapeUrl"
+             placeholder="https://www.trex.com/products/decking/lineage/" spellcheck="false" />
+      <button id="matScrapeFetch" class="bp-mat-btn">Fetch details</button>
+      <button id="matScrapeCancel" class="bp-mat-btn-ghost">Close</button>
+    </div>
+    <div class="bp-mat-scrape-hint">
+      Best results: <strong>Trex, Belgard, Techo-Bloc, Keystone Hardscapes, Tru-Scapes</strong>.
+      Tracking parameters (<code>utm_*</code>, <code>gclid</code>, etc.) are stripped automatically.
+      Success pre-fills the Add Material form below — review and click Save.
+    </div>
+    <div id="matScrapeResult" class="bp-mat-scrape-result"></div>
   </div>
 
   <!-- ───── Add / Edit panel ───── -->
@@ -507,7 +594,7 @@
       <label for="matImgUrl">Image URL</label>
       <div>
         <input type="url" id="matImgUrl" placeholder="https://…" />
-        <div class="bp-mat-form-hint">Optional. Leave blank — manufacturer scraping will populate this later.</div>
+        <div class="bp-mat-form-hint">Optional. Hero image pulled from the page's Open Graph tag when the scraper finds one.</div>
       </div>
     </div>
 
@@ -515,7 +602,7 @@
       <label for="matCatalogUrl">Catalog URL</label>
       <div>
         <input type="url" id="matCatalogUrl" placeholder="https://…" />
-        <div class="bp-mat-form-hint">Optional. Public manufacturer product page — used for reference only.</div>
+        <div class="bp-mat-form-hint">Optional. Public manufacturer product page — tracking params auto-stripped.</div>
       </div>
     </div>
 
@@ -560,7 +647,7 @@ MSI,Turf,Summer Gold 96,,Bayside standard turf,,https://msisurfaces.com/...</div
   <!-- ───── List / empty state ───── -->
   <div id="matEmpty" class="bp-mat-empty" style="display:none;">
     <strong>No materials yet.</strong>
-    Click <em>+ Add material</em> above to add one at a time, or <em>Bulk import (CSV)</em> to paste a whole catalog.
+    Click <em>Paste product link</em> to auto-fill from a manufacturer URL, <em>+ Add material</em> to add one by hand, or <em>Bulk import (CSV)</em> to paste a whole catalog.
   </div>
 
   <div id="matTableWrap" class="bp-mat-table-wrap" style="display:none;">
