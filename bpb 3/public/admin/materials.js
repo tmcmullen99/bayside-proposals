@@ -1,24 +1,24 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// materials.js — Part A admin UI for the third_party_materials catalog.
+// materials.js — Part A admin UI for third_party_materials (v2 with scraper).
 //
-// Mirrors the pattern used by /admin/admin-clients.js:
-//   1. Load rows on mount
-//   2. Render table + populate filter dropdowns from loaded data
-//   3. Attach event listeners once
-//   4. Actions (add / edit / delete / CSV import) mutate DB, reload, re-render
+// v2 additions (on top of v1):
+//   - Paste-link panel calls /api/scrape-product (CF Function)
+//   - Scrape result pre-fills the Add form, with filled fields visually
+//     highlighted (green-tinted background) so Tim can see at a glance
+//     what came from the scrape vs what still needs typing
+//   - Source tags shown under the URL bar (og_title / jsonld / url_hostname
+//     / etc.) so Tim can gauge confidence of each field
+//   - Warnings from the Function are surfaced as inline hints under the URL
 //
-// Auth: intentionally NOT gated. Other admin pages that touch non-RLS tables
-// (/admin/belgard-sync, /admin/material-swatches-bulk) follow the same
-// anon-key pattern. Phase A scope per Tim's direction.
+// Mirrors the pattern used by /admin/admin-clients.js. No auth gate — same
+// as /admin/belgard-sync, /admin/material-swatches-bulk.
 //
 // Scope columns (matches information_schema.columns for third_party_materials
 // as of 2026-04-24):
 //   id, manufacturer, category, product_name, color, description,
 //   image_url, catalog_url, created_at
-// Three additional columns (primary_image_url, cut_sheet_url, installation_guide_id)
-// exist in the schema but are deliberately NOT exposed in this form —
-// they are populated by other sprint flows (Sprint 3A swatches, 3I cut sheets).
-// Leaving them NULL here is safe because publish.js already handles NULLs.
+// The three extra image/guide columns that exist in the schema are NOT
+// exposed in this form — they're populated by other sprint flows.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -34,7 +34,14 @@ const el = {
   filterMfr:  document.getElementById('matFilterMfr'),
   filterCat:  document.getElementById('matFilterCat'),
   addBtn:     document.getElementById('matAddBtn'),
+  scrapeBtn:  document.getElementById('matScrapeBtn'),
   csvBtn:     document.getElementById('matCsvBtn'),
+
+  scrapePanel:  document.getElementById('matScrapePanel'),
+  scrapeUrl:    document.getElementById('matScrapeUrl'),
+  scrapeFetch:  document.getElementById('matScrapeFetch'),
+  scrapeCancel: document.getElementById('matScrapeCancel'),
+  scrapeResult: document.getElementById('matScrapeResult'),
 
   formPanel:  document.getElementById('matFormPanel'),
   formTitle:  document.getElementById('matFormTitle'),
@@ -68,14 +75,14 @@ const el = {
 // State
 // ───────────────────────────────────────────────────────────────────────────
 const ctx = {
-  materials:    [],        // all rows loaded from DB
-  manufacturers: [],       // distinct, sorted
-  categories:    [],       // distinct, sorted
-  editingId:    null,      // id of row currently being edited, or null for add mode
+  materials:    [],
+  manufacturers: [],
+  categories:    [],
+  editingId:    null,
   searchTerm:   '',
   filterMfr:    '',
   filterCat:    '',
-  csvPending:   null,      // { validRows: [...], errors: [...] }
+  csvPending:   null,
 };
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -101,7 +108,6 @@ async function loadMaterials() {
   }
   ctx.materials = data || [];
 
-  // Recompute distinct manufacturer / category lists for filters + datalists
   const mfrSet = new Set();
   const catSet = new Set();
   for (const m of ctx.materials) {
@@ -129,19 +135,25 @@ function attachListeners() {
     renderTable();
   });
 
-  el.addBtn.addEventListener('click', () => openForm(null));
+  el.addBtn.addEventListener('click',    () => openForm(null));
   el.formCancel.addEventListener('click', closeForm);
-  el.formSave.addEventListener('click', handleSave);
+  el.formSave.addEventListener('click',  handleSave);
 
-  el.csvBtn.addEventListener('click', toggleCsvPanel);
+  el.scrapeBtn.addEventListener('click',    toggleScrapePanel);
+  el.scrapeFetch.addEventListener('click',  handleScrape);
+  el.scrapeCancel.addEventListener('click', closeScrapePanel);
+  el.scrapeUrl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleScrape(); }
+  });
+
+  el.csvBtn.addEventListener('click',      toggleCsvPanel);
   el.csvInput.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (file) handleCsvFile(file);
   });
   el.csvImport.addEventListener('click', handleCsvImport);
-  el.csvReset.addEventListener('click', resetCsv);
+  el.csvReset.addEventListener('click',  resetCsv);
 
-  // Drag & drop on the drop zone
   ['dragenter', 'dragover'].forEach(evt => {
     el.csvDrop.addEventListener(evt, (e) => {
       e.preventDefault();
@@ -171,7 +183,7 @@ function render() {
 
 function renderFilters() {
   const renderOptions = (selectEl, values, currentValue) => {
-    const first = selectEl.querySelector('option'); // keep "All ..." option
+    const first = selectEl.querySelector('option');
     selectEl.innerHTML = '';
     selectEl.appendChild(first);
     for (const v of values) {
@@ -229,7 +241,6 @@ function renderTable() {
 
   el.tableBody.innerHTML = visible.map(renderRow).join('');
 
-  // Wire per-row handlers after innerHTML replace
   el.tableBody.querySelectorAll('[data-edit-id]').forEach(btn => {
     btn.addEventListener('click', () => openForm(btn.dataset.editId));
   });
@@ -256,6 +267,148 @@ function renderRow(m) {
       </td>
     </tr>
   `;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Scrape-link panel
+// ───────────────────────────────────────────────────────────────────────────
+function toggleScrapePanel() {
+  el.formPanel.classList.remove('visible');
+  el.csvPanel.classList.remove('visible');
+  const wasOpen = el.scrapePanel.classList.contains('visible');
+  el.scrapePanel.classList.toggle('visible');
+  if (!wasOpen) {
+    el.scrapeUrl.focus();
+    el.scrapePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function closeScrapePanel() {
+  el.scrapePanel.classList.remove('visible');
+  el.scrapeResult.classList.remove('visible');
+  el.scrapeResult.innerHTML = '';
+}
+
+async function handleScrape() {
+  const url = el.scrapeUrl.value.trim();
+  if (!url) {
+    showStatus('error', 'Paste a product URL first.');
+    el.scrapeUrl.focus();
+    return;
+  }
+  if (!/^https?:\/\//i.test(url)) {
+    showStatus('error', 'URL must start with http:// or https://');
+    return;
+  }
+
+  el.scrapeFetch.disabled = true;
+  el.scrapeFetch.textContent = 'Fetching…';
+  el.scrapeResult.classList.remove('visible');
+
+  let data;
+  try {
+    const resp = await fetch('/api/scrape-product', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    data = await resp.json();
+  } catch (err) {
+    el.scrapeFetch.disabled = false;
+    el.scrapeFetch.textContent = 'Fetch details';
+    showStatus('error', `Could not reach scraper: ${err.message}`);
+    return;
+  }
+
+  el.scrapeFetch.disabled = false;
+  el.scrapeFetch.textContent = 'Fetch details';
+
+  // Both success and graceful-fail responses carry `extracted` + `sources`.
+  // Only hard failures (invalid URL, bad request) have none.
+  const ext = data?.extracted;
+  if (!ext) {
+    showStatus('error', `Scrape failed: ${data?.error || 'unknown error'}${data?.detail ? ' — ' + data.detail : ''}`);
+    return;
+  }
+
+  // Open the form and pre-fill whatever we got
+  openForm(null);   // switches to Add mode and clears first
+  prefillFormFrom(ext);
+
+  // Render the scrape-result summary with source tags + warnings
+  renderScrapeSummary(data);
+
+  // Highlight based on success vs warnings
+  if (data.ok) {
+    showStatus('ok', 'Scrape succeeded. Review the form below and click Save.');
+  } else {
+    showStatus('warn', 'Partial scrape — some fields are from the URL only. Review carefully before saving.');
+  }
+}
+
+function prefillFormFrom(ext) {
+  // Clear highlight class on all inputs first
+  [el.mfr, el.cat, el.product, el.color, el.desc, el.imgUrl, el.catalogUrl]
+    .forEach(input => input.classList.remove('bp-mat-filled-by-scrape'));
+
+  const setIf = (input, val) => {
+    if (val != null && val !== '') {
+      input.value = val;
+      input.classList.add('bp-mat-filled-by-scrape');
+    }
+  };
+  setIf(el.mfr,        ext.manufacturer);
+  setIf(el.cat,        ext.category);
+  setIf(el.product,    ext.product_name);
+  setIf(el.desc,       ext.description);
+  setIf(el.imgUrl,     ext.image_url);
+  setIf(el.catalogUrl, ext.catalog_url);
+  // Color stays blank — we never extract it in v1
+}
+
+function renderScrapeSummary(data) {
+  const ext = data.extracted || {};
+  const sources = data.sources || {};
+  const warnings = data.warnings || [];
+
+  const labels = {
+    manufacturer: 'Manufacturer',
+    product_name: 'Product name',
+    description:  'Description',
+    category:     'Category',
+    image_url:    'Image URL',
+    catalog_url:  'Catalog URL',
+  };
+
+  const rows = Object.keys(labels).map(k => {
+    const v = ext[k];
+    const src = sources[k];
+    if (!v) {
+      return `<li><strong>${labels[k]}:</strong> <em style="color:var(--bp-muted);">not found</em></li>`;
+    }
+    const short = String(v).length > 90 ? String(v).slice(0, 90) + '…' : v;
+    return `<li><strong>${labels[k]}:</strong> ${escapeHtml(short)}` +
+           (src ? `<span class="bp-mat-src-tag">${escapeHtml(src)}</span>` : '') +
+           `</li>`;
+  }).join('');
+
+  const warnHtml = warnings.length > 0
+    ? `<div style="margin-top:10px;padding:8px 10px;background:var(--bp-warn-bg);color:var(--bp-warn);border-radius:3px;">
+         ${warnings.map(w => `<div>${escapeHtml(w)}</div>`).join('')}
+       </div>`
+    : '';
+
+  const statusLine = data.ok
+    ? `<strong style="color:var(--bp-ok);">✓ Fetched ${data.status}</strong> in ${data.elapsed_ms}ms`
+    : `<strong style="color:var(--bp-warn);">⚠ ${data.error || 'partial'}</strong>` +
+      (data.status ? ` — upstream ${data.status}` : '');
+
+  el.scrapeResult.innerHTML = `
+    <div style="margin-bottom:6px;">${statusLine}</div>
+    <ul style="margin:6px 0 0;">${rows}</ul>
+    ${warnHtml}
+  `;
+  el.scrapeResult.classList.add('visible');
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -289,9 +442,13 @@ function openForm(editId) {
     el.imgUrl.value = '';
     el.catalogUrl.value = '';
   }
+  // Clear any previous scrape-fill highlighting
+  [el.mfr, el.cat, el.product, el.color, el.desc, el.imgUrl, el.catalogUrl]
+    .forEach(input => input.classList.remove('bp-mat-filled-by-scrape'));
 
   el.formPanel.classList.add('visible');
-  el.mfr.focus();
+  // Don't steal focus if caller is about to pre-fill (from scrape)
+  if (!editId) setTimeout(() => el.mfr.focus(), 0);
   el.formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -311,7 +468,6 @@ async function handleSave() {
     catalog_url:  el.catalogUrl.value.trim() || null,
   };
 
-  // Required-field validation — matches the NOT NULL columns
   if (!row.manufacturer) return showStatus('error', 'Manufacturer is required.');
   if (!row.category)     return showStatus('error', 'Category is required.');
   if (!row.product_name) return showStatus('error', 'Product name is required.');
@@ -335,9 +491,6 @@ async function handleSave() {
   el.formSave.textContent = 'Save material';
 
   if (error) {
-    // 23505 = unique constraint violation. Schema doesn't currently enforce
-    // (manufacturer, product_name, color) uniqueness but if Tim adds one
-    // later this will surface cleanly.
     if (error.code === '23505') {
       return showStatus('error', 'A material with that exact manufacturer + product + color already exists.');
     }
@@ -348,6 +501,7 @@ async function handleSave() {
     ? `Updated ${row.manufacturer} · ${row.product_name}.`
     : `Added ${row.manufacturer} · ${row.product_name}.`);
   closeForm();
+  closeScrapePanel();      // also close scrape panel if it was open
   await loadMaterials();
   render();
 }
@@ -364,7 +518,6 @@ async function handleDelete(id) {
     .eq('id', id);
 
   if (error) {
-    // FK violation most commonly — proposal_materials has a row pointing here.
     if (error.code === '23503') {
       return showStatus('error',
         `Cannot remove "${label}" — it's still referenced by at least one proposal. ` +
@@ -378,22 +531,11 @@ async function handleDelete(id) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// CSV bulk import
-//
-// Parser is intentionally minimal but handles the common cases:
-//   - RFC 4180 double-quoted fields
-//   - Embedded newlines and escaped quotes inside quoted fields
-//   - Unquoted fields with commas (splits them — so users should quote)
-//   - Both \r\n and \n line endings
-//
-// Validation rules:
-//   - manufacturer, category, product_name must be non-empty after trim
-//   - URLs if present must start with http:// or https://
-//   - Duplicate checks against already-loaded materials (same mfr+product+color)
-//     are WARNED but still importable — Tim can override
+// CSV bulk import (unchanged from v1)
 // ───────────────────────────────────────────────────────────────────────────
 function toggleCsvPanel() {
   el.formPanel.classList.remove('visible');
+  el.scrapePanel.classList.remove('visible');
   el.csvPanel.classList.toggle('visible');
   if (el.csvPanel.classList.contains('visible')) {
     resetCsv();
@@ -411,7 +553,6 @@ function resetCsv() {
 
 async function handleCsvFile(file) {
   if (!file.name.toLowerCase().endsWith('.csv') && !file.type.includes('csv')) {
-    // Still attempt — user might drop a .txt that's actually CSV.
     if (!confirm(`"${file.name}" doesn't look like a CSV. Try to parse it anyway?`)) return;
   }
   let text;
@@ -461,7 +602,6 @@ function previewCsv(text) {
 
   const validRows = [];
   const errors = [];
-  // Index existing materials for duplicate warning
   const existingKey = new Set(
     ctx.materials.map(m => rowKey(m.manufacturer, m.product_name, m.color || ''))
   );
@@ -469,10 +609,9 @@ function previewCsv(text) {
 
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
-    // Skip fully empty lines (common CSV trailing newline artifact)
     if (r.every(v => v == null || String(v).trim() === '')) continue;
 
-    const rowNum = i + 1;        // 1-indexed, matching spreadsheet display
+    const rowNum = i + 1;
     const cell = (i2) => (i2 >= 0 && i2 < r.length ? String(r[i2]).trim() : '');
     const manufacturer = cell(idx.manufacturer);
     const category     = cell(idx.category);
@@ -553,7 +692,6 @@ async function handleCsvImport() {
   el.csvImport.disabled = true;
   el.csvImport.textContent = 'Importing…';
 
-  // Strip the helper fields before insert
   const payload = validRows.map(({ _row, _dupe, ...rest }) => rest);
 
   const { error } = await supabase
@@ -576,7 +714,6 @@ async function handleCsvImport() {
 
 /**
  * RFC 4180-ish CSV parser. Single pass, state machine.
- * Returns an array of row arrays.
  */
 function parseCsv(text) {
   const rows = [];
@@ -585,7 +722,6 @@ function parseCsv(text) {
   let inQuotes = false;
   let i = 0;
 
-  // Normalize stray BOM
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
 
   while (i < text.length) {
@@ -593,7 +729,7 @@ function parseCsv(text) {
     if (inQuotes) {
       if (ch === '"') {
         if (text[i + 1] === '"') {
-          field += '"';   // escaped quote
+          field += '"';
           i += 2;
           continue;
         }
@@ -612,7 +748,6 @@ function parseCsv(text) {
     field += ch;
     i++;
   }
-  // Flush any trailing field / row
   if (field !== '' || row.length > 0) {
     row.push(field);
     rows.push(row);
@@ -629,7 +764,11 @@ function rowKey(mfr, product, color) {
 // Utils
 // ───────────────────────────────────────────────────────────────────────────
 function showStatus(kind, msg) {
-  el.status.className = 'bp-mat-status visible ' + (kind === 'ok' ? 'ok' : 'error');
+  let klass = 'bp-mat-status visible ';
+  if (kind === 'ok')         klass += 'ok';
+  else if (kind === 'warn')  klass += 'warn';
+  else                       klass += 'error';
+  el.status.className = klass;
   el.status.textContent = msg;
   el.status.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   if (kind === 'ok') {
