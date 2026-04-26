@@ -47,28 +47,32 @@ const MANUFACTURER_HOSTNAMES = [
   { match: /(^|\.)basalite\.com$/i,              name: 'Basalite' },
 ];
 
+// Category inference from URL path keywords. First match wins.
+// Values match the third_party_materials_category_check constraint exactly:
+// decking, lighting, fencing, furniture, pavers, walls, turf, coping,
+// edgers, steps, fire_features, kitchens, railing, porcelain, other.
 const CATEGORY_KEYWORDS = [
-  { re: /\bdeck(ing)?\b/i,                         name: 'Decking' },
-  { re: /\brailing\b/i,                            name: 'Railing' },
-  { re: /\bpavers?\b/i,                            name: 'Pavers' },
-  { re: /\bpaver-?slab\b/i,                        name: 'Pavers' },
-  { re: /\bpaving(-?stones?)?\b/i,                 name: 'Pavers' },
-  { re: /\bslab(s)?\b/i,                           name: 'Pavers' },
-  { re: /\bporcelain\b/i,                          name: 'Porcelain' },
-  { re: /\bturf\b/i,                               name: 'Turf' },
-  { re: /\bartificial-?grass\b/i,                  name: 'Turf' },
-  { re: /\bsynthetic-?grass\b/i,                   name: 'Turf' },
-  { re: /\bretaining\b/i,                          name: 'Walls' },
-  { re: /\bwall(-?block|-?system|s)?\b/i,          name: 'Walls' },
-  { re: /\bstructure(s)?\b/i,                      name: 'Walls' },
-  { re: /\bcoping\b/i,                             name: 'Coping' },
-  { re: /\bedger(s)?\b/i,                          name: 'Edgers' },
-  { re: /\bstep(s)?\b/i,                           name: 'Steps' },
-  { re: /\bfire[\s_-]?(pit|place|feature)s?\b/i,   name: 'Fire features' },
-  { re: /\bkitchens?\b/i,                          name: 'Kitchens' },
-  { re: /\blight(ing|s)?\b/i,                      name: 'Lighting' },
-  { re: /\bhardscape[\s_-]?lighting\b/i,           name: 'Lighting' },
-  { re: /\bfenc(e|ing)\b/i,                        name: 'Fencing' },
+  { re: /\bdeck(ing)?\b/i,                         name: 'decking' },
+  { re: /\brailing\b/i,                            name: 'railing' },
+  { re: /\bpavers?\b/i,                            name: 'pavers' },
+  { re: /\bpaver-?slab\b/i,                        name: 'pavers' },
+  { re: /\bpaving(-?stones?)?\b/i,                 name: 'pavers' },
+  { re: /\bslab(s)?\b/i,                           name: 'pavers' },
+  { re: /\bporcelain\b/i,                          name: 'porcelain' },
+  { re: /\bturf\b/i,                               name: 'turf' },
+  { re: /\bartificial-?grass\b/i,                  name: 'turf' },
+  { re: /\bsynthetic-?grass\b/i,                   name: 'turf' },
+  { re: /\bretaining\b/i,                          name: 'walls' },
+  { re: /\bwall(-?block|-?system|s)?\b/i,          name: 'walls' },
+  { re: /\bstructure(s)?\b/i,                      name: 'walls' },
+  { re: /\bcoping\b/i,                             name: 'coping' },
+  { re: /\bedger(s)?\b/i,                          name: 'edgers' },
+  { re: /\bstep(s)?\b/i,                           name: 'steps' },
+  { re: /\bfire[\s_-]?(pit|place|feature)s?\b/i,   name: 'fire_features' },
+  { re: /\bkitchens?\b/i,                          name: 'kitchens' },
+  { re: /\blight(ing|s)?\b/i,                      name: 'lighting' },
+  { re: /\bhardscape[\s_-]?lighting\b/i,           name: 'lighting' },
+  { re: /\bfenc(e|ing)\b/i,                        name: 'fencing' },
 ];
 
 // Colour inference from URL slug. Only matches known colour sets to avoid
@@ -350,7 +354,13 @@ function extractFromHtml(html, parsed) {
     const v = cleanIfReal(og.description);
     if (v) { out.description = v; sources.description = 'og_description'; }
   }
-  if (!out.image_url && og.image) { out.image_url = og.image; sources.image_url = 'og_image'; }
+  // Trex (and other AEM-based sites) sometimes serve <meta property="og:image" content="">
+  // — an empty string is technically present but useless. Treat empty/whitespace
+  // as missing so we fall through to twitter:image / link[rel=image_src] / hero img.
+  if (!out.image_url && og.image && og.image.trim()) {
+    out.image_url = og.image.trim();
+    sources.image_url = 'og_image';
+  }
   if (!out.manufacturer) {
     const v = cleanIfReal(og.site_name);
     if (v) { out.manufacturer = v; sources.manufacturer = 'og_site_name'; }
@@ -369,7 +379,24 @@ function extractFromHtml(html, parsed) {
     const v = cleanIfReal(tw.description);
     if (v) { out.description = v; sources.description = 'twitter_description'; }
   }
-  if (!out.image_url && tw.image) { out.image_url = tw.image; sources.image_url = 'twitter_image'; }
+  if (!out.image_url && tw.image && tw.image.trim()) {
+    out.image_url = tw.image.trim();
+    sources.image_url = 'twitter_image';
+  }
+
+  // <link rel="image_src" href="..."> — older but still common
+  if (!out.image_url) {
+    const m = html.match(/<link\b[^>]*\brel=["']image_src["'][^>]*\bhref=["']([^"']+)["']/i)
+          || html.match(/<link\b[^>]*\bhref=["']([^"']+)["'][^>]*\brel=["']image_src["']/i);
+    if (m && m[1].trim()) { out.image_url = m[1].trim(); sources.image_url = 'link_image_src'; }
+  }
+
+  // Last resort: first reasonably-sized hero <img> in the body (skip tiny icons,
+  // sprites, tracking pixels, base64 data URIs).
+  if (!out.image_url) {
+    const heroImg = findHeroImage(html);
+    if (heroImg) { out.image_url = heroImg; sources.image_url = 'hero_img'; }
+  }
 
   if (!out.product_name) {
     const h1 = extractFirstH1(html);
@@ -420,6 +447,64 @@ function extractFirstH1(html) {
   if (!m) return null;
   const stripped = m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   return stripped ? decodeEntities(stripped) : null;
+}
+
+/**
+ * Find the first reasonably-sized hero/content image in the HTML body.
+ *
+ * Used as a last-resort fallback when og:image, twitter:image, and
+ * link[rel=image_src] are all missing or empty. Common case: Trex's AEM
+ * leaves og:image content="" but renders the actual hero image in <body>.
+ *
+ * Heuristics — skip an <img> if its src looks like:
+ *   • A logo, sprite, or icon (filename contains those words)
+ *   • A tracking pixel (1x1 GIFs, <100B query strings, ad networks)
+ *   • A base64 data URI
+ *   • A favicon or known small-asset path
+ *   • Inside a <header>, <nav>, or <footer> (header logos, footer badges)
+ *
+ * Stop after the first match — anything later is rarely the hero.
+ */
+function findHeroImage(html) {
+  // Strip head, header, nav, footer regions before scanning so we don't
+  // pick up logos / nav icons. Cheap regex-level "remove these blocks".
+  const body = html
+    .replace(/<head\b[\s\S]*?<\/head>/gi, '')
+    .replace(/<header\b[\s\S]*?<\/header>/gi, '')
+    .replace(/<nav\b[\s\S]*?<\/nav>/gi, '')
+    .replace(/<footer\b[\s\S]*?<\/footer>/gi, '');
+
+  const skipPatterns = [
+    /\blogo\b/i,
+    /\bsprite\b/i,
+    /\bicon(s)?\b/i,
+    /\bfavicon\b/i,
+    /\bbadge\b/i,
+    /\bavatar\b/i,
+    /\bpixel\b/i,
+    /\btrack(ing|er)?\b/i,
+    /1x1/,
+    /\bgoogletagmanager\b/i,
+    /\bdoubleclick\b/i,
+    /\bfacebook\.com\/tr\b/i,
+  ];
+
+  const imgRe = /<img\b([^>]*)>/gi;
+  let m;
+  while ((m = imgRe.exec(body))) {
+    const attrs = m[1];
+    const srcMatch = attrs.match(/\bsrc=["']([^"']+)["']/i)
+                  || attrs.match(/\bdata-src=["']([^"']+)["']/i);
+    if (!srcMatch) continue;
+    const src = srcMatch[1].trim();
+    if (!src) continue;
+    if (src.startsWith('data:')) continue;       // base64 inline
+    if (skipPatterns.some(p => p.test(src))) continue;
+    // Skip very short query strings that look like tracking
+    if (src.length < 20) continue;
+    return src;
+  }
+  return null;
 }
 
 function extractJsonLdProduct(html) {
