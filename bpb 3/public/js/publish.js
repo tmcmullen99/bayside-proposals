@@ -103,6 +103,20 @@
 //      construction_drawing_url + lightbox-to-zoom behavior is preserved
 //      byte-identical so the 40 already-published proposals are unchanged.
 //
+//  10. [Phase 1B.2] Two-column layout for the construction-drawing
+//      polygon view (Condo Market SF pattern). Drawing sticks to the
+//      left while a scrollable list of region cards runs down the right.
+//      Each card shows the region name + the materials assigned to its
+//      scope section, with bidirectional hover sync — hover a card →
+//      the matching polygon highlights; hover a polygon → its card
+//      highlights. Polygons get a louder treatment (thicker stroke,
+//      higher fill opacity, brighter active state). Mobile collapses to
+//      a single column with cards stacked under the drawing. Inline
+//      script at the end of the section wires up the sync. No schema
+//      changes; cards are derived from existing proposal_materials rows
+//      filtered by proposal_section_id. The legacy construction_drawing_url
+//      branch (no regions) is unchanged from Phase 1B.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
@@ -843,7 +857,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   const dateStr = formatDate(new Date());
   const loomEmbed = buildLoomEmbed(proposal.loom_url);
   const heroBanner = buildHeroBanner(proposal.hero_image_url);
-  const drawingSection = buildDrawingSection(proposal, regions);
+  const drawingSection = buildDrawingSection(proposal, regions, materials, categoryToSection);
 
   const scopeHtml = renderScopeSection(sections, proposal.bid_total_amount);
   const materialsHtml = renderMaterialsSection(materials, categoryToSection);
@@ -1058,7 +1072,13 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
      backdrop's native pixel dimensions, so polygon coords convert from
      0..1 fractions to user units via simple multiplication at render time.
      vector-effect: non-scaling-stroke keeps the outline a consistent
-     device-pixel width regardless of how much the SVG is scaled down. */
+     device-pixel width regardless of how much the SVG is scaled down.
+
+     Phase 1B.2 — louder treatment so polygons read clearly on top of
+     colored SketchUp drawings: thicker stroke, higher fill opacity, and
+     an .is-active state that bumps both. The active class is toggled by
+     the inline hover-sync IIFE rendered below the section, so hovering
+     the matching card on the right rail also lights the polygon. */
   .pub-drawing-overlay-wrap {
     position: relative;
     display: inline-block;
@@ -1083,15 +1103,149 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     overflow: visible;
   }
   .pub-drawing-region {
-    fill: rgba(93, 126, 105, 0.10);
+    fill: rgba(93, 126, 105, 0.22);
     stroke: var(--green);
-    stroke-width: 3;
+    stroke-width: 5;
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
     cursor: pointer;
+    transition: fill 0.15s ease, stroke-width 0.15s ease;
   }
   .pub-drawing-region--static {
     cursor: default;
+  }
+  .pub-drawing-region.is-active,
+  .pub-drawing-region:hover {
+    fill: rgba(93, 126, 105, 0.42);
+    stroke-width: 7;
+  }
+
+  /* Phase 1B.2 — two-column layout: drawing sticky on the left,
+     scrollable card list on the right. Mobile collapses to single column.
+     The sticky column uses position: sticky with a top offset matching
+     the header height so it doesn't run under any fixed nav. align-self:
+     start prevents the grid from stretching the sticky col to match the
+     cards col height (which would break sticky). */
+  .pub-drawing-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+    margin-top: 8px;
+  }
+  .pub-drawing-sticky-col {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+  .pub-drawing-cards-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .pub-region-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .pub-region-card.is-active {
+    border-color: var(--green);
+    box-shadow: 0 6px 22px rgba(93, 126, 105, 0.20);
+    transform: translateY(-1px);
+  }
+  .pub-region-card-header {
+    display: block;
+    padding: 18px 20px;
+    text-decoration: none;
+    background: var(--cream);
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s ease;
+  }
+  .pub-region-card-header:hover {
+    background: var(--green-soft);
+  }
+  .pub-region-card-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+  .pub-region-card-meta {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+  }
+  .pub-region-card-materials {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .pub-region-card-materials--empty {
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .pub-region-card-material {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .pub-region-card-thumb {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 6px;
+    display: block;
+    background: var(--cream);
+    flex-shrink: 0;
+  }
+  .pub-region-card-thumb--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--cream), var(--green-soft));
+    color: var(--green);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+  }
+  .pub-region-card-material-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .pub-region-card-material-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--navy);
+    line-height: 1.35;
+  }
+  .pub-region-card-material-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .pub-region-card-cutsheet {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green-dark);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .pub-region-card-cutsheet:hover {
+    text-decoration: underline;
+    color: var(--green);
   }
 
   /* ═════════ Scope of Work ═════════ */
@@ -1570,6 +1724,22 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     }
   }
 
+  /* Phase 1B.2 — collapse two-column drawing layout below 900px so the
+     drawing has full width and the cards stack underneath. The 900px
+     breakpoint is wider than the 640px mobile breakpoint above because
+     the two-column drawing layout starts to feel cramped well before
+     phone-sized viewports — tablets and narrow laptop windows are
+     better served by the stacked layout. */
+  @media (max-width: 900px) {
+    .pub-drawing-layout {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .pub-drawing-sticky-col {
+      position: static;
+    }
+  }
+
   /* ═════════ Lightbox (Sprint 3H) ═════════
      Every non-hero image on the published page opens in a full-viewport
      modal when clicked. Images are grouped by a data-gallery attribute
@@ -1887,14 +2057,14 @@ function buildHeroBanner(url) {
 //     existing construction_drawing_url with lightbox-to-zoom. Preserved
 //     byte-identical so the 40 already-published proposals continue to
 //     behave exactly as before.
-function buildDrawingSection(proposal, regions) {
+function buildDrawingSection(proposal, regions, materials, categoryToSection) {
   const hasRegions = Array.isArray(regions) && regions.length > 0;
   const hasBackdrop = proposal.site_plan_backdrop_url
     && proposal.site_plan_backdrop_width
     && proposal.site_plan_backdrop_height;
 
   if (hasRegions && hasBackdrop) {
-    return renderBackdropWithRegions(proposal, regions);
+    return renderBackdropWithRegions(proposal, regions, materials, categoryToSection);
   }
 
   if (!proposal.construction_drawing_url) return '';
@@ -1919,7 +2089,7 @@ function buildDrawingSection(proposal, regions) {
   `;
 }
 
-// Phase 1B — polygon overlay renderer.
+// Phase 1B — polygon overlay renderer (Phase 1B.2 — two-column layout).
 //
 // Reads the backdrop's native pixel dimensions from the proposals row
 // (set when the labeling tool uploads the backdrop) and uses them as
@@ -1927,10 +2097,16 @@ function buildDrawingSection(proposal, regions) {
 // [0..1] of those native dimensions, so converting to user-space coords
 // is a single multiplication per vertex.
 //
-// The wrap is inline-block so its size is dictated by the rendered img
-// (max-width 100% / max-height 720px); the SVG is absolutely positioned
-// at 100%/100% so it always overlays the img exactly. preserveAspectRatio
-// defaults to xMidYMid meet, matching object-fit: contain on the img.
+// Layout (Phase 1B.2): two-column grid on desktop. Left column holds
+// the drawing inside a sticky wrapper so it stays in view as the right
+// column scrolls. Right column is a vertical list of region cards —
+// one card per labeled region, showing the region name + the materials
+// assigned to its scope section (filtered from proposal_materials by
+// proposal_section_id). Hover sync between cards and polygons is wired
+// up by an inline IIFE rendered at the end of the section: hover a card
+// → its polygon gains the .is-active class; hover a polygon → its card
+// gains .is-active too. Mobile (<= 900px) collapses to a single column
+// with cards stacked below the drawing.
 //
 // Each polygon either wraps in <a href="#section-{uuid}"> for click-to-
 // scroll (when proposal_section_id is set) or renders as a static visual
@@ -1938,7 +2114,7 @@ function buildDrawingSection(proposal, regions) {
 // `html { scroll-behavior: smooth }` in the snapshot CSS, and the
 // `scroll-margin-top: 32px` rule on .pub-scope-item ensures the section
 // header isn't crammed against the top of the viewport on landing.
-function renderBackdropWithRegions(proposal, regions) {
+function renderBackdropWithRegions(proposal, regions, materials, categoryToSection) {
   const W = proposal.site_plan_backdrop_width;
   const H = proposal.site_plan_backdrop_height;
   const url = proposal.site_plan_backdrop_url;
@@ -1955,23 +2131,33 @@ function renderBackdropWithRegions(proposal, regions) {
       .join(' ');
 
     const labelAttr = r.name ? ` aria-label="${escapeAttr(r.name)}"` : '';
+    const dataAttr = ` data-region-id="${escapeAttr(r.id)}"`;
 
     if (r.proposal_section_id) {
       return `<a href="#section-${escapeAttr(r.proposal_section_id)}"${labelAttr}>` +
-             `<polygon class="pub-drawing-region" points="${points}" />` +
+             `<polygon class="pub-drawing-region" points="${points}"${dataAttr} />` +
              `</a>`;
     }
-    return `<polygon class="pub-drawing-region pub-drawing-region--static" points="${points}"${labelAttr} />`;
+    return `<polygon class="pub-drawing-region pub-drawing-region--static" points="${points}"${dataAttr}${labelAttr} />`;
   }).filter(Boolean).join('');
 
   const anyLinked = regions.some(r => r.proposal_section_id);
   const caption = anyLinked
-    ? 'Tap any highlighted area to jump to that part of the scope.'
+    ? 'Tap any highlighted area — or any card on the right — to jump to that part of the scope.'
     : 'Highlighted areas show the scope of work for this project.';
 
   const lede = anyLinked
-    ? 'The working plan-view for your project — highlighted areas show the scope and materials for each part of the project. Click any area to jump to its details.'
+    ? 'The working plan-view for your project — each highlighted area on the drawing is one part of the scope. The cards on the right show the materials assigned to each. Click any area or card to jump to its details below.'
     : 'The working plan-view for your project — highlighted areas show the scope of work for each part of the project.';
+
+  // Cards on the right rail — one per region, in display order. Regions
+  // without a linked scope section (proposal_section_id null) render no
+  // card, since there's nothing to show under them; the polygon itself
+  // still renders as a visual marker on the drawing.
+  const cardsHtml = regions
+    .map(r => renderRegionCard(r, materials, categoryToSection))
+    .filter(Boolean)
+    .join('');
 
   return `
     <section class="pub-drawing">
@@ -1979,16 +2165,133 @@ function renderBackdropWithRegions(proposal, regions) {
         <div class="pub-section-eyebrow">Construction drawing</div>
         <h2>Your project plan</h2>
         <p class="pub-section-lede">${escapeHtml(lede)}</p>
-        <div class="pub-drawing-frame">
-          <div class="pub-drawing-overlay-wrap">
-            <img src="${escapeAttr(url)}" alt="Construction drawing" class="pub-drawing-overlay-img">
-            <svg class="pub-drawing-overlay-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${polygons}</svg>
+        <div class="pub-drawing-layout">
+          <div class="pub-drawing-sticky-col">
+            <div class="pub-drawing-frame">
+              <div class="pub-drawing-overlay-wrap">
+                <img src="${escapeAttr(url)}" alt="Construction drawing" class="pub-drawing-overlay-img">
+                <svg class="pub-drawing-overlay-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${polygons}</svg>
+              </div>
+            </div>
+            <p class="pub-drawing-caption">${escapeHtml(caption)}</p>
+          </div>
+          <div class="pub-drawing-cards-col">
+            ${cardsHtml}
           </div>
         </div>
-        <p class="pub-drawing-caption">${escapeHtml(caption)}</p>
       </div>
     </section>
+    <script>
+      (function () {
+        var cards = Array.prototype.slice.call(
+          document.querySelectorAll('.pub-region-card[data-region-id]')
+        );
+        var polys = Array.prototype.slice.call(
+          document.querySelectorAll('polygon[data-region-id]')
+        );
+        if (!cards.length || !polys.length) return;
+
+        function setActive(regionId, active) {
+          cards.forEach(function (c) {
+            if (c.getAttribute('data-region-id') === regionId) {
+              c.classList.toggle('is-active', active);
+            }
+          });
+          polys.forEach(function (p) {
+            if (p.getAttribute('data-region-id') === regionId) {
+              if (active) p.classList.add('is-active');
+              else p.classList.remove('is-active');
+            }
+          });
+        }
+
+        cards.forEach(function (card) {
+          var rid = card.getAttribute('data-region-id');
+          card.addEventListener('mouseenter', function () { setActive(rid, true); });
+          card.addEventListener('mouseleave', function () { setActive(rid, false); });
+        });
+
+        polys.forEach(function (poly) {
+          var rid = poly.getAttribute('data-region-id');
+          if (!rid) return;
+          poly.addEventListener('mouseenter', function () { setActive(rid, true); });
+          poly.addEventListener('mouseleave', function () { setActive(rid, false); });
+        });
+      })();
+    </script>
   `;
+}
+
+// Phase 1B.2 — render one region card on the right rail.
+//
+// Region without a linked scope section returns empty string (no card).
+// The polygon still renders on the drawing as a visual marker, but the
+// right rail only lists regions that point at scope content.
+//
+// Materials are pulled from proposal_materials filtered by the region's
+// proposal_section_id. extractMaterialInfo is reused so the swatch URL
+// preference order (per-color swatch → primary → image_url) and the
+// install-guide routing match the existing material cards in section 02.
+function renderRegionCard(region, materials, categoryToSection) {
+  if (!region.proposal_section_id) return '';
+
+  const sectionMaterials = (materials || [])
+    .filter(m => m.proposal_section_id === region.proposal_section_id);
+
+  const sqftBadge = region.area_sqft != null && Number(region.area_sqft) > 0
+    ? `${Number(region.area_sqft).toLocaleString('en-US')} sqft`
+    : '';
+  const lnftBadge = region.area_lnft != null && Number(region.area_lnft) > 0
+    ? `${Number(region.area_lnft).toLocaleString('en-US')} lnft`
+    : '';
+  const meta = [sqftBadge, lnftBadge].filter(Boolean).join(' · ');
+
+  const materialRows = sectionMaterials.map(m => {
+    const info = extractMaterialInfo(m, categoryToSection);
+
+    // Pull color/pattern from the underlying catalog row when present —
+    // these are the most useful disambiguators for paver products
+    // (Catalina Grana Scandina Grey vs Catalina Grana Sepia).
+    const subtitleParts = [];
+    if (m.belgard_material) {
+      if (m.belgard_material.color) subtitleParts.push(m.belgard_material.color);
+      if (m.belgard_material.pattern) subtitleParts.push(m.belgard_material.pattern);
+    } else if (m.third_party_material) {
+      if (m.third_party_material.color) subtitleParts.push(m.third_party_material.color);
+    }
+    const subtitle = subtitleParts.join(' · ');
+
+    const thumbHtml = info.imageUrl
+      ? `<img src="${escapeAttr(info.imageUrl)}" alt="${escapeAttr(info.name)}" class="pub-region-card-thumb" loading="lazy">`
+      : `<div class="pub-region-card-thumb pub-region-card-thumb--placeholder">${escapeHtml((info.name || 'M').slice(0, 2).toUpperCase())}</div>`;
+
+    const cutSheetLink = info.cutSheetUrl
+      ? `<a href="${escapeAttr(info.cutSheetUrl)}" target="_blank" rel="noopener" class="pub-region-card-cutsheet">Cut sheet ↗</a>`
+      : '';
+
+    return `
+        <div class="pub-region-card-material">
+          ${thumbHtml}
+          <div class="pub-region-card-material-info">
+            <div class="pub-region-card-material-name">${escapeHtml(info.name)}</div>
+            ${subtitle ? `<div class="pub-region-card-material-sub">${escapeHtml(subtitle)}</div>` : ''}
+            ${cutSheetLink}
+          </div>
+        </div>`;
+  }).join('');
+
+  const materialsBlock = materialRows
+    ? `<div class="pub-region-card-materials">${materialRows}</div>`
+    : `<div class="pub-region-card-materials pub-region-card-materials--empty">No materials assigned to this section yet.</div>`;
+
+  return `
+      <div class="pub-region-card" data-region-id="${escapeAttr(region.id)}">
+        <a href="#section-${escapeAttr(region.proposal_section_id)}" class="pub-region-card-header">
+          <div class="pub-region-card-title">${escapeHtml(region.name || 'Region')}</div>
+          ${meta ? `<div class="pub-region-card-meta">${escapeHtml(meta)}</div>` : ''}
+        </a>
+        ${materialsBlock}
+      </div>`;
 }
 
 function renderScopeSection(sections, totalAmount) {
