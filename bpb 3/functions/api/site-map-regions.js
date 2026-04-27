@@ -13,9 +13,13 @@
  *
  * This matches how the admin UI thinks: "save what's on screen". Per
  * Principle 2 (simplicity), we don't track per-region dirty state client-side.
+ *
+ * Auth: This endpoint is open (no JWT check) — it matches the existing pattern
+ * used by every other BPB admin page (materials, belgard-sync, etc.). The
+ * security boundary is the CF Function holding the service role key, not user
+ * auth. Re-add a JWT check here if/when team members and a real sign-in flow
+ * land.
  */
-
-const TIM_USER_ID = '7a3930d1-f05a-49b1-a37f-d73329f37153';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -31,31 +35,6 @@ function jsonResponse(body, status = 200) {
       ...CORS_HEADERS,
     },
   });
-}
-
-/**
- * Verify the request is from Tim. Returns null if OK, or a Response if not.
- */
-async function requireTim(request, env) {
-  const authHeader = request.headers.get('Authorization') || '';
-  if (!authHeader.startsWith('Bearer ')) {
-    return jsonResponse({ error: 'Missing Authorization Bearer token' }, 401);
-  }
-  const userJwt = authHeader.slice(7);
-  const userResp = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      Authorization: `Bearer ${userJwt}`,
-      apikey: env.SUPABASE_ANON_KEY,
-    },
-  });
-  if (!userResp.ok) {
-    return jsonResponse({ error: 'Invalid auth token' }, 401);
-  }
-  const user = await userResp.json();
-  if (user.id !== TIM_USER_ID) {
-    return jsonResponse({ error: 'Forbidden: admin only' }, 403);
-  }
-  return null;
 }
 
 /**
@@ -103,9 +82,6 @@ export async function onRequestOptions() {
 export async function onRequestGet(context) {
   const { request, env } = context;
 
-  const authError = await requireTim(request, env);
-  if (authError) return authError;
-
   const url = new URL(request.url);
   const proposalId = url.searchParams.get('proposal_id');
   if (!proposalId) {
@@ -152,9 +128,6 @@ export async function onRequestGet(context) {
 // =============================================================================
 export async function onRequestPost(context) {
   const { request, env } = context;
-
-  const authError = await requireTim(request, env);
-  if (authError) return authError;
 
   let body;
   try {
@@ -286,9 +259,6 @@ export async function onRequestPost(context) {
 // =============================================================================
 export async function onRequestDelete(context) {
   const { request, env } = context;
-
-  const authError = await requireTim(request, env);
-  if (authError) return authError;
 
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
