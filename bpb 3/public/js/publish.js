@@ -117,6 +117,21 @@
 //      filtered by proposal_section_id. The legacy construction_drawing_url
 //      branch (no regions) is unchanged from Phase 1B.
 //
+//  11. [Phase 1B.3] Per-region material assignments via a proper
+//      many-to-many join (proposal_region_materials, schema migration
+//      phase_1b3_proposal_region_materials_join). The right-rail card
+//      now prefers explicit assignments from the join table when they
+//      exist — rendering only those materials in their stored
+//      display_order. When a region has no assignments (legacy
+//      regions, or regions Tim hasn't labeled with materials yet) it
+//      falls back to the Phase 1B.2 behavior of listing every material
+//      whose proposal_section_id matches the region's section. The
+//      labeling tool admin UI grew a togglable-pill picker per region
+//      card so Tim can assign materials directly without needing
+//      proposal_materials.proposal_section_id to be set first. The
+//      legacy proposals.construction_drawing_url branch (no regions)
+//      is still unchanged.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
@@ -187,6 +202,13 @@ async function reload() {
   // display_order. When the proposal has a labeled site-map backdrop, these
   // become the polygon overlay rendered on top of the construction drawing
   // on the published page.
+  //
+  // Phase 1B.3: the regions query now also embeds proposal_region_materials
+  // via PostgREST so each region carries its explicit material assignments
+  // (with display_order) inline. When that array is non-empty, the right-rail
+  // card renders only those materials in order; when empty, the Phase 1B.2
+  // section-filter fallback kicks in. The dev_all_proposal_region_materials
+  // RLS policy mirrors proposal_regions so anon read works the same way.
   const [proposalQ, sectionsQ, materialsQ, photosQ, heroCandidatesQ, drawingCandidatesQ, historyQ, regionsQ] = await Promise.all([
     supabase.from('proposals').select('*').eq('id', proposalId).single(),
     supabase.from('proposal_sections').select('*').eq('proposal_id', proposalId)
@@ -204,7 +226,9 @@ async function reload() {
       .order('source_page', { ascending: true, nullsFirst: false }),
     supabase.from('published_proposals').select('id, slug, title, published_at')
       .eq('proposal_id', proposalId).order('published_at', { ascending: false }),
-    supabase.from('proposal_regions').select('*').eq('proposal_id', proposalId)
+    supabase.from('proposal_regions')
+      .select('*, region_materials:proposal_region_materials(proposal_material_id, display_order)')
+      .eq('proposal_id', proposalId)
       .order('display_order', { ascending: true }),
   ]);
 
@@ -2228,15 +2252,40 @@ function renderBackdropWithRegions(proposal, regions, materials, categoryToSecti
 // The polygon still renders on the drawing as a visual marker, but the
 // right rail only lists regions that point at scope content.
 //
-// Materials are pulled from proposal_materials filtered by the region's
-// proposal_section_id. extractMaterialInfo is reused so the swatch URL
-// preference order (per-color swatch → primary → image_url) and the
-// install-guide routing match the existing material cards in section 02.
+// Materials selection (Phase 1B.3 strategy):
+//   1. PRIMARY — read from region.region_materials (the proposal_region_materials
+//      join table embed). When non-empty, render those materials in their
+//      stored display_order. This is what Tim curates in the labeling tool.
+//   2. FALLBACK — when the join is empty (no assignments yet), fall back to
+//      the Phase 1B.2 behavior: every material whose proposal_section_id
+//      matches the region's section. This keeps un-labeled regions showing
+//      something useful instead of "No materials assigned" noise, and
+//      preserves backwards compatibility for existing proposals.
+//
+// extractMaterialInfo is reused so the swatch URL preference order
+// (per-color swatch → primary → image_url) and the install-guide routing
+// match the existing material cards in section 02.
 function renderRegionCard(region, materials, categoryToSection) {
   if (!region.proposal_section_id) return '';
 
-  const sectionMaterials = (materials || [])
-    .filter(m => m.proposal_section_id === region.proposal_section_id);
+  // Phase 1B.3 — explicit join-table assignments take priority. Map the
+  // assignments back to full proposal_materials rows so we have the
+  // catalog data needed for thumbnails / names / cut-sheets.
+  let cardMaterials = [];
+  const assignments = Array.isArray(region.region_materials) ? region.region_materials : [];
+  if (assignments.length > 0) {
+    const sorted = [...assignments].sort(
+      (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+    );
+    const matMap = new Map((materials || []).map(m => [m.id, m]));
+    cardMaterials = sorted
+      .map(a => matMap.get(a.proposal_material_id))
+      .filter(Boolean);
+  } else {
+    // Legacy fallback — section filter. Preserved verbatim from Phase 1B.2.
+    cardMaterials = (materials || [])
+      .filter(m => m.proposal_section_id === region.proposal_section_id);
+  }
 
   const sqftBadge = region.area_sqft != null && Number(region.area_sqft) > 0
     ? `${Number(region.area_sqft).toLocaleString('en-US')} sqft`
@@ -2246,7 +2295,7 @@ function renderRegionCard(region, materials, categoryToSection) {
     : '';
   const meta = [sqftBadge, lnftBadge].filter(Boolean).join(' · ');
 
-  const materialRows = sectionMaterials.map(m => {
+  const materialRows = cardMaterials.map(m => {
     const info = extractMaterialInfo(m, categoryToSection);
 
     // Pull color/pattern from the underlying catalog row when present —
@@ -2282,7 +2331,7 @@ function renderRegionCard(region, materials, categoryToSection) {
 
   const materialsBlock = materialRows
     ? `<div class="pub-region-card-materials">${materialRows}</div>`
-    : `<div class="pub-region-card-materials pub-region-card-materials--empty">No materials assigned to this section yet.</div>`;
+    : `<div class="pub-region-card-materials pub-region-card-materials--empty">No materials assigned to this region yet.</div>`;
 
   return `
       <div class="pub-region-card" data-region-id="${escapeAttr(region.id)}">
