@@ -283,6 +283,8 @@ function drawPolygon(region, idx, isSelected) {
 function drawDraft(draft) {
   const pts = draft.points;
   ctx.save();
+
+  // Build the path once
   ctx.beginPath();
   const start = fracToPx(pts[0]);
   ctx.moveTo(start.x, start.y);
@@ -290,18 +292,31 @@ function drawDraft(draft) {
     const p = fracToPx(pts[i]);
     ctx.lineTo(p.x, p.y);
   }
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#1a1f2e';
-  ctx.setLineDash([6, 4]);
+
+  // White halo behind the line so it stays visible against both light and dark
+  // regions of the backdrop (construction drawings have busy grayscale areas).
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.stroke();
+
+  // Bold red dashed line on top — the actual draft polygon edge.
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#dc2626';
+  ctx.setLineDash([12, 6]);
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // Vertex markers: large white-filled circles with red border. First vertex
+  // is green to signal "click here to close the polygon."
   for (let i = 0; i < pts.length; i++) {
     const p = fracToPx(pts[i]);
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-    ctx.fillStyle = i === 0 ? '#10b981' : '#1a1f2e';
+    ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
     ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = i === 0 ? '#10b981' : '#dc2626';
+    ctx.stroke();
   }
   ctx.restore();
 }
