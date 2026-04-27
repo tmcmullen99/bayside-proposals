@@ -91,6 +91,18 @@
 //      specific brand mark with no ambiguous contexts, so scope-text
 //      scanning for it remains safe.
 //
+//   9. [Phase 1B] Polygon overlay on the construction drawing. When a
+//      proposal has labeled regions (proposal_regions, drawn in the
+//      site-map labeling tool admin UI) AND a backdrop image with stored
+//      native dimensions (proposals.site_plan_backdrop_url + width +
+//      height), the public construction-drawing section renders the
+//      backdrop with an SVG overlay on top. Each polygon is a clickable
+//      anchor scrolling to its corresponding scope section (#section-{id})
+//      when proposal_section_id is set; unlinked regions render as visual
+//      markers only. When no regions are present, the existing
+//      construction_drawing_url + lightbox-to-zoom behavior is preserved
+//      byte-identical so the 40 already-published proposals are unchanged.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
@@ -128,7 +140,7 @@ const BUCKET = 'proposal-photos';
 let proposalId = null;
 let container = null;
 let onSaveCb = null;
-let currentData = null; // { proposal, sections, materials, photos, heroCandidates, drawingCandidates, history, installSections, categoryToSection }
+let currentData = null; // { proposal, sections, materials, photos, heroCandidates, drawingCandidates, history, installSections, categoryToSection, regions }
 
 // ───────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -156,7 +168,12 @@ async function reload() {
   // of category. The construction drawing can come from a PDF extraction
   // (bid_pdf_asset) OR a manual upload in any category, so we don't filter —
   // we just present everything sorted with extracted-images first, then uploads.
-  const [proposalQ, sectionsQ, materialsQ, photosQ, heroCandidatesQ, drawingCandidatesQ, historyQ] = await Promise.all([
+  //
+  // regions query (Phase 1B): proposal_regions for this proposal, in
+  // display_order. When the proposal has a labeled site-map backdrop, these
+  // become the polygon overlay rendered on top of the construction drawing
+  // on the published page.
+  const [proposalQ, sectionsQ, materialsQ, photosQ, heroCandidatesQ, drawingCandidatesQ, historyQ, regionsQ] = await Promise.all([
     supabase.from('proposals').select('*').eq('id', proposalId).single(),
     supabase.from('proposal_sections').select('*').eq('proposal_id', proposalId)
       .order('display_order', { ascending: true }),
@@ -173,10 +190,13 @@ async function reload() {
       .order('source_page', { ascending: true, nullsFirst: false }),
     supabase.from('published_proposals').select('id, slug, title, published_at')
       .eq('proposal_id', proposalId).order('published_at', { ascending: false }),
+    supabase.from('proposal_regions').select('*').eq('proposal_id', proposalId)
+      .order('display_order', { ascending: true }),
   ]);
 
   const err = proposalQ.error || sectionsQ.error || materialsQ.error
-    || photosQ.error || heroCandidatesQ.error || drawingCandidatesQ.error || historyQ.error;
+    || photosQ.error || heroCandidatesQ.error || drawingCandidatesQ.error
+    || historyQ.error || regionsQ.error;
   if (err) {
     setStatus('');
     showError('Could not load data: ' + err.message);
@@ -237,6 +257,7 @@ async function reload() {
     history: historyQ.data || [],
     installSections,
     categoryToSection,
+    regions: regionsQ.data || [],
   };
 
   renderBody();
@@ -812,7 +833,7 @@ function slugifyBase(address, date) {
 // ───────────────────────────────────────────────────────────────────────────
 // HTML snapshot builder — full standalone document
 // ───────────────────────────────────────────────────────────────────────────
-function buildHtmlSnapshot({ proposal, sections, materials, photos, installSections, categoryToSection }) {
+function buildHtmlSnapshot({ proposal, sections, materials, photos, installSections, categoryToSection, regions }) {
   const address = proposal.project_address || '';
   const cityLine = [proposal.project_city, proposal.project_state,
     proposal.project_zip].filter(Boolean).join(', ');
@@ -822,7 +843,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   const dateStr = formatDate(new Date());
   const loomEmbed = buildLoomEmbed(proposal.loom_url);
   const heroBanner = buildHeroBanner(proposal.hero_image_url);
-  const drawingSection = buildDrawingSection(proposal.construction_drawing_url);
+  const drawingSection = buildDrawingSection(proposal, regions);
 
   const scopeHtml = renderScopeSection(sections, proposal.bid_total_amount);
   const materialsHtml = renderMaterialsSection(materials, categoryToSection);
@@ -1029,6 +1050,50 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     font-style: italic;
   }
 
+  /* Phase 1B — polygon overlay on the construction drawing.
+     The wrap is inline-block so it shrink-wraps to the rendered img size;
+     the SVG is 100%/100% absolutely positioned so it always matches the img
+     exactly, regardless of how the img scales (max-width 100% on small
+     screens, max-height 720px on large ones). The viewBox uses the
+     backdrop's native pixel dimensions, so polygon coords convert from
+     0..1 fractions to user units via simple multiplication at render time.
+     vector-effect: non-scaling-stroke keeps the outline a consistent
+     device-pixel width regardless of how much the SVG is scaled down. */
+  .pub-drawing-overlay-wrap {
+    position: relative;
+    display: inline-block;
+    vertical-align: top;
+    max-width: 100%;
+    line-height: 0;
+  }
+  .pub-drawing-overlay-img {
+    display: block;
+    max-width: 100%;
+    max-height: 720px;
+    height: auto;
+    width: auto;
+    border-radius: 4px;
+  }
+  .pub-drawing-overlay-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .pub-drawing-region {
+    fill: rgba(93, 126, 105, 0.10);
+    stroke: var(--green);
+    stroke-width: 3;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+    cursor: pointer;
+  }
+  .pub-drawing-region--static {
+    cursor: default;
+  }
+
   /* ═════════ Scope of Work ═════════ */
   .pub-scope-list { list-style: none; }
   .pub-scope-item {
@@ -1038,6 +1103,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     grid-template-columns: 1fr auto;
     gap: 32px;
     align-items: start;
+    scroll-margin-top: 32px;
   }
   .pub-scope-item-body { min-width: 0; }
   .pub-scope-item-name {
@@ -1802,12 +1868,36 @@ function buildHeroBanner(url) {
   `;
 }
 
-// Sprint 3 Part D: construction drawing featured section. Renders as its
-// own framed block between the hero/Loom and the Scope of Work. Returns an
-// empty string when no drawing has been selected, so unselected proposals
-// render unchanged.
-function buildDrawingSection(url) {
-  if (!url) return '';
+// Construction drawing featured section. Renders as its own framed block
+// between the hero/Loom and the Scope of Work. Returns an empty string
+// when nothing is available, so unselected proposals render unchanged.
+//
+// Two render paths:
+//
+//   • Phase 1B polygon-overlay path: when the proposal has labeled regions
+//     (proposal_regions, drawn in the site-map labeling tool admin UI) AND
+//     a backdrop image with stored native dimensions, render the backdrop
+//     with an SVG overlay of clickable polygons. Each polygon scrolls to
+//     its corresponding scope section anchor (#section-{uuid}) when
+//     proposal_section_id is set; unlinked regions render as visual
+//     markers only. No lightbox in this mode — the polygons are the
+//     primary interaction.
+//
+//   • Sprint 3 Part D legacy path: when no regions exist, fall back to the
+//     existing construction_drawing_url with lightbox-to-zoom. Preserved
+//     byte-identical so the 40 already-published proposals continue to
+//     behave exactly as before.
+function buildDrawingSection(proposal, regions) {
+  const hasRegions = Array.isArray(regions) && regions.length > 0;
+  const hasBackdrop = proposal.site_plan_backdrop_url
+    && proposal.site_plan_backdrop_width
+    && proposal.site_plan_backdrop_height;
+
+  if (hasRegions && hasBackdrop) {
+    return renderBackdropWithRegions(proposal, regions);
+  }
+
+  if (!proposal.construction_drawing_url) return '';
   return `
     <section class="pub-drawing">
       <div class="pub-drawing-inner">
@@ -1816,14 +1906,86 @@ function buildDrawingSection(url) {
         <p class="pub-section-lede">The working plan-view for your project — dimensions, material zones, and elevations captured in a single reference.</p>
         <div class="pub-drawing-frame">
           <button type="button" class="pub-lightbox-trigger pub-drawing-link"
-                  data-lightbox-src="${escapeAttr(url)}"
+                  data-lightbox-src="${escapeAttr(proposal.construction_drawing_url)}"
                   data-lightbox-alt="Construction drawing"
                   data-gallery="drawing"
                   aria-label="Open construction drawing full size">
-            <img src="${escapeAttr(url)}" alt="Construction drawing" class="pub-drawing-img">
+            <img src="${escapeAttr(proposal.construction_drawing_url)}" alt="Construction drawing" class="pub-drawing-img">
           </button>
         </div>
         <p class="pub-drawing-caption">Click to view full size.</p>
+      </div>
+    </section>
+  `;
+}
+
+// Phase 1B — polygon overlay renderer.
+//
+// Reads the backdrop's native pixel dimensions from the proposals row
+// (set when the labeling tool uploads the backdrop) and uses them as
+// the SVG viewBox. Polygon vertices are stored as {x, y} fractions in
+// [0..1] of those native dimensions, so converting to user-space coords
+// is a single multiplication per vertex.
+//
+// The wrap is inline-block so its size is dictated by the rendered img
+// (max-width 100% / max-height 720px); the SVG is absolutely positioned
+// at 100%/100% so it always overlays the img exactly. preserveAspectRatio
+// defaults to xMidYMid meet, matching object-fit: contain on the img.
+//
+// Each polygon either wraps in <a href="#section-{uuid}"> for click-to-
+// scroll (when proposal_section_id is set) or renders as a static visual
+// marker (when not). Smooth scroll is enabled globally via
+// `html { scroll-behavior: smooth }` in the snapshot CSS, and the
+// `scroll-margin-top: 32px` rule on .pub-scope-item ensures the section
+// header isn't crammed against the top of the viewport on landing.
+function renderBackdropWithRegions(proposal, regions) {
+  const W = proposal.site_plan_backdrop_width;
+  const H = proposal.site_plan_backdrop_height;
+  const url = proposal.site_plan_backdrop_url;
+
+  const polygons = regions.map(r => {
+    const verts = Array.isArray(r.polygon) ? r.polygon : [];
+    if (verts.length < 3) return ''; // degenerate, skip
+
+    // Convert fractional coords (0..1) to viewBox user units. One decimal
+    // place is plenty of precision for an SVG up to a few thousand units
+    // wide and keeps the snapshot HTML compact.
+    const points = verts
+      .map(v => `${(Number(v.x) * W).toFixed(1)},${(Number(v.y) * H).toFixed(1)}`)
+      .join(' ');
+
+    const labelAttr = r.name ? ` aria-label="${escapeAttr(r.name)}"` : '';
+
+    if (r.proposal_section_id) {
+      return `<a href="#section-${escapeAttr(r.proposal_section_id)}"${labelAttr}>` +
+             `<polygon class="pub-drawing-region" points="${points}" />` +
+             `</a>`;
+    }
+    return `<polygon class="pub-drawing-region pub-drawing-region--static" points="${points}"${labelAttr} />`;
+  }).filter(Boolean).join('');
+
+  const anyLinked = regions.some(r => r.proposal_section_id);
+  const caption = anyLinked
+    ? 'Tap any highlighted area to jump to that part of the scope.'
+    : 'Highlighted areas show the scope of work for this project.';
+
+  const lede = anyLinked
+    ? 'The working plan-view for your project — highlighted areas show the scope and materials for each part of the project. Click any area to jump to its details.'
+    : 'The working plan-view for your project — highlighted areas show the scope of work for each part of the project.';
+
+  return `
+    <section class="pub-drawing">
+      <div class="pub-drawing-inner">
+        <div class="pub-section-eyebrow">Construction drawing</div>
+        <h2>Your project plan</h2>
+        <p class="pub-section-lede">${escapeHtml(lede)}</p>
+        <div class="pub-drawing-frame">
+          <div class="pub-drawing-overlay-wrap">
+            <img src="${escapeAttr(url)}" alt="Construction drawing" class="pub-drawing-overlay-img">
+            <svg class="pub-drawing-overlay-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${polygons}</svg>
+          </div>
+        </div>
+        <p class="pub-drawing-caption">${escapeHtml(caption)}</p>
       </div>
     </section>
   `;
@@ -1836,7 +1998,7 @@ function renderScopeSection(sections, totalAmount) {
     const lineItemsHtml = formatLineItemsHtml(s.line_items);
     const amount = s.total_amount != null ? formatMoney(s.total_amount) : '';
     return `
-      <li class="pub-scope-item">
+      <li class="pub-scope-item" id="section-${escapeAttr(s.id)}">
         <div class="pub-scope-item-body">
           <div class="pub-scope-item-name">${escapeHtml(s.name || 'Untitled section')}</div>
           ${lineItemsHtml}
