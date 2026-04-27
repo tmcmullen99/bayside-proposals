@@ -30,6 +30,7 @@ const state = {
   cursorPx: null,            // { x, y } current mouse position in canvas px (for rubber-band preview during draft)
   polygonDrag: null,         // { regionIdx, lastFrac:{x,y} } when dragging an entire polygon by its interior
   hoveredEdge: null,         // { regionIdx, edgeIdx, point:{x,y frac} } when cursor is over an edge of the selected polygon
+  sections: [],              // [{ id, name, display_order }] — proposal's bid sections (Phase 1B click-to-link target)
 };
 
 // Distinct colors for region overlays — cycled by region index
@@ -834,6 +835,14 @@ function refreshSidePanel() {
     card.className = 'sm-region-card' + (idx === state.selectedRegionIdx ? ' sm-selected' : '');
     card.dataset.idx = idx;
 
+    // Phase 1B: build the Section dropdown options. Empty <option> means
+    // "no section assigned" — Tim might draw a region that doesn't map to a
+    // single bid section, and that's fine.
+    const sectionOptions = ['<option value="">— No section —</option>']
+      .concat(state.sections.map(s =>
+        `<option value="${escapeHtml(s.id)}"${r.proposal_section_id === s.id ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
+      )).join('');
+
     card.innerHTML = `
       <div class="sm-region-card-row">
         <div class="sm-region-swatch" style="background:${r._color || colorForIndex(idx)};"></div>
@@ -849,14 +858,25 @@ function refreshSidePanel() {
           <input type="number" class="sm-input-lnft" placeholder="0" min="0" step="0.01" value="${r.area_lnft ?? ''}" />
         </div>
       </div>
+      <div class="sm-region-card-row" style="margin-top:8px;">
+        <label style="display:block;width:100%;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Section</label>
+        <select class="sm-input-section" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:4px;font-family:inherit;font-size:14px;background:#fff;">
+          ${sectionOptions}
+        </select>
+      </div>
       <div class="sm-region-card-actions">
         <button class="sm-btn sm-btn-danger sm-btn-delete">Delete</button>
       </div>
     `;
 
     card.addEventListener('click', (e) => {
-      // Don't re-select if user clicked an input
-      if (e.target.tagName !== 'INPUT' && !e.target.classList.contains('sm-btn-delete')) {
+      // Don't re-select if user clicked an input or a select
+      if (
+        e.target.tagName !== 'INPUT' &&
+        e.target.tagName !== 'SELECT' &&
+        e.target.tagName !== 'OPTION' &&
+        !e.target.classList.contains('sm-btn-delete')
+      ) {
         selectRegion(idx);
       }
     });
@@ -864,6 +884,7 @@ function refreshSidePanel() {
     const nameInput = card.querySelector('.sm-input-name');
     const sqftInput = card.querySelector('.sm-input-sqft');
     const lnftInput = card.querySelector('.sm-input-lnft');
+    const sectionSelect = card.querySelector('.sm-input-section');
 
     // Snapshot once when any field gains focus — this groups a whole editing
     // session into a single undo step. Without this, every keystroke would push
@@ -886,6 +907,12 @@ function refreshSidePanel() {
     lnftInput.addEventListener('input', (e) => {
       const v = e.target.value === '' ? null : parseFloat(e.target.value);
       r.area_lnft = isNaN(v) ? null : v;
+      els.btnSave.disabled = false;
+    });
+    // Section <select>: change fires once per discrete pick — snapshot then mutate.
+    sectionSelect.addEventListener('change', (e) => {
+      pushUndoSnapshot('change section');
+      r.proposal_section_id = e.target.value || null;
       els.btnSave.disabled = false;
     });
     card.querySelector('.sm-btn-delete').addEventListener('click', (e) => {
@@ -1017,6 +1044,7 @@ async function boot() {
       ...r,
       _color: colorForIndex(i),
     }));
+    state.sections = data.sections || [];
     await setBackdrop(data.backdrop);
     refreshSidePanel();
     if (state.regions.length > 0) {
