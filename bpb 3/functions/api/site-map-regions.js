@@ -178,7 +178,7 @@ export async function onRequestGet(context) {
       + `?proposal_id=eq.${proposalId}`
       + `&select=`
       + `id,material_source,application_area,proposal_section_id,display_order,`
-      + `belgard_material:belgard_material_id(id,product_name,color,pattern,swatch_url,primary_image_url,image_url),`
+      + `belgard_material:belgard_material_id(id,product_name,color,pattern,swatch_url,primary_image_url),`
       + `third_party_material:third_party_material_id(id,product_name,manufacturer,color,primary_image_url,image_url)`
       + `&order=display_order.asc`,
     { headers }
