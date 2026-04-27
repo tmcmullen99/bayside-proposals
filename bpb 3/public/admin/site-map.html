@@ -11,6 +11,10 @@
     /* ----------------------------------------------------------------------
        Site Map Editor — admin labeling UI for Phase 1A
        CSS prefix: .sm-  (site-map)
+
+       Phase 1B.3 additions: per-region multi-material picker, rendered as
+       togglable pills below the Section dropdown in each region card. See
+       the .sm-material-* rules at the bottom of this block.
        ---------------------------------------------------------------------- */
     * { box-sizing: border-box; }
     html, body {
@@ -271,6 +275,124 @@
       margin-bottom: 16px;
     }
     .sm-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* ----------------------------------------------------------------------
+       Phase 1B.3 — multi-material picker (togglable pills)
+
+       Each region card gets a list of material pills. Click a pill to toggle
+       it in/out of the region's material set; selected pills get a green
+       background and an order badge showing their position in display_order.
+       Empty state (no proposal materials yet) shows a placeholder line.
+       ---------------------------------------------------------------------- */
+    .sm-region-card-materials-wrap {
+      margin-top: 8px;
+    }
+    .sm-region-card-materials-wrap > label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .sm-material-pills {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sm-material-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      color: #1a1f2e;
+      text-align: left;
+      width: 100%;
+      transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+    }
+    .sm-material-pill:hover {
+      border-color: #91a1ba;
+      background: #f8fafc;
+    }
+    .sm-material-pill.sm-selected {
+      border-color: #10b981;
+      background: #ecfdf5;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12);
+    }
+    .sm-material-pill-order {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #10b981;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sm-material-pill:not(.sm-selected) .sm-material-pill-order {
+      visibility: hidden; /* keep layout stable so selecting doesn't shift the row */
+    }
+    .sm-material-pill-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #f5f6f8;
+      border: 1px solid #e5e7eb;
+    }
+    .sm-material-pill-thumb-empty {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #f5f6f8, #e5e7eb);
+      border: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: #6b7280;
+      letter-spacing: 0.06em;
+    }
+    .sm-material-pill-text {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1;
+    }
+    .sm-material-pill-name {
+      font-weight: 600;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sm-material-pill-meta {
+      font-size: 11px;
+      color: #6b7280;
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sm-material-pills-empty {
+      font-size: 12px;
+      font-style: italic;
+      color: #9ca3af;
+      padding: 6px 0;
+    }
   </style>
 </head>
 <body>
@@ -313,6 +435,7 @@
       <div class="sm-help">
         <strong>Drawing:</strong> Click to add vertex · Double-click to close · <kbd>Esc</kbd> cancel<br>
         <strong>Editing:</strong> Click polygon to select · Drag vertex to move · Drag inside polygon to translate · Click an edge to insert vertex · Right-click vertex to delete · <kbd>Delete</kbd> removes selected polygon<br>
+        <strong>Materials:</strong> Click a pill to add/remove from this region · Order = pick order<br>
         <strong>History:</strong> <kbd>⌘Z</kbd> undo · <kbd>⌘⇧Z</kbd> redo
       </div>
     </aside>
