@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Site Map Editor — BPB Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ----------------------------------------------------------------------
+       Site Map Editor — admin labeling UI for Phase 1A
+       CSS prefix: .sm-  (site-map)
+       ---------------------------------------------------------------------- */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f5f6f8;
+      color: #1a1f2e;
+      height: 100%;
+    }
+    body { display: flex; flex-direction: column; height: 100vh; }
+
+    /* Header */
+    .sm-header {
+      background: #1a1f2e;
+      color: #fff;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .sm-header h1 { font-size: 18px; font-weight: 600; margin: 0; }
+    .sm-header-meta { font-size: 13px; color: #91a1ba; }
+    .sm-header-actions { display: flex; gap: 8px; }
+
+    /* Buttons */
+    .sm-btn {
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.05s;
+    }
+    .sm-btn:active { transform: scale(0.98); }
+    .sm-btn-primary { background: #91a1ba; color: #fff; }
+    .sm-btn-primary:hover { background: #7d8ba8; }
+    .sm-btn-primary:disabled { background: #c5cdda; cursor: not-allowed; }
+    .sm-btn-secondary { background: transparent; color: #fff; border-color: #91a1ba; }
+    .sm-btn-secondary:hover { background: rgba(145, 161, 186, 0.2); }
+    .sm-btn-danger { background: #c33; color: #fff; }
+    .sm-btn-danger:hover { background: #a22; }
+    .sm-btn-ghost { background: transparent; color: #1a1f2e; border-color: #ccd; }
+    .sm-btn-ghost:hover { background: #eee; }
+
+    /* Main layout: canvas + side panel */
+    .sm-main {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .sm-canvas-wrap {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      background: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+    }
+    .sm-canvas-inner {
+      position: relative;
+      background: #fff;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+    .sm-canvas {
+      display: block;
+      cursor: crosshair;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .sm-canvas.sm-cursor-default { cursor: default; }
+    .sm-canvas.sm-cursor-move { cursor: grab; }
+    .sm-canvas.sm-cursor-grabbing { cursor: grabbing; }
+
+    /* Empty state */
+    .sm-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 40px;
+      color: #6b7280;
+      text-align: center;
+    }
+    .sm-empty h2 { margin: 0; color: #1a1f2e; font-size: 20px; font-weight: 600; }
+    .sm-empty p { margin: 0; font-size: 14px; max-width: 400px; }
+
+    /* File input — invisible, triggered by button */
+    .sm-file-input { display: none; }
+
+    /* Side panel */
+    .sm-side {
+      width: 360px;
+      flex-shrink: 0;
+      background: #fff;
+      border-left: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sm-side-header {
+      padding: 16px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .sm-side-header h2 { margin: 0; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; }
+    .sm-side-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .sm-region-card {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 8px;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .sm-region-card:hover { border-color: #91a1ba; }
+    .sm-region-card.sm-selected { border-color: #1a1f2e; background: #f5f6f8; box-shadow: 0 0 0 2px rgba(26, 31, 46, 0.1); }
+    .sm-region-card-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .sm-region-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    .sm-region-card-row:last-child { margin-bottom: 0; }
+    .sm-region-card label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .sm-region-card input[type="text"],
+    .sm-region-card input[type="number"] {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 14px;
+      background: #fff;
+    }
+    .sm-region-card input:focus {
+      outline: none;
+      border-color: #91a1ba;
+      box-shadow: 0 0 0 2px rgba(145, 161, 186, 0.2);
+    }
+    .sm-region-card-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sm-region-card-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+    .sm-region-card-actions .sm-btn { padding: 4px 10px; font-size: 12px; }
+
+    /* Status bar at bottom of canvas */
+    .sm-status {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      background: rgba(26, 31, 46, 0.85);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    /* Toast notifications */
+    .sm-toast-wrap {
+      position: fixed;
+      top: 80px;
+      right: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 320px;
+    }
+    .sm-toast {
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-size: 14px;
+      animation: smToastIn 0.2s ease;
+    }
+    .sm-toast-success { background: #10b981; color: #fff; }
+    .sm-toast-error   { background: #ef4444; color: #fff; }
+    .sm-toast-info    { background: #1a1f2e; color: #fff; }
+    @keyframes smToastIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Help panel */
+    .sm-help {
+      padding: 12px 16px;
+      background: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #4b5563;
+    }
+    .sm-help kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 3px;
+      font-size: 11px;
+      font-family: ui-monospace, monospace;
+    }
+
+    /* Modal for proposal selection */
+    .sm-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .sm-modal {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px;
+      width: 480px;
+      max-width: 90vw;
+    }
+    .sm-modal h2 { margin: 0 0 12px; font-size: 18px; }
+    .sm-modal p  { margin: 0 0 16px; color: #4b5563; font-size: 14px; }
+    .sm-modal input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .sm-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="sm-header">
+    <div>
+      <h1>Site Map Editor</h1>
+      <div class="sm-header-meta" id="sm-proposal-label">Loading…</div>
+    </div>
+    <div class="sm-header-actions">
+      <button class="sm-btn sm-btn-secondary" id="sm-btn-upload">Upload Backdrop…</button>
+      <input type="file" class="sm-file-input" id="sm-file-input" accept="image/png,image/jpeg" />
+      <button class="sm-btn sm-btn-primary" id="sm-btn-save" disabled>Save All</button>
+    </div>
+  </header>
+
+  <!-- Main: canvas + side panel -->
+  <div class="sm-main">
+    <div class="sm-canvas-wrap" id="sm-canvas-wrap">
+      <div class="sm-empty" id="sm-empty">
+        <h2>No backdrop uploaded yet</h2>
+        <p>Click <strong>Upload Backdrop…</strong> in the header to upload the construction-drawing PNG for this proposal. Once uploaded, click on the canvas to start drawing polygon regions.</p>
+      </div>
+      <!-- canvas-inner gets shown after upload -->
+      <div class="sm-canvas-inner" id="sm-canvas-inner" style="display:none;">
+        <canvas class="sm-canvas" id="sm-canvas"></canvas>
+        <div class="sm-status" id="sm-status">Click to start drawing a polygon. Double-click to close.</div>
+      </div>
+    </div>
+
+    <aside class="sm-side">
+      <div class="sm-side-header">
+        <h2>Regions <span id="sm-region-count" style="color:#1a1f2e;font-weight:700;">0</span></h2>
+        <button class="sm-btn sm-btn-ghost" id="sm-btn-add-region" style="font-size:12px;padding:4px 10px;">+ New polygon</button>
+      </div>
+      <div class="sm-side-list" id="sm-side-list">
+        <!-- region cards injected by JS -->
+      </div>
+      <div class="sm-help">
+        <strong>Drawing:</strong> Click to add vertex · Double-click to close · <kbd>Esc</kbd> cancel<br>
+        <strong>Editing:</strong> Click a polygon to select · Drag a vertex to move · Right-click vertex to delete
+      </div>
+    </aside>
+  </div>
+
+  <!-- Toast container -->
+  <div class="sm-toast-wrap" id="sm-toast-wrap"></div>
+
+  <!-- Proposal-id prompt modal (shown if URL has no ?proposal_id=...) -->
+  <div class="sm-modal-backdrop" id="sm-modal-backdrop" style="display:none;">
+    <div class="sm-modal">
+      <h2>Which proposal?</h2>
+      <p>Paste the proposal UUID. You can find this in the URL of the proposal editor.</p>
+      <input type="text" id="sm-modal-input" placeholder="e.g. 12345678-1234-1234-1234-123456789abc" />
+      <div class="sm-modal-actions">
+        <button class="sm-btn sm-btn-primary" id="sm-modal-ok">Open</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Module entry point -->
+  <script type="module" src="/admin/js/site-map.js"></script>
+</body>
+</html>
