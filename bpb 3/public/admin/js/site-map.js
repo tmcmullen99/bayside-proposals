@@ -27,6 +27,9 @@ const state = {
   draftPolygon: null,        // { points:[{x,y}] } during draw mode, null otherwise
   drag: null,                // { regionIdx, vertexIdx } during vertex drag
   hoveredVertex: null,       // { regionIdx, vertexIdx } for visual feedback
+  cursorPx: null,            // { x, y } current mouse position in canvas px (for rubber-band preview during draft)
+  polygonDrag: null,         // { regionIdx, lastFrac:{x,y} } when dragging an entire polygon by its interior
+  hoveredEdge: null,         // { regionIdx, edgeIdx, point:{x,y frac} } when cursor is over an edge of the selected polygon
 };
 
 // Distinct colors for region overlays — cycled by region index
@@ -187,6 +190,44 @@ function hitTestPolygon(px) {
   return -1;
 }
 
+/** Returns { regionIdx, edgeIdx, point:{x,y fractional} } if the canvas-pixel
+ *  point is within EDGE_HIT_TOLERANCE_PX of any edge of the SELECTED polygon
+ *  (only — checking all polygons would conflict with interior-drag and vertex-drag).
+ *  edgeIdx is the index of the vertex BEFORE the edge (edge runs from vertex
+ *  edgeIdx to edgeIdx+1, with wraparound). point is where the new vertex would
+ *  be inserted (the foot of perpendicular from cursor to edge, clamped to segment). */
+const EDGE_HIT_TOLERANCE_PX = 8;
+function hitTestEdge(px) {
+  if (state.selectedRegionIdx === -1) return null;
+  const r = state.regions[state.selectedRegionIdx];
+  const poly = r.polygon;
+  for (let i = 0; i < poly.length; i++) {
+    const a = fracToPx(poly[i]);
+    const b = fracToPx(poly[(i + 1) % poly.length]);
+    const foot = pointOnSegment(px, a, b);
+    if (!foot) continue;
+    const dx = foot.x - px.x, dy = foot.y - px.y;
+    if (dx * dx + dy * dy <= EDGE_HIT_TOLERANCE_PX * EDGE_HIT_TOLERANCE_PX) {
+      return {
+        regionIdx: state.selectedRegionIdx,
+        edgeIdx: i,
+        point: pxToFrac(foot),
+      };
+    }
+  }
+  return null;
+}
+
+/** Foot of perpendicular from p to segment [a,b], clamped to the segment. */
+function pointOnSegment(p, a, b) {
+  const abx = b.x - a.x, aby = b.y - a.y;
+  const lenSq = abx * abx + aby * aby;
+  if (lenSq === 0) return null;
+  let t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return { x: a.x + t * abx, y: a.y + t * aby };
+}
+
 /** Ray-casting point-in-polygon. polygon is array of {x,y} fractions. */
 function pointInPolygon(px, polygon) {
   const x = px.x, y = px.y;
@@ -213,6 +254,30 @@ function redraw() {
   // Draw committed polygons
   for (let i = 0; i < state.regions.length; i++) {
     drawPolygon(state.regions[i], i, i === state.selectedRegionIdx);
+  }
+
+  // Edge-insert indicator: a "+" at the cursor's foot-of-perpendicular on the
+  // hovered edge of the selected polygon, signalling "click here to insert vertex"
+  if (state.hoveredEdge && !state.draftPolygon && !state.drag && !state.polygonDrag) {
+    const px = fracToPx(state.hoveredEdge.point);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(px.x, px.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#10b981';
+    ctx.stroke();
+    // Draw a "+" inside
+    ctx.beginPath();
+    ctx.moveTo(px.x - 4, px.y);
+    ctx.lineTo(px.x + 4, px.y);
+    ctx.moveTo(px.x, px.y - 4);
+    ctx.lineTo(px.x, px.y + 4);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#10b981';
+    ctx.stroke();
+    ctx.restore();
   }
 
   // Draw draft polygon
@@ -306,6 +371,23 @@ function drawDraft(draft) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // Rubber-band preview: faint line from last placed vertex to current cursor.
+  // Helps Tim see where the next click will land before placing it.
+  if (state.cursorPx && pts.length > 0) {
+    const lastPx = fracToPx(pts[pts.length - 1]);
+    ctx.beginPath();
+    ctx.moveTo(lastPx.x, lastPx.y);
+    ctx.lineTo(state.cursorPx.x, state.cursorPx.y);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(220, 38, 38, 0.6)';
+    ctx.setLineDash([8, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   // Vertex markers: large white-filled circles with red border. First vertex
   // is green to signal "click here to close the polygon."
   for (let i = 0; i < pts.length; i++) {
@@ -340,12 +422,160 @@ function hexToRgba(hex, a) {
 
 // ---------------------------------------------------------------------------
 // Mouse / keyboard handlers
+//
+// Precedence on mousedown when a polygon is selected and we're not drafting:
+//   1. Vertex drag (cursor over an existing vertex)
+//   2. Edge insert (cursor near an edge — insert vertex there, then drag it)
+//   3. Polygon interior drag (cursor inside the polygon — translate the whole shape)
+//   4. Otherwise: fall through to click handler (selects another polygon or starts a draft)
+//
+// We do drag setup in mousedown (not click) so the user can immediately drag
+// without an extra click. The `click` handler below only fires when no drag
+// happened (see DRAG_SUPPRESSES_CLICK below).
 // ---------------------------------------------------------------------------
-els.canvas.addEventListener('click', (e) => {
+
+// Set true on mousedown when a drag operation begins, so the upcoming click
+// event is suppressed (otherwise mousedown→mousemove→mouseup→click would also
+// fire a click on the same coordinate, which we don't want for drags).
+let DRAG_SUPPRESSES_CLICK = false;
+
+els.canvas.addEventListener('mousedown', (e) => {
+  if (!state.backdropImg) return;
+  if (state.draftPolygon) return;  // mousedown during draft is ignored — clicks place vertices
+
+  const px = eventToCanvasPx(e);
+
+  // 1. Vertex drag (only if a polygon is selected and we're on one of its vertices)
+  if (state.selectedRegionIdx !== -1) {
+    const hitV = hitTestVertex(px);
+    if (hitV && hitV.regionIdx === state.selectedRegionIdx) {
+      state.drag = hitV;
+      els.canvas.classList.add('sm-cursor-grabbing');
+      DRAG_SUPPRESSES_CLICK = true;
+      e.preventDefault();
+      return;
+    }
+
+    // 2. Edge insert: if cursor is near an edge of the selected polygon, insert
+    // a new vertex there and immediately start dragging it (so Tim can refine
+    // the position in one motion).
+    const hitE = hitTestEdge(px);
+    if (hitE) {
+      const r = state.regions[hitE.regionIdx];
+      const insertAt = hitE.edgeIdx + 1;
+      r.polygon.splice(insertAt, 0, hitE.point);
+      state.drag = { regionIdx: hitE.regionIdx, vertexIdx: insertAt };
+      state.hoveredEdge = null;
+      els.canvas.classList.add('sm-cursor-grabbing');
+      DRAG_SUPPRESSES_CLICK = true;
+      els.btnSave.disabled = false;
+      redraw();
+      e.preventDefault();
+      return;
+    }
+
+    // 3. Polygon interior drag: cursor inside the selected polygon.
+    if (pointInPolygon(px, state.regions[state.selectedRegionIdx].polygon)) {
+      state.polygonDrag = {
+        regionIdx: state.selectedRegionIdx,
+        lastFrac: pxToFrac(px),
+      };
+      els.canvas.classList.add('sm-cursor-grabbing');
+      DRAG_SUPPRESSES_CLICK = true;
+      e.preventDefault();
+      return;
+    }
+  }
+
+  // 4. Otherwise, fall through to click handler
+});
+
+els.canvas.addEventListener('mousemove', (e) => {
   if (!state.backdropImg) return;
   const px = eventToCanvasPx(e);
 
-  // If we're drawing, add a vertex (but ignore if we just closed via dblclick)
+  // Vertex drag in progress — update the dragged vertex.
+  if (state.drag) {
+    const frac = pxToFrac(px);
+    const r = state.regions[state.drag.regionIdx];
+    r.polygon[state.drag.vertexIdx] = {
+      x: Math.max(0, Math.min(1, frac.x)),
+      y: Math.max(0, Math.min(1, frac.y)),
+    };
+    redraw();
+    els.btnSave.disabled = false;
+    return;
+  }
+
+  // Polygon interior drag in progress — translate every vertex by the cursor delta.
+  if (state.polygonDrag) {
+    const curFrac = pxToFrac(px);
+    const dx = curFrac.x - state.polygonDrag.lastFrac.x;
+    const dy = curFrac.y - state.polygonDrag.lastFrac.y;
+    const r = state.regions[state.polygonDrag.regionIdx];
+    for (const v of r.polygon) {
+      v.x = Math.max(0, Math.min(1, v.x + dx));
+      v.y = Math.max(0, Math.min(1, v.y + dy));
+    }
+    state.polygonDrag.lastFrac = curFrac;
+    redraw();
+    els.btnSave.disabled = false;
+    return;
+  }
+
+  // Update rubber-band cursor position during draft drawing.
+  if (state.draftPolygon) {
+    state.cursorPx = px;
+    redraw();
+    return;
+  }
+
+  // Otherwise, hover detection — show edge-insert "+" indicator when over an edge
+  // of the selected polygon (but not when over a vertex, which has its own behavior).
+  if (state.selectedRegionIdx !== -1) {
+    const hitV = hitTestVertex(px);
+    const newHoveredEdge = hitV ? null : hitTestEdge(px);
+    // Only redraw if the hovered-edge state changed (avoid redrawing on every pixel of mouse movement)
+    const changed =
+      (newHoveredEdge === null) !== (state.hoveredEdge === null) ||
+      (newHoveredEdge && state.hoveredEdge && newHoveredEdge.edgeIdx !== state.hoveredEdge.edgeIdx);
+    state.hoveredEdge = newHoveredEdge;
+    if (changed) redraw();
+  } else if (state.hoveredEdge) {
+    state.hoveredEdge = null;
+    redraw();
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  let wasDragging = false;
+  if (state.drag) {
+    state.drag = null;
+    wasDragging = true;
+  }
+  if (state.polygonDrag) {
+    state.polygonDrag = null;
+    wasDragging = true;
+  }
+  if (wasDragging) {
+    els.canvas.classList.remove('sm-cursor-grabbing');
+    // Keep DRAG_SUPPRESSES_CLICK true — the trailing click will reset it.
+  }
+});
+
+els.canvas.addEventListener('click', (e) => {
+  if (!state.backdropImg) return;
+
+  // Suppress the click that follows a drag operation (so e.g. dragging a vertex
+  // doesn't also trigger "place a new vertex" on the underlying click).
+  if (DRAG_SUPPRESSES_CLICK) {
+    DRAG_SUPPRESSES_CLICK = false;
+    return;
+  }
+
+  const px = eventToCanvasPx(e);
+
+  // If we're drawing, add a vertex (the dblclick handler runs after this for closure)
   if (state.draftPolygon) {
     state.draftPolygon.points.push(pxToFrac(px));
     redraw();
@@ -360,6 +590,7 @@ els.canvas.addEventListener('click', (e) => {
     selectRegion(-1);
     // Clicking empty canvas starts a new draft polygon
     state.draftPolygon = { points: [pxToFrac(px)] };
+    state.cursorPx = px;
     setStatus('Drawing — click to add vertices, double-click to close, Esc to cancel');
     redraw();
   }
@@ -374,6 +605,7 @@ els.canvas.addEventListener('dblclick', (e) => {
   if (state.draftPolygon.points.length < 3) {
     toast('Polygon needs at least 3 vertices', 'error');
     state.draftPolygon = null;
+    state.cursorPx = null;
     setStatus('Click to start drawing a polygon');
     redraw();
     return;
@@ -389,44 +621,12 @@ els.canvas.addEventListener('dblclick', (e) => {
   };
   state.regions.push(newRegion);
   state.draftPolygon = null;
+  state.cursorPx = null;
   selectRegion(state.regions.length - 1);
   setStatus(`Polygon committed. ${state.regions.length} region(s).`);
   refreshSidePanel();
   redraw();
   els.btnSave.disabled = false;
-});
-
-els.canvas.addEventListener('mousedown', (e) => {
-  if (state.draftPolygon) return;  // ignore drag during draft
-  if (state.selectedRegionIdx === -1) return;
-  const px = eventToCanvasPx(e);
-  const hit = hitTestVertex(px);
-  if (hit && hit.regionIdx === state.selectedRegionIdx) {
-    state.drag = hit;
-    els.canvas.classList.add('sm-cursor-grabbing');
-    e.preventDefault();
-  }
-});
-
-els.canvas.addEventListener('mousemove', (e) => {
-  if (state.drag) {
-    const px = eventToCanvasPx(e);
-    const frac = pxToFrac(px);
-    const r = state.regions[state.drag.regionIdx];
-    r.polygon[state.drag.vertexIdx] = {
-      x: Math.max(0, Math.min(1, frac.x)),
-      y: Math.max(0, Math.min(1, frac.y)),
-    };
-    redraw();
-    els.btnSave.disabled = false;
-  }
-});
-
-window.addEventListener('mouseup', () => {
-  if (state.drag) {
-    state.drag = null;
-    els.canvas.classList.remove('sm-cursor-grabbing');
-  }
 });
 
 els.canvas.addEventListener('contextmenu', (e) => {
@@ -438,7 +638,7 @@ els.canvas.addEventListener('contextmenu', (e) => {
   if (!hit || hit.regionIdx !== state.selectedRegionIdx) return;
   const r = state.regions[hit.regionIdx];
   if (r.polygon.length <= 3) {
-    toast('Polygon must have at least 3 vertices', 'error');
+    toast('Polygon must have at least 3 vertices — delete the whole region instead', 'error');
     return;
   }
   r.polygon.splice(hit.vertexIdx, 1);
@@ -446,13 +646,57 @@ els.canvas.addEventListener('contextmenu', (e) => {
   els.btnSave.disabled = false;
 });
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && state.draftPolygon) {
-    state.draftPolygon = null;
-    setStatus('Drawing cancelled');
+// Mouse leaving the canvas: clear hover/cursor state so leftover indicators don't linger
+els.canvas.addEventListener('mouseleave', () => {
+  if (state.hoveredEdge) {
+    state.hoveredEdge = null;
+    redraw();
+  }
+  if (state.cursorPx && state.draftPolygon) {
+    state.cursorPx = null;
     redraw();
   }
 });
+
+document.addEventListener('keydown', (e) => {
+  // Escape cancels a draft
+  if (e.key === 'Escape' && state.draftPolygon) {
+    state.draftPolygon = null;
+    state.cursorPx = null;
+    setStatus('Drawing cancelled');
+    redraw();
+    return;
+  }
+  // Delete/Backspace deletes the selected polygon (when not focused in an input)
+  if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedRegionIdx !== -1) {
+    if (document.activeElement && (
+      document.activeElement.tagName === 'INPUT' ||
+      document.activeElement.tagName === 'TEXTAREA'
+    )) {
+      return;  // typing in a side-panel input — don't hijack delete
+    }
+    e.preventDefault();
+    deleteRegion(state.selectedRegionIdx);
+  }
+});
+
+/** Delete a region by index. Used by both the side-panel ✕ button and the
+ *  Delete/Backspace key. */
+function deleteRegion(idx) {
+  if (idx < 0 || idx >= state.regions.length) return;
+  const r = state.regions[idx];
+  if (!confirm(`Delete region "${r.name || 'Region ' + (idx + 1)}"?`)) return;
+  state.regions.splice(idx, 1);
+  if (state.selectedRegionIdx === idx) {
+    state.selectedRegionIdx = -1;
+  } else if (state.selectedRegionIdx > idx) {
+    state.selectedRegionIdx--;
+  }
+  refreshSidePanel();
+  redraw();
+  els.btnSave.disabled = false;
+  setStatus(`Region deleted. ${state.regions.length} region(s).`);
+}
 
 // ---------------------------------------------------------------------------
 // Side panel
