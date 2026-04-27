@@ -12,6 +12,7 @@ import { initMaterials } from './materials.js';
 import { initBidPdf } from './bid-pdf.js';
 import { initPhotos } from './photos.js';
 import { initPublish } from './publish.js';
+import { initSitePlan } from './site-plan.js';
 
 let proposalId = null;
 let proposal = null;
@@ -106,9 +107,7 @@ function switchSection(name) {
         'Most of these fields are auto-populated when you commit a bid PDF in Section 02. The Loom URL field now lives in Section 06 (Preview & publish), so it can be set right before publishing.');
       break;
     case 'site-plan':
-      renderPlaceholder('Site plan',
-        'Upload a Cam To Plan PNG → vision extraction → dimensioned polygon with manual correction.',
-        'Phase 2 — the spike showed medium-confidence extraction, so this needs a correction UI alongside.');
+      initSitePlan({ proposalId, container: sectionContent, onSave: touchSave });
       break;
   }
 }
