@@ -41,6 +41,108 @@ const REGION_COLORS = [
 function colorForIndex(i) { return REGION_COLORS[i % REGION_COLORS.length]; }
 
 // ---------------------------------------------------------------------------
+// Undo / Redo stack
+//
+// We snapshot state.regions at every discrete user action. The snapshot is a
+// deep-cloned regions array (JSON round-trip — they're plain {x,y,name,...}
+// objects, no class instances or circular refs).
+//
+// Stack model:
+//   - past: snapshots BEFORE recent actions (oldest first). Bounded to UNDO_LIMIT.
+//   - future: snapshots AFTER actions that have been undone. Cleared on any
+//     fresh action (you can't redo after a new edit — same as VS Code, Figma).
+//
+// pushUndoSnapshot(label) is called at every commit point: vertex placed,
+// polygon closed, vertex/polygon drag finished, vertex/polygon/region deleted,
+// region renamed, sqft/lnft edited (debounced), edge insert, polygon translate.
+// Save All does NOT push a snapshot (it's not a state change, just persistence).
+//
+// Saves don't clear the stack — Tim can save, then undo, then save again. The
+// CF Function bulk-upserts whatever's currently in state.regions, so next save
+// just persists the post-undo state.
+// ---------------------------------------------------------------------------
+const UNDO_LIMIT = 50;
+const undoStack = {
+  past: [],   // [{ regions: [...], label: '...' }]  oldest first
+  future: [], // [{ regions: [...], label: '...' }]  newest first (top-of-stack semantics)
+};
+
+/** Deep-clone the regions array. JSON round-trip is safe — no class instances. */
+function cloneRegions() {
+  return JSON.parse(JSON.stringify(state.regions));
+}
+
+/** Push the CURRENT state onto the undo stack, then clear the redo stack.
+ *  Call BEFORE mutating state, so that undo can restore the pre-mutation snapshot.
+ *  `label` is for status-bar feedback during undo/redo. */
+function pushUndoSnapshot(label) {
+  undoStack.past.push({ regions: cloneRegions(), label });
+  if (undoStack.past.length > UNDO_LIMIT) {
+    undoStack.past.shift();  // drop oldest
+  }
+  undoStack.future = [];  // any fresh edit invalidates redo history
+}
+
+/** Undo the most recent action. */
+function undo() {
+  if (undoStack.past.length === 0) {
+    setStatus('Nothing to undo');
+    return;
+  }
+  // Save current state into future, restore the most recent past snapshot.
+  const currentLabel = undoStack.past[undoStack.past.length - 1].label;
+  undoStack.future.push({ regions: cloneRegions(), label: currentLabel });
+  const prev = undoStack.past.pop();
+  state.regions = prev.regions;
+  // Selection may now point to a no-longer-existing index — clamp it.
+  if (state.selectedRegionIdx >= state.regions.length) {
+    state.selectedRegionIdx = -1;
+  }
+  // Cancel any drag/draft/hover state that no longer makes sense after restore.
+  state.draftPolygon = null;
+  state.cursorPx = null;
+  state.drag = null;
+  state.polygonDrag = null;
+  state.hoveredEdge = null;
+  refreshSidePanel();
+  redraw();
+  els.btnSave.disabled = false;
+  setStatus(`Undid: ${currentLabel}`);
+}
+
+/** Redo the most recently undone action. */
+function redo() {
+  if (undoStack.future.length === 0) {
+    setStatus('Nothing to redo');
+    return;
+  }
+  // Save current into past, restore from future.
+  const next = undoStack.future.pop();
+  undoStack.past.push({ regions: cloneRegions(), label: next.label });
+  state.regions = next.regions;
+  if (state.selectedRegionIdx >= state.regions.length) {
+    state.selectedRegionIdx = -1;
+  }
+  state.draftPolygon = null;
+  state.cursorPx = null;
+  state.drag = null;
+  state.polygonDrag = null;
+  state.hoveredEdge = null;
+  refreshSidePanel();
+  redraw();
+  els.btnSave.disabled = false;
+  setStatus(`Redid: ${next.label}`);
+}
+
+/** Reset the undo stack — called once after a successful initial regions load.
+ *  Without this, the very first edit would have an undo target of "empty regions",
+ *  which would make Cmd+Z look like it deleted everything Tim just had loaded. */
+function resetUndoStack() {
+  undoStack.past = [];
+  undoStack.future = [];
+}
+
+// ---------------------------------------------------------------------------
 // DOM refs
 // ---------------------------------------------------------------------------
 const els = {
@@ -449,6 +551,7 @@ els.canvas.addEventListener('mousedown', (e) => {
   if (state.selectedRegionIdx !== -1) {
     const hitV = hitTestVertex(px);
     if (hitV && hitV.regionIdx === state.selectedRegionIdx) {
+      pushUndoSnapshot('move vertex');
       state.drag = hitV;
       els.canvas.classList.add('sm-cursor-grabbing');
       DRAG_SUPPRESSES_CLICK = true;
@@ -461,6 +564,7 @@ els.canvas.addEventListener('mousedown', (e) => {
     // the position in one motion).
     const hitE = hitTestEdge(px);
     if (hitE) {
+      pushUndoSnapshot('insert vertex');
       const r = state.regions[hitE.regionIdx];
       const insertAt = hitE.edgeIdx + 1;
       r.polygon.splice(insertAt, 0, hitE.point);
@@ -476,6 +580,7 @@ els.canvas.addEventListener('mousedown', (e) => {
 
     // 3. Polygon interior drag: cursor inside the selected polygon.
     if (pointInPolygon(px, state.regions[state.selectedRegionIdx].polygon)) {
+      pushUndoSnapshot('move polygon');
       state.polygonDrag = {
         regionIdx: state.selectedRegionIdx,
         lastFrac: pxToFrac(px),
@@ -611,6 +716,7 @@ els.canvas.addEventListener('dblclick', (e) => {
     return;
   }
   // Commit the draft as a new region
+  pushUndoSnapshot('add polygon');
   const newRegion = {
     name: `Region ${state.regions.length + 1}`,
     polygon: state.draftPolygon.points.slice(),
@@ -641,6 +747,7 @@ els.canvas.addEventListener('contextmenu', (e) => {
     toast('Polygon must have at least 3 vertices — delete the whole region instead', 'error');
     return;
   }
+  pushUndoSnapshot('delete vertex');
   r.polygon.splice(hit.vertexIdx, 1);
   redraw();
   els.btnSave.disabled = false;
@@ -659,6 +766,23 @@ els.canvas.addEventListener('mouseleave', () => {
 });
 
 document.addEventListener('keydown', (e) => {
+  // Cmd+Z (undo) / Cmd+Shift+Z (redo) — works on Mac. Don't hijack if focused in an input.
+  // Note: Ctrl+Z also works (caught by metaKey || ctrlKey) so this is cross-platform.
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+    if (document.activeElement && (
+      document.activeElement.tagName === 'INPUT' ||
+      document.activeElement.tagName === 'TEXTAREA'
+    )) {
+      return;  // let the input's own undo handle it
+    }
+    e.preventDefault();
+    if (e.shiftKey) {
+      redo();
+    } else {
+      undo();
+    }
+    return;
+  }
   // Escape cancels a draft
   if (e.key === 'Escape' && state.draftPolygon) {
     state.draftPolygon = null;
@@ -686,6 +810,7 @@ function deleteRegion(idx) {
   if (idx < 0 || idx >= state.regions.length) return;
   const r = state.regions[idx];
   if (!confirm(`Delete region "${r.name || 'Region ' + (idx + 1)}"?`)) return;
+  pushUndoSnapshot('delete region');
   state.regions.splice(idx, 1);
   if (state.selectedRegionIdx === idx) {
     state.selectedRegionIdx = -1;
@@ -736,17 +861,29 @@ function refreshSidePanel() {
       }
     });
 
-    card.querySelector('.sm-input-name').addEventListener('input', (e) => {
+    const nameInput = card.querySelector('.sm-input-name');
+    const sqftInput = card.querySelector('.sm-input-sqft');
+    const lnftInput = card.querySelector('.sm-input-lnft');
+
+    // Snapshot once when any field gains focus — this groups a whole editing
+    // session into a single undo step. Without this, every keystroke would push
+    // its own snapshot and Cmd+Z would walk back letter-by-letter.
+    const snapshotOnFocus = (label) => () => pushUndoSnapshot(label);
+    nameInput.addEventListener('focus', snapshotOnFocus('rename region'));
+    sqftInput.addEventListener('focus', snapshotOnFocus('edit sqft'));
+    lnftInput.addEventListener('focus', snapshotOnFocus('edit lnft'));
+
+    nameInput.addEventListener('input', (e) => {
       r.name = e.target.value;
       redraw();
       els.btnSave.disabled = false;
     });
-    card.querySelector('.sm-input-sqft').addEventListener('input', (e) => {
+    sqftInput.addEventListener('input', (e) => {
       const v = e.target.value === '' ? null : parseFloat(e.target.value);
       r.area_sqft = isNaN(v) ? null : v;
       els.btnSave.disabled = false;
     });
-    card.querySelector('.sm-input-lnft').addEventListener('input', (e) => {
+    lnftInput.addEventListener('input', (e) => {
       const v = e.target.value === '' ? null : parseFloat(e.target.value);
       r.area_lnft = isNaN(v) ? null : v;
       els.btnSave.disabled = false;
@@ -754,6 +891,7 @@ function refreshSidePanel() {
     card.querySelector('.sm-btn-delete').addEventListener('click', (e) => {
       e.stopPropagation();
       if (!confirm(`Delete region "${r.name}"?`)) return;
+      pushUndoSnapshot('delete region');
       state.regions.splice(idx, 1);
       // Reassign display_order so they're sequential
       state.regions.forEach((r, i) => { r.display_order = i; r._color = colorForIndex(i); });
@@ -884,6 +1022,9 @@ async function boot() {
     if (state.regions.length > 0) {
       setStatus(`${state.regions.length} region(s) loaded.`);
     }
+    // Clear any snapshots that might have been pushed during init — first user
+    // action should be the first thing on the undo stack, not "load complete".
+    resetUndoStack();
   } catch (err) {
     toast('Failed to load: ' + err.message, 'error', 6000);
   }
