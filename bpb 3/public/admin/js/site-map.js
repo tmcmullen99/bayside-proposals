@@ -5,14 +5,24 @@
  *   - Load backdrop image and existing regions for a proposal
  *   - Polygon drawing: click to add vertex, double-click to close, ESC to cancel
  *   - Polygon editing: click to select, drag vertex to move, right-click vertex to delete
- *   - Side panel: name + sqft + lnft per region, "Save All" persists everything
+ *   - Side panel: name + sqft + lnft + section + materials per region, "Save All" persists everything
  *
  * Coordinate system:
  *   - Polygon vertices are stored as {x, y} fractions in [0..1] of backdrop dimensions
  *   - The canvas renders at the backdrop's native pixel dimensions
  *   - Mouse events are translated from canvas pixels to fractions before storage
  *
- * Per Principle 2 (simplicity): no zoom, no pan, no undo/redo in v1.
+ * Per Principle 2 (simplicity): no zoom, no pan in v1.
+ *
+ * Phase 1B.3 additions:
+ *   - state.materials holds the proposal's materials with embedded catalog rows
+ *     (Belgard / third-party) for picker display.
+ *   - each region carries a `materials: [{proposal_material_id, display_order}]`
+ *     array reflecting proposal_region_materials assignments.
+ *   - Each region card shows a togglable pill list of all proposal materials.
+ *     Click a pill to add/remove from the region's set; order = pick order.
+ *   - Snapshot wiring: pushUndoSnapshot('toggle material') before each pill click
+ *     so Cmd+Z reverses one click per stroke.
  */
 
 // ---------------------------------------------------------------------------
@@ -22,7 +32,7 @@ const state = {
   proposalId: null,
   backdrop: null,            // { url, width, height } or null
   backdropImg: null,         // HTMLImageElement
-  regions: [],               // [{ id?, name, polygon:[{x,y}], area_sqft, area_lnft, display_order, _color }]
+  regions: [],               // [{ id?, name, polygon:[{x,y}], area_sqft, area_lnft, display_order, proposal_section_id, materials:[{proposal_material_id, display_order}], _color }]
   selectedRegionIdx: -1,
   draftPolygon: null,        // { points:[{x,y}] } during draw mode, null otherwise
   drag: null,                // { regionIdx, vertexIdx } during vertex drag
@@ -31,6 +41,7 @@ const state = {
   polygonDrag: null,         // { regionIdx, lastFrac:{x,y} } when dragging an entire polygon by its interior
   hoveredEdge: null,         // { regionIdx, edgeIdx, point:{x,y frac} } when cursor is over an edge of the selected polygon
   sections: [],              // [{ id, name, display_order }] — proposal's bid sections (Phase 1B click-to-link target)
+  materials: [],             // [{ id, material_source, belgard_material:{...}|null, third_party_material:{...}|null, ... }] — Phase 1B.3 multi-material picker source
 };
 
 // Distinct colors for region overlays — cycled by region index
@@ -55,7 +66,8 @@ function colorForIndex(i) { return REGION_COLORS[i % REGION_COLORS.length]; }
 //
 // pushUndoSnapshot(label) is called at every commit point: vertex placed,
 // polygon closed, vertex/polygon drag finished, vertex/polygon/region deleted,
-// region renamed, sqft/lnft edited (debounced), edge insert, polygon translate.
+// region renamed, sqft/lnft edited (debounced), edge insert, polygon translate,
+// section change, material toggle.
 // Save All does NOT push a snapshot (it's not a state change, just persistence).
 //
 // Saves don't clear the stack — Tim can save, then undo, then save again. The
@@ -186,7 +198,9 @@ async function apiGetRegions(proposalId) {
 }
 
 async function apiSaveRegions(proposalId, regions) {
-  // Strip the local-only _color field before sending
+  // Strip the local-only _color field before sending. Everything else
+  // (including Phase 1B.3 `materials` array) rides through unchanged so
+  // the CF Function can reconcile proposal_region_materials.
   const cleaned = regions.map(({ _color, ...r }) => r);
   const r = await fetch('/api/site-map-regions', {
     method: 'POST',
@@ -724,6 +738,7 @@ els.canvas.addEventListener('dblclick', (e) => {
     area_sqft: null,
     area_lnft: null,
     display_order: state.regions.length,
+    materials: [],  // Phase 1B.3 — start with empty material set
     _color: colorForIndex(state.regions.length),
   };
   state.regions.push(newRegion);
@@ -825,12 +840,67 @@ function deleteRegion(idx) {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 1B.3 — material display helpers
+//
+// Used by the per-region material picker. Each pill shows a thumbnail (the
+// material's swatch image when available), the product name, and the color/
+// pattern as a meta line. Both Belgard and third-party material rows are
+// supported via the same shape.
+// ---------------------------------------------------------------------------
+function materialDisplayName(m) {
+  if (!m) return 'Material';
+  if (m.material_source === 'belgard' && m.belgard_material) {
+    return m.belgard_material.product_name || 'Belgard product';
+  }
+  if (m.material_source === 'third_party' && m.third_party_material) {
+    return m.third_party_material.product_name || 'Third-party product';
+  }
+  return 'Material';
+}
+
+function materialMeta(m) {
+  if (!m) return '';
+  if (m.material_source === 'belgard' && m.belgard_material) {
+    const bm = m.belgard_material;
+    const parts = [];
+    if (bm.color) parts.push(bm.color);
+    if (bm.pattern) parts.push(bm.pattern);
+    return parts.join(' · ');
+  }
+  if (m.material_source === 'third_party' && m.third_party_material) {
+    const tp = m.third_party_material;
+    const parts = [];
+    if (tp.manufacturer) parts.push(tp.manufacturer);
+    if (tp.color) parts.push(tp.color);
+    return parts.join(' · ');
+  }
+  return '';
+}
+
+function materialThumbUrl(m) {
+  if (!m) return '';
+  if (m.material_source === 'belgard' && m.belgard_material) {
+    const bm = m.belgard_material;
+    return bm.swatch_url || bm.primary_image_url || bm.image_url || '';
+  }
+  if (m.material_source === 'third_party' && m.third_party_material) {
+    const tp = m.third_party_material;
+    return tp.primary_image_url || tp.image_url || '';
+  }
+  return '';
+}
+
+// ---------------------------------------------------------------------------
 // Side panel
 // ---------------------------------------------------------------------------
 function refreshSidePanel() {
   els.regionCount.textContent = state.regions.length;
   els.sideList.innerHTML = '';
   state.regions.forEach((r, idx) => {
+    // Defensive: ensure region.materials exists as an array. Old DB rows
+    // pre-Phase-1B.3 may load without it; treat as empty selection.
+    if (!Array.isArray(r.materials)) r.materials = [];
+
     const card = document.createElement('div');
     card.className = 'sm-region-card' + (idx === state.selectedRegionIdx ? ' sm-selected' : '');
     card.dataset.idx = idx;
@@ -842,6 +912,44 @@ function refreshSidePanel() {
       .concat(state.sections.map(s =>
         `<option value="${escapeHtml(s.id)}"${r.proposal_section_id === s.id ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
       )).join('');
+
+    // Phase 1B.3: build the material picker. Each entry in state.materials
+    // becomes a togglable pill. Selected pills get `.sm-selected` and an
+    // order badge showing their position in r.materials (1-indexed). Empty
+    // proposal-materials list shows a placeholder line so Tim knows where
+    // to add materials (Editor → Section 03).
+    let materialsBlock;
+    if (state.materials.length === 0) {
+      materialsBlock = `<div class="sm-material-pills-empty">No materials in this proposal yet — add them in the editor's Materials section.</div>`;
+    } else {
+      // Build a quick lookup of selected material IDs → display_order (1-indexed for badge)
+      const selectedOrder = new Map();
+      r.materials.forEach((entry, j) => {
+        selectedOrder.set(entry.proposal_material_id, j + 1);
+      });
+
+      const pills = state.materials.map(m => {
+        const isSel = selectedOrder.has(m.id);
+        const order = selectedOrder.get(m.id) || '';
+        const name = materialDisplayName(m);
+        const meta = materialMeta(m);
+        const thumb = materialThumbUrl(m);
+        const thumbHtml = thumb
+          ? `<img src="${escapeHtml(thumb)}" alt="" class="sm-material-pill-thumb">`
+          : `<div class="sm-material-pill-thumb-empty">${escapeHtml(name.slice(0, 2).toUpperCase())}</div>`;
+        return `
+          <button type="button" class="sm-material-pill${isSel ? ' sm-selected' : ''}" data-mat-id="${escapeHtml(m.id)}">
+            <span class="sm-material-pill-order">${order}</span>
+            ${thumbHtml}
+            <span class="sm-material-pill-text">
+              <span class="sm-material-pill-name">${escapeHtml(name)}</span>
+              ${meta ? `<span class="sm-material-pill-meta">${escapeHtml(meta)}</span>` : ''}
+            </span>
+          </button>
+        `;
+      }).join('');
+      materialsBlock = `<div class="sm-material-pills">${pills}</div>`;
+    }
 
     card.innerHTML = `
       <div class="sm-region-card-row">
@@ -864,18 +972,23 @@ function refreshSidePanel() {
           ${sectionOptions}
         </select>
       </div>
+      <div class="sm-region-card-materials-wrap">
+        <label>Materials</label>
+        ${materialsBlock}
+      </div>
       <div class="sm-region-card-actions">
         <button class="sm-btn sm-btn-danger sm-btn-delete">Delete</button>
       </div>
     `;
 
     card.addEventListener('click', (e) => {
-      // Don't re-select if user clicked an input or a select
+      // Don't re-select if user clicked an input, select, or a material pill
       if (
         e.target.tagName !== 'INPUT' &&
         e.target.tagName !== 'SELECT' &&
         e.target.tagName !== 'OPTION' &&
-        !e.target.classList.contains('sm-btn-delete')
+        !e.target.classList.contains('sm-btn-delete') &&
+        !e.target.closest('.sm-material-pill')
       ) {
         selectRegion(idx);
       }
@@ -915,6 +1028,35 @@ function refreshSidePanel() {
       r.proposal_section_id = e.target.value || null;
       els.btnSave.disabled = false;
     });
+
+    // Phase 1B.3 — material pill click toggles membership in r.materials.
+    // Order = pick order (display_order assigned at save time). Removing
+    // a pill renumbers the remaining selections in their existing relative
+    // order so badges stay sequential. Re-render the panel after each
+    // toggle so badges + selected styles update; the side panel is small
+    // and re-render is cheap.
+    card.querySelectorAll('.sm-material-pill').forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const matId = pill.dataset.matId;
+        if (!matId) return;
+        const existingIdx = r.materials.findIndex(x => x.proposal_material_id === matId);
+        pushUndoSnapshot(existingIdx >= 0 ? 'remove material' : 'add material');
+        if (existingIdx >= 0) {
+          r.materials.splice(existingIdx, 1);
+          // Renumber remaining display_orders so they stay 0..n-1
+          r.materials.forEach((entry, j) => { entry.display_order = j; });
+        } else {
+          r.materials.push({
+            proposal_material_id: matId,
+            display_order: r.materials.length,
+          });
+        }
+        refreshSidePanel();  // re-render so order badges + selected states update
+        els.btnSave.disabled = false;
+      });
+    });
+
     card.querySelector('.sm-btn-delete').addEventListener('click', (e) => {
       e.stopPropagation();
       if (!confirm(`Delete region "${r.name}"?`)) return;
@@ -970,11 +1112,18 @@ async function saveAll() {
   els.btnSave.textContent = 'Saving…';
   try {
     const result = await apiSaveRegions(state.proposalId, state.regions);
-    // Refresh state with the server's authoritative version (gives us new ids)
-    state.regions = result.regions.map((r, i) => ({
-      ...r,
-      _color: colorForIndex(i),
-    }));
+    // Refresh state with the server's authoritative version (gives us new ids
+    // and confirms which materials persisted).
+    state.regions = result.regions.map((r, i) => {
+      const materials = Array.isArray(r.materials) ? r.materials : [];
+      // Sort defensively in case the server ever returns out-of-order
+      materials.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      return {
+        ...r,
+        materials,
+        _color: colorForIndex(i),
+      };
+    });
     refreshSidePanel();
     redraw();
     toast(`Saved. ${result.stats.inserted} new, ${result.stats.updated} updated, ${result.stats.deleted} removed.`, 'success');
@@ -1065,11 +1214,17 @@ async function boot() {
 
   try {
     const data = await apiGetRegions(proposalId);
-    state.regions = (data.regions || []).map((r, i) => ({
-      ...r,
-      _color: colorForIndex(i),
-    }));
+    state.regions = (data.regions || []).map((r, i) => {
+      const materials = Array.isArray(r.materials) ? r.materials : [];
+      materials.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      return {
+        ...r,
+        materials,
+        _color: colorForIndex(i),
+      };
+    });
     state.sections = data.sections || [];
+    state.materials = data.materials || [];
     await setBackdrop(data.backdrop);
     refreshSidePanel();
     if (state.regions.length > 0) {
