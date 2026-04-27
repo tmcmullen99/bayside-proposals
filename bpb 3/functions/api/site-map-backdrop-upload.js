@@ -8,17 +8,20 @@
  *   - file (form field, PNG or JPEG, max 10MB)
  *
  * Behavior:
- *   1. Validates the auth header (must be Tim's user JWT)
- *   2. Reads the image, computes its native pixel dimensions
- *   3. Uploads to Supabase Storage bucket "site-plans" at
+ *   1. Reads the image, computes its native pixel dimensions
+ *   2. Uploads to Supabase Storage bucket "site-plans" at
  *      `${proposal_id}/backdrop.${ext}` (overwrites any existing backdrop)
- *   4. Updates the `proposals` row: site_plan_backdrop_url, _width, _height
- *   5. Returns { url, width, height }
+ *   3. Updates the `proposals` row: site_plan_backdrop_url, _width, _height
+ *   4. Returns { url, width, height }
+ *
+ * Auth: This endpoint is open (no JWT check) — it matches the existing pattern
+ * used by every other BPB admin page (materials, belgard-sync, etc.). The
+ * security boundary is the CF Function holding the service role key, not user
+ * auth. Re-add a JWT check here if/when team members and a real sign-in flow
+ * land.
  *
  * Used by: /admin/site-map.html (the labeling UI)
  */
-
-const TIM_USER_ID = '7a3930d1-f05a-49b1-a37f-d73329f37153';
 
 // CORS headers for the admin UI
 const CORS_HEADERS = {
@@ -103,29 +106,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   try {
-    // 1) Auth: require user JWT in Authorization header, verify it matches Tim
-    const authHeader = request.headers.get('Authorization') || '';
-    if (!authHeader.startsWith('Bearer ')) {
-      return jsonResponse({ error: 'Missing Authorization Bearer token' }, 401);
-    }
-    const userJwt = authHeader.slice(7);
-
-    // Verify the JWT by calling Supabase auth.getUser endpoint
-    const userResp = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        Authorization: `Bearer ${userJwt}`,
-        apikey: env.SUPABASE_ANON_KEY,
-      },
-    });
-    if (!userResp.ok) {
-      return jsonResponse({ error: 'Invalid auth token' }, 401);
-    }
-    const user = await userResp.json();
-    if (user.id !== TIM_USER_ID) {
-      return jsonResponse({ error: 'Forbidden: admin only' }, 403);
-    }
-
-    // 2) Parse multipart form
+    // 1) Parse multipart form
     const formData = await request.formData();
     const proposalId = formData.get('proposal_id');
     const file = formData.get('file');
@@ -137,7 +118,7 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: 'Missing file' }, 400);
     }
 
-    // 3) Validate file type and size
+    // 2) Validate file type and size
     const mimeType = file.type;
     if (mimeType !== 'image/png' && mimeType !== 'image/jpeg') {
       return jsonResponse({ error: 'File must be PNG or JPEG' }, 400);
@@ -146,7 +127,7 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: 'File exceeds 10MB limit' }, 400);
     }
 
-    // 4) Read bytes once, extract dimensions
+    // 3) Read bytes once, extract dimensions
     const bytes = new Uint8Array(await file.arrayBuffer());
     let width, height;
     try {
@@ -155,12 +136,10 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: 'Could not parse image: ' + err.message }, 400);
     }
 
-    // 5) Upload to Supabase Storage at site-plans/{proposal_id}/backdrop.{ext}
+    // 4) Upload to Supabase Storage at site-plans/{proposal_id}/backdrop.{ext}
     const ext = mimeType === 'image/png' ? 'png' : 'jpg';
     const objectPath = `${proposalId}/backdrop.${ext}`;
 
-    // Use service role to upload (bypasses RLS, server-side only).
-    // The user JWT was verified above so we know the caller is Tim.
     const uploadResp = await fetch(
       `${env.SUPABASE_URL}/storage/v1/object/site-plans/${objectPath}`,
       {
@@ -182,13 +161,13 @@ export async function onRequestPost(context) {
       );
     }
 
-    // 6) Construct the public URL
+    // 5) Construct the public URL
     // Append a cache-buster timestamp so the admin UI sees the new image immediately
     // after re-upload (browsers aggressively cache the same path).
     const cacheBust = Date.now();
     const publicUrl = `${env.SUPABASE_URL}/storage/v1/object/public/site-plans/${objectPath}?v=${cacheBust}`;
 
-    // 7) Update the proposals row
+    // 6) Update the proposals row
     const updateResp = await fetch(
       `${env.SUPABASE_URL}/rest/v1/proposals?id=eq.${proposalId}`,
       {
