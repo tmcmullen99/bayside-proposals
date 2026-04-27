@@ -15,20 +15,6 @@
  * Per Principle 2 (simplicity): no zoom, no pan, no undo/redo in v1.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-// ---------------------------------------------------------------------------
-// Config — pulled from window.BPB_CONFIG which is set by the global config script
-// (matches the pattern your other admin pages use).
-// ---------------------------------------------------------------------------
-const SUPABASE_URL = window.BPB_CONFIG?.SUPABASE_URL || 'https://gfgbypcnxkschnfsitfb.supabase.co';
-const SUPABASE_ANON_KEY = window.BPB_CONFIG?.SUPABASE_ANON_KEY;
-if (!SUPABASE_ANON_KEY) {
-  console.error('[site-map] window.BPB_CONFIG.SUPABASE_ANON_KEY is missing');
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -85,36 +71,20 @@ function toast(message, kind = 'info', durationMs = 3000) {
 }
 
 // ---------------------------------------------------------------------------
-// Auth — get current user JWT for API calls
-// ---------------------------------------------------------------------------
-async function getAuthHeader() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    toast('Not signed in. Sign in via /admin/ first.', 'error', 6000);
-    throw new Error('No session');
-  }
-  return `Bearer ${session.access_token}`;
-}
-
-// ---------------------------------------------------------------------------
 // API calls
 // ---------------------------------------------------------------------------
 async function apiGetRegions(proposalId) {
-  const auth = await getAuthHeader();
-  const r = await fetch(`/api/site-map-regions?proposal_id=${proposalId}`, {
-    headers: { Authorization: auth },
-  });
+  const r = await fetch(`/api/site-map-regions?proposal_id=${proposalId}`);
   if (!r.ok) throw new Error(`GET regions failed: ${r.status} ${await r.text()}`);
   return r.json();
 }
 
 async function apiSaveRegions(proposalId, regions) {
-  const auth = await getAuthHeader();
   // Strip the local-only _color field before sending
   const cleaned = regions.map(({ _color, ...r }) => r);
   const r = await fetch('/api/site-map-regions', {
     method: 'POST',
-    headers: { Authorization: auth, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ proposal_id: proposalId, regions: cleaned }),
   });
   if (!r.ok) throw new Error(`Save failed: ${r.status} ${await r.text()}`);
@@ -122,13 +92,11 @@ async function apiSaveRegions(proposalId, regions) {
 }
 
 async function apiUploadBackdrop(proposalId, file) {
-  const auth = await getAuthHeader();
   const fd = new FormData();
   fd.append('proposal_id', proposalId);
   fd.append('file', file);
   const r = await fetch('/api/site-map-backdrop-upload', {
     method: 'POST',
-    headers: { Authorization: auth },
     body: fd,
   });
   if (!r.ok) throw new Error(`Upload failed: ${r.status} ${await r.text()}`);
