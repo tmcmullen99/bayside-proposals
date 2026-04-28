@@ -184,6 +184,34 @@
 //      by…") becomes a JetBrains Mono uppercase mark rather than
 //      plain text, finishing the page with an editorial signature.
 //
+//  15. [Phase 1B.7] Material Type eyebrow + compelling final CTA.
+//      Each material card now renders a small mono-caps eyebrow
+//      above the product name (e.g. "PAVERS", "RETAINING WALL",
+//      "DECKING") so the buyer immediately registers what kind of
+//      product each card represents. Belgard rows resolve their
+//      type from belgard_categories.name (loaded via a new parallel
+//      fetch in the materials loader); third-party rows use
+//      third_party_materials.category. Long category names are
+//      hand-mapped to short labels by formatMaterialType.
+//
+//      The footer CTA is replaced wholesale: navy hero panel with a
+//      headline that surfaces the 5% Immediate Start Discount and
+//      its dollar amount, a 48-hour countdown (hours/min/sec) that
+//      ticks per-viewer (deadline persisted in localStorage keyed by
+//      slug, so each visitor gets their own 48 hours from first
+//      sight), and a prominent green "Ready to sign — send for
+//      signatures" button. Click opens a modal with name/email/
+//      phone/message form that POSTs to /api/sign-intent, which
+//      inserts a row into the new signature_intents table and
+//      best-effort emails Tim via Resend (skipped silently if
+//      RESEND_API_KEY / RESEND_FROM_EMAIL aren't configured — the
+//      table row is the source of truth either way). On expiration
+//      the timer freezes at 00:00:00 and an explanatory message
+//      appears; the sign button still works, just without the
+//      discount messaging. Tertiary "Or reach Tim directly" links
+//      (call / email / installation guide) preserve the prior
+//      footer's affordances beneath the main CTA.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
@@ -300,13 +328,17 @@ async function reload() {
   const thirdPartyIds = [...new Set(rawMaterials
     .filter(m => m.third_party_material_id).map(m => m.third_party_material_id))];
 
-  const [belgardQ, thirdPartyQ] = await Promise.all([
+  const [belgardQ, thirdPartyQ, categoriesQ] = await Promise.all([
     belgardIds.length
       ? supabase.from('belgard_materials').select('*').in('id', belgardIds)
       : Promise.resolve({ data: [], error: null }),
     thirdPartyIds.length
       ? supabase.from('third_party_materials').select('*').in('id', thirdPartyIds)
       : Promise.resolve({ data: [], error: null }),
+    // Phase 1B.7 — small lookup table; fetch all so we can resolve any
+    // belgard_material.category_id to its display name without a second
+    // round-trip per material.
+    supabase.from('belgard_categories').select('id, name'),
   ]);
 
   if (belgardQ.error || thirdPartyQ.error) {
@@ -316,7 +348,16 @@ async function reload() {
     return;
   }
 
-  const belgardMap = new Map((belgardQ.data || []).map(m => [m.id, m]));
+  const belgardCategoryMap = new Map(
+    (categoriesQ.data || []).map(c => [c.id, c.name])
+  );
+  const belgardMap = new Map((belgardQ.data || []).map(m => [m.id, {
+    ...m,
+    // Phase 1B.7 — resolved category name, used by renderMaterialCard's
+    // material-type eyebrow. Falls back to '' so missing-category rows
+    // simply render without a type label rather than crashing.
+    category_name: belgardCategoryMap.get(m.category_id) || '',
+  }]));
   const thirdPartyMap = new Map((thirdPartyQ.data || []).map(m => [m.id, m]));
   const materials = rawMaterials.map(m => ({
     ...m,
@@ -1369,6 +1410,19 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     flex-direction: column;
     gap: 14px;
   }
+  /* Phase 1B.7 — material type eyebrow above the product name.
+     Mono caps tracking matches the section-level eyebrow rhythm; green-dark
+     ties the card identity to the Bayside palette without competing with
+     the navy product name. */
+  .pub-material-card-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    color: var(--green-dark);
+    text-transform: uppercase;
+    margin-bottom: -8px;
+  }
   .pub-material-card-name {
     font-size: 18px;
     font-weight: 600;
@@ -1837,74 +1891,328 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     background: var(--cream);
   }
 
-  /* ═════════ Footer CTAs — Phase 1B.6 polish ═════════ */
-  .pub-footer-ctas {
-    background: var(--cream);
+  /* ═════════ Final CTA — Phase 1B.7 ═════════
+     Replaces the prior cream-bg "Ready to move forward?" panel with a
+     navy hero CTA. Headline carries the discount amount, a 48-hour
+     countdown counts down per-viewer (timer state lives in localStorage
+     keyed by slug), and a prominent green button opens the signature
+     modal. Tertiary links (call/email/guide) live below the main button
+     so they're available without competing visually. */
+  .pub-cta-final {
+    background: var(--navy);
+    color: #fff;
     padding: 96px 32px;
     text-align: center;
     border-top: 1px solid var(--border);
   }
-  .pub-footer-ctas-eyebrow {
+  .pub-cta-final-inner {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .pub-cta-final-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    color: var(--tan);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .pub-cta-final-headline {
+    font-size: clamp(30px, 4.5vw, 42px);
+    font-weight: 600;
+    letter-spacing: -0.018em;
+    margin-bottom: 18px;
+    line-height: 1.2;
+    color: #fff;
+  }
+  .pub-cta-final-amount {
+    color: var(--green);
+    display: block;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+  .pub-cta-final-lede {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0 auto 36px;
+    max-width: 520px;
+  }
+
+  /* Countdown */
+  .pub-cta-countdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 22px 36px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    margin-bottom: 32px;
+  }
+  .pub-cta-countdown-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 64px;
+  }
+  .pub-cta-countdown-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #fff;
+    line-height: 1;
+  }
+  .pub-cta-countdown-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+  }
+  .pub-cta-countdown-sep {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.3);
+    line-height: 1;
+    padding-bottom: 18px;
+  }
+  .pub-cta-countdown.is-expired { opacity: 0.6; }
+  .pub-cta-countdown.is-expired .pub-cta-countdown-value {
+    color: rgba(255, 255, 255, 0.4);
+  }
+  .pub-cta-expired-msg {
+    color: var(--tan);
+    font-size: 14px;
+    margin: 0 auto 28px;
+    max-width: 480px;
+    line-height: 1.55;
+  }
+
+  .pub-cta-sign-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 22px 44px;
+    background: var(--green);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    box-shadow: 0 8px 24px rgba(93, 126, 105, 0.36);
+    max-width: 100%;
+  }
+  .pub-cta-sign-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 38px rgba(93, 126, 105, 0.48);
+    background: var(--green-dark);
+  }
+  .pub-cta-sign-btn:active { transform: translateY(0); }
+  .pub-cta-sign-btn-arrow {
+    transition: transform 0.18s ease;
+  }
+  .pub-cta-sign-btn:hover .pub-cta-sign-btn-arrow {
+    transform: translateX(3px);
+  }
+  .pub-cta-final-secondary {
+    margin-top: 28px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .pub-cta-final-secondary a {
+    color: var(--tan);
+    text-decoration: none;
+    font-weight: 600;
+    border-bottom: 1px dotted rgba(218, 215, 197, 0.4);
+    margin: 0 4px;
+  }
+  .pub-cta-final-secondary a:hover {
+    color: #fff;
+    border-bottom-color: rgba(255, 255, 255, 0.8);
+  }
+
+  /* Sign modal */
+  .pub-sign-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 31, 46, 0.86);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    z-index: 1100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .pub-sign-modal.is-open { display: flex; }
+  .pub-sign-modal-stage {
+    background: #fff;
+    border-radius: 16px;
+    max-width: 520px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 40px;
+    position: relative;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+  }
+  .pub-sign-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--cream);
+    border: none;
+    color: var(--charcoal);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+  }
+  .pub-sign-modal-close:hover { background: var(--border); }
+  .pub-sign-modal-eyebrow {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     letter-spacing: 0.22em;
     color: var(--muted);
     text-transform: uppercase;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
-  .pub-footer-ctas h2 {
-    font-size: clamp(28px, 4vw, 36px);
+  .pub-sign-modal-title {
+    font-size: 24px;
     font-weight: 600;
+    color: var(--navy);
     letter-spacing: -0.012em;
-    margin-bottom: 14px;
-    color: var(--navy);
+    margin-bottom: 10px;
+    line-height: 1.2;
   }
-  .pub-footer-ctas p {
+  .pub-sign-modal-lede {
     color: var(--muted);
-    margin: 0 auto 40px;
-    font-size: 17px;
-    line-height: 1.6;
-    max-width: 520px;
-  }
-  .pub-cta-row {
-    display: flex;
-    gap: 14px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .pub-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px 30px;
-    border-radius: 12px;
-    font-weight: 600;
-    text-decoration: none;
     font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 28px;
+  }
+  .pub-sign-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .pub-sign-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pub-sign-field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--charcoal);
     letter-spacing: 0.005em;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
-    border: 1px solid transparent;
   }
-  .pub-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.10);
+  .pub-sign-field-opt {
+    font-weight: 400;
+    color: var(--muted);
+    margin-left: 2px;
   }
-  .pub-btn-call {
+  .pub-sign-field input,
+  .pub-sign-field textarea {
+    font-family: inherit;
+    font-size: 15px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
     background: #fff;
-    color: var(--navy);
-    border-color: var(--navy);
+    color: var(--charcoal);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    resize: vertical;
+    width: 100%;
   }
-  .pub-btn-call:hover {
-    background: var(--navy);
+  .pub-sign-field input:focus,
+  .pub-sign-field textarea:focus {
+    outline: none;
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.15);
+  }
+  .pub-sign-form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .pub-sign-btn {
+    flex: 1;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    border: 1px solid transparent;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  }
+  .pub-sign-btn-cancel {
+    background: #fff;
+    color: var(--charcoal);
+    border-color: var(--border);
+  }
+  .pub-sign-btn-cancel:hover { background: var(--cream); }
+  .pub-sign-btn-submit {
+    background: var(--green);
     color: #fff;
   }
-  .pub-btn-guide {
-    background: var(--green);
-    color: var(--tan);
+  .pub-sign-btn-submit:hover { background: var(--green-dark); }
+  .pub-sign-btn-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
-  .pub-btn-guide:hover {
-    background: var(--green-dark);
-    color: var(--tan);
+  .pub-sign-form-error {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  .pub-sign-success {
+    text-align: center;
+    padding: 12px 0 4px;
+  }
+  .pub-sign-success-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--green-soft);
+    color: var(--green-dark);
+    font-size: 28px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 18px;
+  }
+  .pub-sign-success h3 {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+    margin-bottom: 10px;
+  }
+  .pub-sign-success p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
   }
 
   /* ═════════ Bottom strip — Phase 1B.6 polish ═════════ */
@@ -1980,7 +2288,31 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     .pub-prep-rail-wrap::before,
     .pub-prep-rail-wrap::after { width: 32px; }
 
-    .pub-footer-ctas { padding: 64px 20px; }
+    /* Phase 1B.7 — final CTA mobile sizing. Countdown digits and padding
+       shrink so the unit row fits a 320px viewport without horizontal
+       scroll. Sign button takes full width on mobile, modal action
+       buttons stack column-reverse so the primary submit sits up top. */
+    .pub-cta-final { padding: 64px 20px; }
+    .pub-cta-final-headline { font-size: clamp(26px, 7vw, 34px); }
+    .pub-cta-countdown {
+      padding: 18px 20px;
+      gap: 6px;
+    }
+    .pub-cta-countdown-unit { min-width: 50px; }
+    .pub-cta-countdown-value { font-size: 32px; }
+    .pub-cta-countdown-sep {
+      font-size: 28px;
+      padding-bottom: 14px;
+    }
+    .pub-cta-sign-btn {
+      padding: 18px 24px;
+      font-size: 15px;
+      width: 100%;
+      max-width: 360px;
+    }
+    .pub-sign-modal { padding: 16px; }
+    .pub-sign-modal-stage { padding: 28px 22px; }
+    .pub-sign-form-actions { flex-direction: column-reverse; }
   }
 
   /* ═════════ Lightbox (Sprint 3H) ═════════
@@ -2130,26 +2462,92 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 
   ${photosHtml}
 
-  <section class="pub-footer-ctas">
-    <div class="pub-footer-ctas-eyebrow">What happens next</div>
-    <h2>Ready to move forward?</h2>
-    <p>Questions about the scope, materials, or next steps? Call or email Tim directly.</p>
-    <div class="pub-cta-row">
-      <a href="tel:${TIM_PHONE_HREF}" class="pub-btn pub-btn-call">
-        Call Tim · ${TIM_PHONE}
-      </a>
-      <a href="mailto:${escapeAttr(TIM_EMAIL)}" class="pub-btn pub-btn-call">
-        Email Tim · ${escapeHtml(TIM_EMAIL)}
-      </a>
-      <a href="${escapeAttr(INSTALL_GUIDE_URL)}" class="pub-btn pub-btn-guide"
-        target="_blank" rel="noopener">
-        View Installation Guide
-      </a>
+  <section class="pub-cta-final" data-proposal-id="${escapeAttr(proposal.id || '')}" data-bid-total="${escapeAttr(String(proposal.bid_total_amount || 0))}">
+    <div class="pub-cta-final-inner">
+      <div class="pub-cta-final-eyebrow">Limited time · Immediate start discount</div>
+      <h2 class="pub-cta-final-headline">
+        Sign within 48 hours and save 5%${proposal.bid_total_amount ? `
+        <span class="pub-cta-final-amount num">— that's $<span id="ctaDiscountAmt">${escapeHtml(Math.round(proposal.bid_total_amount * 0.05).toLocaleString('en-US'))}</span> off</span>` : ''}
+      </h2>
+      <p class="pub-cta-final-lede">
+        The Immediate Start Discount locks your project into our next build window. Construction begins within 14 days of signing — materials, crew, and permits coordinated by Tim directly.
+      </p>
+
+      <div class="pub-cta-countdown" aria-live="polite">
+        <div class="pub-cta-countdown-unit">
+          <div class="pub-cta-countdown-value num" id="ctaHours">48</div>
+          <div class="pub-cta-countdown-label">Hours</div>
+        </div>
+        <div class="pub-cta-countdown-sep">:</div>
+        <div class="pub-cta-countdown-unit">
+          <div class="pub-cta-countdown-value num" id="ctaMins">00</div>
+          <div class="pub-cta-countdown-label">Minutes</div>
+        </div>
+        <div class="pub-cta-countdown-sep">:</div>
+        <div class="pub-cta-countdown-unit">
+          <div class="pub-cta-countdown-value num" id="ctaSecs">00</div>
+          <div class="pub-cta-countdown-label">Seconds</div>
+        </div>
+      </div>
+
+      <div class="pub-cta-expired-msg" id="ctaExpiredMsg" hidden>
+        The Immediate Start window has closed — but Tim can still help you move forward. Click below or give him a call.
+      </div>
+
+      <button type="button" class="pub-cta-sign-btn" id="ctaSignBtn">
+        <span>Ready to sign — send for signatures</span>
+        <span class="pub-cta-sign-btn-arrow" aria-hidden="true">→</span>
+      </button>
+
+      <div class="pub-cta-final-secondary">
+        Or reach Tim directly ·
+        <a href="tel:${TIM_PHONE_HREF}">${escapeHtml(TIM_PHONE)}</a> ·
+        <a href="mailto:${escapeAttr(TIM_EMAIL)}">Email</a> ·
+        <a href="${escapeAttr(INSTALL_GUIDE_URL)}" target="_blank" rel="noopener">Installation Guide</a>
+      </div>
     </div>
   </section>
 
   <div class="pub-bottom">
     Proposal prepared by Tim McMullen · Bayside Pavers
+  </div>
+
+  <!-- Phase 1B.7 Sign modal -->
+  <div class="pub-sign-modal" id="pubSignModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pubSignModalTitle">
+    <div class="pub-sign-modal-stage">
+      <button type="button" class="pub-sign-modal-close" id="pubSignModalClose" aria-label="Close">✕</button>
+      <div class="pub-sign-modal-eyebrow">Send for signatures</div>
+      <h3 id="pubSignModalTitle" class="pub-sign-modal-title">Lock in your project</h3>
+      <p class="pub-sign-modal-lede">Tim will reach out within 24 hours to coordinate the contract, confirm your start date, and answer any final questions.</p>
+      <form class="pub-sign-form" id="pubSignForm" novalidate>
+        <label class="pub-sign-field">
+          <span class="pub-sign-field-label">Your name</span>
+          <input type="text" name="name" required maxlength="120" autocomplete="name">
+        </label>
+        <label class="pub-sign-field">
+          <span class="pub-sign-field-label">Email</span>
+          <input type="email" name="email" required maxlength="200" autocomplete="email">
+        </label>
+        <label class="pub-sign-field">
+          <span class="pub-sign-field-label">Phone <span class="pub-sign-field-opt">(optional)</span></span>
+          <input type="tel" name="phone" maxlength="40" autocomplete="tel">
+        </label>
+        <label class="pub-sign-field">
+          <span class="pub-sign-field-label">Anything Tim should know? <span class="pub-sign-field-opt">(optional)</span></span>
+          <textarea name="message" maxlength="2000" rows="3"></textarea>
+        </label>
+        <div class="pub-sign-form-error" id="pubSignError" hidden></div>
+        <div class="pub-sign-form-actions">
+          <button type="button" class="pub-sign-btn pub-sign-btn-cancel" id="pubSignCancel">Cancel</button>
+          <button type="submit" class="pub-sign-btn pub-sign-btn-submit" id="pubSignSubmit">Send for signatures →</button>
+        </div>
+      </form>
+      <div class="pub-sign-success" id="pubSignSuccess" hidden>
+        <div class="pub-sign-success-icon">✓</div>
+        <h3>Got it — Tim's on it.</h3>
+        <p>You'll hear from him within 24 hours to coordinate signing and confirm your start date. The Immediate Start Discount is locked in for you.</p>
+      </div>
+    </div>
   </div>
 
   <!-- Lightbox modal (Sprint 3H) -->
@@ -2264,6 +2662,173 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
         else if (e.key === 'ArrowLeft')  step(-1);
         else if (e.key === 'ArrowRight') step(+1);
       });
+    })();
+  </script>
+
+  <script>
+    // Phase 1B.7 — final CTA: countdown + sign-for-signatures workflow.
+    //
+    // Per-viewer 48h deadline: localStorage key is the proposal slug
+    // (extracted from the URL path /p/{slug}), so each visitor gets
+    // their own 48-hour window from first sight. A shared server-side
+    // deadline would already be expired by the time most viewers open
+    // the page, defeating the point of "Immediate Start." If the visitor
+    // returns within 48h the timer resumes from where it left off; if
+    // they return after expiration the deadline is reset (we don't
+    // enforce the discount server-side — this is messaging, not billing).
+    //
+    // Form submit POSTs to /api/sign-intent which inserts into the
+    // signature_intents Supabase table and (best-effort) emails Tim.
+    (function () {
+      var section = document.querySelector('.pub-cta-final');
+      if (!section) return;
+
+      var proposalId = section.getAttribute('data-proposal-id') || '';
+      var bidTotal = parseFloat(section.getAttribute('data-bid-total') || '0');
+      var slug = (window.location.pathname.split('/p/')[1] || '').replace(/\\/$/, '');
+      var DISCOUNT_PERCENT = 5;
+      var TIMER_HOURS = 48;
+      var STORAGE_KEY = 'bpb-cta-deadline-' + slug;
+
+      var hoursEl = document.getElementById('ctaHours');
+      var minsEl  = document.getElementById('ctaMins');
+      var secsEl  = document.getElementById('ctaSecs');
+      var countdownEl = section.querySelector('.pub-cta-countdown');
+      var expiredMsgEl = document.getElementById('ctaExpiredMsg');
+      var signBtn = document.getElementById('ctaSignBtn');
+
+      // ─── Countdown ─────────────────────────────────────────────────────
+      var deadline = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+      var now = Date.now();
+      if (!deadline || deadline < now) {
+        // First visit OR previous deadline already expired — start fresh
+        deadline = now + TIMER_HOURS * 60 * 60 * 1000;
+        try { localStorage.setItem(STORAGE_KEY, deadline.toString()); } catch (e) {}
+      }
+
+      function pad(n) { return String(n).padStart(2, '0'); }
+      var expired = false;
+      function tick() {
+        var remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          if (!expired) {
+            expired = true;
+            countdownEl && countdownEl.classList.add('is-expired');
+            if (expiredMsgEl) expiredMsgEl.hidden = false;
+          }
+          if (hoursEl) hoursEl.textContent = '00';
+          if (minsEl)  minsEl.textContent  = '00';
+          if (secsEl)  secsEl.textContent  = '00';
+          return;
+        }
+        var totalSec = Math.floor(remaining / 1000);
+        var h = Math.floor(totalSec / 3600);
+        var m = Math.floor((totalSec % 3600) / 60);
+        var s = totalSec % 60;
+        if (hoursEl) hoursEl.textContent = pad(h);
+        if (minsEl)  minsEl.textContent  = pad(m);
+        if (secsEl)  secsEl.textContent  = pad(s);
+      }
+      tick();
+      setInterval(tick, 1000);
+
+      // ─── Sign modal ────────────────────────────────────────────────────
+      var modal     = document.getElementById('pubSignModal');
+      var modalClose= document.getElementById('pubSignModalClose');
+      var cancelBtn = document.getElementById('pubSignCancel');
+      var form      = document.getElementById('pubSignForm');
+      var submitBtn = document.getElementById('pubSignSubmit');
+      var errorEl   = document.getElementById('pubSignError');
+      var successEl = document.getElementById('pubSignSuccess');
+      if (!modal || !signBtn || !form) return;
+
+      function openModal() {
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        setTimeout(function () {
+          var firstInput = modal.querySelector('input[name="name"]');
+          if (firstInput) firstInput.focus();
+        }, 80);
+      }
+      function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+
+      signBtn.addEventListener('click', openModal);
+      modalClose.addEventListener('click', closeModal);
+      cancelBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+      });
+
+      // ─── Form submit ───────────────────────────────────────────────────
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (errorEl) errorEl.hidden = true;
+
+        var fd = new FormData(form);
+        var payload = {
+          proposal_id: proposalId,
+          slug: slug,
+          viewer_name:    (fd.get('name')    || '').trim(),
+          viewer_email:   (fd.get('email')   || '').trim(),
+          viewer_phone:   (fd.get('phone')   || '').trim(),
+          viewer_message: (fd.get('message') || '').trim(),
+          referrer: document.referrer || '',
+        };
+
+        if (!payload.proposal_id) {
+          showError('This proposal is missing an identifier — please call Tim directly.');
+          return;
+        }
+        if (!payload.viewer_name) {
+          showError('Please enter your name.');
+          return;
+        }
+        if (!payload.viewer_email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(payload.viewer_email)) {
+          showError('Please enter a valid email address.');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending…';
+
+        fetch('/api/sign-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+          .then(function (r) {
+            if (!r.ok) {
+              return r.json().then(
+                function (j) { throw new Error(j.error || ('Server error ' + r.status)); },
+                function ()  { throw new Error('Server error ' + r.status); }
+              );
+            }
+            return r.json();
+          })
+          .then(function () {
+            form.hidden = true;
+            if (successEl) successEl.hidden = false;
+          })
+          .catch(function (err) {
+            showError((err && err.message) || 'Something went wrong. Please call Tim directly at the number below.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send for signatures →';
+          });
+      });
+
+      function showError(msg) {
+        if (!errorEl) return;
+        errorEl.textContent = msg;
+        errorEl.hidden = false;
+      }
     })();
   </script>
 </body>
@@ -2632,21 +3197,56 @@ function renderMaterialsSection(materials, categoryToSection) {
   `;
 }
 
+// Phase 1B.7 — short, homeowner-friendly label for a material's category.
+// Belgard category names ("Freestanding and Retaining Walls", "Coping, Caps,
+// Edgers and Steps") and third-party categories ("decking") get normalized
+// to the kind of label a buyer would naturally use ("Retaining Wall",
+// "Coping & Edges", "Decking"). Unknown categories fall back to titlecase.
+function formatMaterialType(rawCategory) {
+  if (!rawCategory) return '';
+  const lower = String(rawCategory).toLowerCase().trim();
+  const map = {
+    'concrete pavers': 'Pavers',
+    'porcelain pavers': 'Porcelain Pavers',
+    'freestanding and retaining walls': 'Retaining Wall',
+    'coping, caps, edgers and steps': 'Coping & Edges',
+    'fire features': 'Fire Feature',
+    'accessories': 'Accessory',
+    'decking': 'Decking',
+    'turf': 'Artificial Turf',
+    'lighting': 'Landscape Lighting',
+  };
+  if (map[lower]) return map[lower];
+  // Fallback: titlecase the raw value
+  return String(rawCategory).replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // Phase 1B.4 — material card with color subtitle, region usage chips, and
 // hover-sync wiring.
+//
+// Phase 1B.7 — also renders a Material Type eyebrow above the product name
+// (e.g. "PAVERS", "RETAINING WALL") so the buyer immediately knows what
+// kind of product each card represents.
 //
 // Signature is backwards-compatible — `materialRegions` and `regionColors`
 // are optional. When omitted (legacy renderMaterialsSection path used by
 // proposals without labeled regions) the card renders without badges or
 // data-region-ids, which is the original behavior.
-//
-// When supplied (the Phase 1B.4 hybrid layout), each card carries:
-//   • A color/pattern subtitle pulled from the underlying catalog row
-//   • One <span class="pub-region-badge"> per region the material is used in
-//   • A data-region-ids="..." attr for the inline hover-sync IIFE
 function renderMaterialCard(m, categoryToSection, materialRegions, regionColors) {
   const info = extractMaterialInfo(m, categoryToSection);
   const usedInRegions = materialRegions ? (materialRegions.get(m.id) || []) : [];
+
+  // Phase 1B.7 — material type label. Belgard pulls from the resolved
+  // category_name (loaded by the materials loader). Third-party uses
+  // its own `category` text column. Either source is normalized to a
+  // short, homeowner-friendly label by formatMaterialType.
+  let rawCategory = '';
+  if (m.belgard_material && m.belgard_material.category_name) {
+    rawCategory = m.belgard_material.category_name;
+  } else if (m.third_party_material && m.third_party_material.category) {
+    rawCategory = m.third_party_material.category;
+  }
+  const materialType = formatMaterialType(rawCategory);
 
   // Color/pattern subtitle. Belgard uses color + pattern; third-party uses
   // manufacturer + color. Empty if neither catalog row supplies anything.
@@ -2703,6 +3303,7 @@ function renderMaterialCard(m, categoryToSection, materialRegions, regionColors)
     <div class="pub-material-card"${regionIdsAttr}>
       ${imgHtml}
       <div class="pub-material-card-body">
+        ${materialType ? `<div class="pub-material-card-type">${escapeHtml(materialType)}</div>` : ''}
         <div class="pub-material-card-name">${escapeHtml(info.name)}</div>
         ${colorSub ? `<div class="pub-material-card-color">${escapeHtml(colorSub)}</div>` : ''}
         ${regionBadges ? `<div class="pub-material-card-regions">${regionBadges}</div>` : ''}
