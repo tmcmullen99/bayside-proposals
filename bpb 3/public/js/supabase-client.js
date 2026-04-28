@@ -1,12 +1,176 @@
-// Supabase client — initialized once, imported by all pages that need DB access.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { config } from './config.js';
+// ═══════════════════════════════════════════════════════════════════════════
+// BPB Phase 2B — Supabase client + auth gate
+//
+// Drop-in replacement for the prior 5-line supabase-client.js. Same
+// `import { supabase } from './supabase-client.js'` works everywhere
+// it did before; this module adds a side-effect auth gate on import so
+// every admin page (editor.html, site-map.html, etc.) automatically:
+//
+//   1. Checks for a Supabase session in localStorage (sync, fast).
+//   2. If no session → redirects to /login.html?redirect=<here>.
+//   3. If session exists → injects a small "logged in as X · Sign out"
+//      pill in the top-right of the page (works on any admin page that
+//      imports this module, no per-page wiring required).
+//   4. Validates the session async via supabase.auth.getSession() in the
+//      background; if invalidated, redirects to login.
+//
+// Public proposal pages at /p/{slug} are static HTML snapshots rendered
+// by the CF Pages function and do NOT import this module — they remain
+// fully public, no login required.
+//
+// Login page (/login.html) imports this module too (to get the supabase
+// client for sign-in calls), so the gate explicitly skips itself when
+// running on the login page.
+// ═══════════════════════════════════════════════════════════════════════════
 
-export const supabase = createClient(
-  config.SUPABASE_URL,
-  config.SUPABASE_ANON_KEY,
-  {
-    auth: { persistSession: false },
-    db: { schema: 'public' }
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const SUPABASE_URL = 'https://gfgbypcnxkschnfsitfb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZ2J5cGNueGtzY2huZnNpdGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MTkzMTUsImV4cCI6MjA5MjI5NTMxNX0.EAwmiNR5OWcaI8Sr36MVn7FuMhYoZvfngse7y0ZOgvA';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true, // for magic-link + recovery redirects
+  },
+});
+
+// ─── Auth gate ───────────────────────────────────────────────────────────────
+// The gate runs as a side effect of importing this module. It uses a
+// synchronous localStorage check first to avoid a flash of the editor UI
+// for unauthenticated visitors, then validates async.
+
+const PROJECT_REF = 'gfgbypcnxkschnfsitfb';
+const STORAGE_KEY = 'sb-' + PROJECT_REF + '-auth-token';
+
+// Pages that skip the gate. Login page imports this module to use the
+// supabase client for sign-in but obviously must not redirect to itself.
+const PUBLIC_ADMIN_PATHS = ['/login.html', '/login', '/auth/callback'];
+
+function isPublicAdminPath() {
+  const p = window.location.pathname;
+  return PUBLIC_ADMIN_PATHS.some(pp => p === pp || p.startsWith(pp + '/'));
+}
+
+function hasLocalSession() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.access_token) return false;
+    if (parsed.expires_at && Number(parsed.expires_at) * 1000 < Date.now()) {
+      return false;
+    }
+    return true;
+  } catch (_) {
+    return false;
   }
-);
+}
+
+function redirectToLogin() {
+  const here = window.location.pathname + window.location.search + window.location.hash;
+  const next = encodeURIComponent(here);
+  // replace() so the unauth page doesn't get added to history
+  window.location.replace('/login.html?redirect=' + next);
+}
+
+if (!isPublicAdminPath()) {
+  if (!hasLocalSession()) {
+    redirectToLogin();
+  } else {
+    // Async validation — covers the case where localStorage has a stale
+    // token but the server has revoked the session. Doesn't block render
+    // because if the token is forged or stale, RLS will return empty
+    // results from queries anyway (queries fail closed), so there's no
+    // security risk from the brief race.
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error || !data || !data.session) redirectToLogin();
+    }).catch(() => redirectToLogin());
+
+    // Inject the auth pill once DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', injectAuthPill);
+    } else {
+      injectAuthPill();
+    }
+  }
+}
+
+// ─── Auth pill (logged-in user indicator + Sign out button) ─────────────────
+async function injectAuthPill() {
+  if (document.getElementById('bpb-auth-pill')) return;
+
+  // Get user info
+  let user = null;
+  try {
+    const r = await supabase.auth.getUser();
+    user = r.data && r.data.user;
+  } catch (_) { /* fall through */ }
+  if (!user) return;
+
+  // Get profile (display name + role). Best effort — if it fails (RLS
+  // blocks for some reason during transition), fall back to email.
+  let profile = null;
+  try {
+    const r = await supabase
+      .from('profiles')
+      .select('display_name, role')
+      .eq('id', user.id)
+      .maybeSingle();
+    profile = r.data;
+  } catch (_) { /* fall through */ }
+
+  const name = (profile && profile.display_name) || user.email || 'Signed in';
+  const role = (profile && profile.role) || '';
+
+  // Build pill (uses inline <style> so it's self-contained and doesn't
+  // require any host-page CSS hooks).
+  const pill = document.createElement('div');
+  pill.id = 'bpb-auth-pill';
+  pill.innerHTML =
+    '<style>' +
+    '#bpb-auth-pill {' +
+    '  position: fixed; top: 14px; right: 14px; z-index: 9999;' +
+    '  background: #fff; border: 1px solid #e5e5e5;' +
+    '  border-radius: 999px; padding: 6px 6px 6px 16px;' +
+    "  font: 500 12px/1.2 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;" +
+    '  color: #1a1f2e;' +
+    '  display: inline-flex; align-items: center; gap: 12px;' +
+    '  box-shadow: 0 4px 14px rgba(0,0,0,0.08);' +
+    '  max-width: calc(100vw - 28px);' +
+    '}' +
+    '#bpb-auth-pill .bpb-auth-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }' +
+    '#bpb-auth-pill .bpb-auth-role {' +
+    "  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;" +
+    '  font-size: 9px; letter-spacing: 0.18em;' +
+    '  color: #5d7e69; text-transform: uppercase; font-weight: 600;' +
+    '}' +
+    '#bpb-auth-pill .bpb-auth-logout {' +
+    '  background: #f5f5f5; border: none;' +
+    '  border-radius: 999px; padding: 5px 12px;' +
+    '  font: inherit; font-weight: 600; font-size: 11px;' +
+    '  color: #353535; cursor: pointer;' +
+    '  transition: background 0.15s, color 0.15s;' +
+    '}' +
+    '#bpb-auth-pill .bpb-auth-logout:hover { background: #1a1f2e; color: #fff; }' +
+    '@media (max-width: 540px) {' +
+    '  #bpb-auth-pill { padding: 5px 5px 5px 12px; gap: 8px; font-size: 11px; }' +
+    '  #bpb-auth-pill .bpb-auth-name { max-width: 120px; }' +
+    '}' +
+    '</style>' +
+    '<span class="bpb-auth-name"></span>' +
+    (role ? '<span class="bpb-auth-role"></span>' : '') +
+    '<button type="button" class="bpb-auth-logout">Sign out</button>';
+
+  // Set text content (safe vs HTML injection)
+  pill.querySelector('.bpb-auth-name').textContent = name;
+  if (role) pill.querySelector('.bpb-auth-role').textContent = role;
+
+  document.body.appendChild(pill);
+
+  pill.querySelector('.bpb-auth-logout').addEventListener('click', async () => {
+    try { await supabase.auth.signOut(); } catch (_) {}
+    window.location.replace('/login.html');
+  });
+}
