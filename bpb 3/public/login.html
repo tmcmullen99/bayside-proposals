@@ -404,8 +404,13 @@
           document.getElementById('recoverySentEmail').textContent = opts.email || '';
           break;
         case 'recovery':
-          eyebrowEl.textContent = 'Set new password';
-          titleEl.textContent = 'New password';
+          if (__isInvite) {
+            eyebrowEl.textContent = 'Welcome to Bayside';
+            titleEl.textContent = 'Set your password';
+          } else {
+            eyebrowEl.textContent = 'Set new password';
+            titleEl.textContent = 'New password';
+          }
           ledeEl.hidden = true;
           recoveryForm.hidden = false;
           break;
@@ -421,22 +426,32 @@
       errorEl.textContent = '';
     }
 
+    // ─── Capture URL hash early ─────────────────────────────────────
+    // Supabase's detectSessionInUrl processes (and clears) the URL hash
+    // asynchronously during getSession() below. Read it synchronously
+    // FIRST so we can detect type=invite or type=recovery flows that
+    // need the "set new password" UI instead of an auto-redirect.
+    const __initialHash = window.location.hash || '';
+    const __isInvite   = /[#&]type=invite\b/.test(__initialHash);
+    const __isRecovery = /[#&]type=recovery\b/.test(__initialHash);
+
     // ─── If we already have a session, skip straight to editor ─────
     // (covers the case where someone bookmarks /login.html but is
     // already signed in — bounce them through to the editor.)
     const { data: { session: existingSession } } = await supabase.auth.getSession();
     if (existingSession) {
-      // Don't redirect if URL hash indicates a recovery flow — that's
-      // handled by the onAuthStateChange listener below.
-      const hash = window.location.hash || '';
-      if (!hash.includes('type=recovery')) {
+      if (__isInvite || __isRecovery) {
+        // Both flows land here authenticated but without a known password.
+        // Show the set-password UI; don't redirect away.
+        setState('recovery');
+      } else {
         window.location.replace(getRedirectTarget());
       }
     }
 
-    // ─── Recovery state detection ──────────────────────────────────
-    // Supabase fires PASSWORD_RECOVERY when the user lands on the page
-    // via a recovery link (with type=recovery in the URL hash).
+    // ─── Recovery / invite state detection (event-driven backup) ───
+    // Belt-and-suspenders: if PASSWORD_RECOVERY fires after our initial
+    // hash check (e.g. due to a late-arriving event), respect it too.
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setState('recovery');
@@ -450,7 +465,7 @@
       if (next && next.startsWith('/') && !next.startsWith('//')) {
         return next;
       }
-      return '/editor.html';
+      return '/dashboard';
     }
 
     function withLoading(btn, label) {
