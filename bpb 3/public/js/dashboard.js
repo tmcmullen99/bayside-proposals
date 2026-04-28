@@ -45,8 +45,29 @@ function renderEmptyState() {
 
 function renderTable(proposals) {
   const rows = proposals.map(p => {
-    const displayName = p.client_name || '(unnamed draft)';
-    const address = [p.project_address, p.project_city].filter(Boolean).join(', ') || '—';
+    // Title fallback chain: client_name → project_label → project_address → "Untitled draft".
+    // Subtitle complements: if title used a real-world value, subtitle shows the
+    // remaining context (address + city, or just city when address was the title).
+    const hasClient = !!p.client_name;
+    const hasLabel = !!p.project_label;
+    const hasAddress = !!p.project_address;
+    const hasCity = !!p.project_city;
+
+    let displayName, address;
+    if (hasClient) {
+      displayName = p.client_name;
+      address = [p.project_address, p.project_city].filter(Boolean).join(', ') || '—';
+    } else if (hasLabel) {
+      displayName = p.project_label;
+      address = [p.project_address, p.project_city].filter(Boolean).join(', ') || '—';
+    } else if (hasAddress) {
+      displayName = p.project_address;
+      address = hasCity ? p.project_city : '—';
+    } else {
+      displayName = 'Untitled draft';
+      address = '—';
+    }
+
     const status = p.status || 'draft';
     const typeLabel = p.proposal_type ? p.proposal_type.replace('_', ' ') : '—';
     const amount = p.bid_total_amount
@@ -136,8 +157,26 @@ function showDeleteModal(proposal, rowEl) {
   // Build (or reuse) the overlay
   if (!_deleteOverlay) _deleteOverlay = buildDeleteModal();
 
-  const displayName = proposal.client_name || '(unnamed draft)';
-  const address = [proposal.project_address, proposal.project_city].filter(Boolean).join(', ');
+  // Same name fallback chain as renderTable so modal matches row.
+  // When the address itself is being used as the title, don't repeat
+  // it in the subtitle — just show city (if any).
+  const hasClient = !!proposal.client_name;
+  const hasLabel = !!proposal.project_label;
+  const hasAddress = !!proposal.project_address;
+  let displayName, address;
+  if (hasClient) {
+    displayName = proposal.client_name;
+    address = [proposal.project_address, proposal.project_city].filter(Boolean).join(', ');
+  } else if (hasLabel) {
+    displayName = proposal.project_label;
+    address = [proposal.project_address, proposal.project_city].filter(Boolean).join(', ');
+  } else if (hasAddress) {
+    displayName = proposal.project_address;
+    address = proposal.project_city || '';
+  } else {
+    displayName = 'Untitled draft';
+    address = '';
+  }
   const amount = proposal.bid_total_amount
     ? '$' + Number(proposal.bid_total_amount).toLocaleString('en-US', { maximumFractionDigits: 0 })
     : null;
