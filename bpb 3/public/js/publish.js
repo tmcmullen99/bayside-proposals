@@ -1,3 +1,4 @@
+successfully downloaded text file (SHA: dc673cf4241df1b41f8f0ea23e31242ff5e1d17c)
 // ═══════════════════════════════════════════════════════════════════════════
 // Phase 1.5 Sprint 2 Part B.2 — Preview & Publish
 //
@@ -321,51 +322,82 @@ async function reload() {
     return;
   }
 
-  // Manual join — fetch catalog rows separately, stitch in JS
+  // ───────────────────────────────────────────────────────────────────────
+  // Phase 3B.1 — single unified materials query.
+  //
+  // Replaces the prior parallel belgard_materials + third_party_materials
+  // queries with one read against the unified `materials` table (which holds
+  // both manufacturer types preserving original UUIDs). The result is
+  // shimmed back into the prior `belgard_material` / `third_party_material`
+  // shape so the 3000+ lines of render code below — renderMaterialCard,
+  // extractMaterialInfo, the turf/Tru-Scapes detection helpers — keep
+  // working byte-identical.
+  //
+  // Partitioning is by the unified row's `manufacturer` column (Belgard vs
+  // anything else). The per-material `material_source` discriminator on
+  // proposal_materials remains authoritative for rendering branches.
+  // ───────────────────────────────────────────────────────────────────────
   const rawMaterials = materialsQ.data || [];
-  const belgardIds = [...new Set(rawMaterials
-    .filter(m => m.belgard_material_id).map(m => m.belgard_material_id))];
-  const thirdPartyIds = [...new Set(rawMaterials
-    .filter(m => m.third_party_material_id).map(m => m.third_party_material_id))];
+  const allCatalogIds = [...new Set([
+    ...rawMaterials.filter(m => m.belgard_material_id).map(m => m.belgard_material_id),
+    ...rawMaterials.filter(m => m.third_party_material_id).map(m => m.third_party_material_id),
+  ])];
 
-  const [belgardQ, thirdPartyQ, categoriesQ] = await Promise.all([
-    belgardIds.length
-      ? supabase.from('belgard_materials').select('*').in('id', belgardIds)
-      : Promise.resolve({ data: [], error: null }),
-    thirdPartyIds.length
-      ? supabase.from('third_party_materials').select('*').in('id', thirdPartyIds)
+  const [materialsCatalogQ, categoriesQ] = await Promise.all([
+    allCatalogIds.length
+      ? supabase.from('materials').select('*').in('id', allCatalogIds)
       : Promise.resolve({ data: [], error: null }),
     // Phase 1B.7 — small lookup table; fetch all so we can resolve any
-    // belgard_material.category_id to its display name without a second
+    // material's category_id to its display name without a second
     // round-trip per material.
     supabase.from('belgard_categories').select('id, name'),
   ]);
 
-  if (belgardQ.error || thirdPartyQ.error) {
+  if (materialsCatalogQ.error) {
     setStatus('');
-    showError('Could not load materials catalog: '
-      + (belgardQ.error?.message || thirdPartyQ.error?.message));
+    showError('Could not load materials catalog: ' + materialsCatalogQ.error.message);
     return;
   }
 
   const belgardCategoryMap = new Map(
     (categoriesQ.data || []).map(c => [c.id, c.name])
   );
-  const belgardMap = new Map((belgardQ.data || []).map(m => [m.id, {
-    ...m,
-    // Phase 1B.7 — resolved category name, used by renderMaterialCard's
-    // material-type eyebrow. Falls back to '' so missing-category rows
-    // simply render without a type label rather than crashing.
-    category_name: belgardCategoryMap.get(m.category_id) || '',
-  }]));
-  const thirdPartyMap = new Map((thirdPartyQ.data || []).map(m => [m.id, m]));
-  const materials = rawMaterials.map(m => ({
-    ...m,
-    belgard_material: m.belgard_material_id
-      ? belgardMap.get(m.belgard_material_id) : null,
-    third_party_material: m.third_party_material_id
-      ? thirdPartyMap.get(m.third_party_material_id) : null,
-  }));
+  const unifiedById = new Map((materialsCatalogQ.data || []).map(m => [m.id, m]));
+
+  // Build the prior-shape shim. When proposal_materials.belgard_material_id is
+  // set, the corresponding unified row gets shaped as `belgard_material`
+  // (with category_name resolved). When third_party_material_id is set, the
+  // unified row gets passed through as `third_party_material`. Edge case
+  // (both FKs set) preserved from original behavior — both fields populated.
+  const materials = rawMaterials.map(m => {
+    let belgardMaterial = null;
+    let thirdPartyMaterial = null;
+    if (m.belgard_material_id) {
+      const row = unifiedById.get(m.belgard_material_id);
+      if (row) {
+        belgardMaterial = {
+          ...row,
+          category_name: belgardCategoryMap.get(row.category_id) || '',
+        };
+      }
+    }
+    if (m.third_party_material_id) {
+      const row = unifiedById.get(m.third_party_material_id);
+      if (row) thirdPartyMaterial = row;
+    }
+    return {
+      ...m,
+      belgard_material: belgardMaterial,
+      third_party_material: thirdPartyMaterial,
+    };
+  });
+
+  // Belgard-only subset for loadInstallGuideData (which expects rows with
+  // category_id, used to load installation_guide_sections via the
+  // installation_guide_section_categories join). Filtering by manufacturer
+  // matches the prior behavior of passing belgardQ.data only.
+  const belgardCatalogRows = (materialsCatalogQ.data || [])
+    .filter(row => row.manufacturer === 'Belgard');
 
   // ───────────────────────────────────────────────────────────────────────
   // Sprint 2 Part B.2: load install guide sections for the Belgard categories
@@ -376,7 +408,7 @@ async function reload() {
   // parsed from Belgard's master PDF and its page numbers only apply to
   // Belgard products. Third-party materials retain prior behavior.
   // ───────────────────────────────────────────────────────────────────────
-  const { installSections, categoryToSection } = await loadInstallGuideData(belgardQ.data || []);
+  const { installSections, categoryToSection } = await loadInstallGuideData(belgardCatalogRows);
 
   currentData = {
     proposal: proposalQ.data,
