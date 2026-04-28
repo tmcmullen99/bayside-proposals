@@ -132,6 +132,25 @@
 //      legacy proposals.construction_drawing_url branch (no regions)
 //      is still unchanged.
 //
+//  12. [Phase 1B.4] Hybrid full-width site plan layout. The Phase
+//      1B.2 two-column grid (sticky map left, scrolling region cards
+//      right) is replaced by a single stacked column: full-width map
+//      with polygon overlay, compact horizontal "region legend" strip
+//      directly beneath, and the materials grid (formerly its own
+//      Section 02) below that. The standalone "Selected materials"
+//      section is suppressed when the proposal has labeled regions —
+//      materials only appear once now, where they're spatially
+//      relevant. Each material card carries usage chips ("Pavers",
+//      "Pergola Paver Area") with the matching region color dot, and
+//      data-region-ids drives the hover-sync IIFE: hover a card and
+//      every polygon + legend row that maps to it lights up. Scope
+//      of work also gets a typography pass — numbered eyebrow +
+//      display-size section name + tabular-num price per row, with a
+//      prominent grand total at the bottom and hairline-divider line
+//      items inside each section instead of cream-card boxes. The
+//      legacy construction_drawing_url branch (no regions) is still
+//      unchanged.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
@@ -884,7 +903,14 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   const drawingSection = buildDrawingSection(proposal, regions, materials, categoryToSection);
 
   const scopeHtml = renderScopeSection(sections, proposal.bid_total_amount);
-  const materialsHtml = renderMaterialsSection(materials, categoryToSection);
+  // Phase 1B.4 — when the proposal has labeled regions on a backdrop,
+  // the materials grid is rendered inside the Site plan section directly
+  // beneath the legend strip. The standalone Section 02 "Selected
+  // materials" only renders for legacy proposals (no regions) where it's
+  // still the only place materials show up.
+  const hasLabeledRegions = Array.isArray(regions) && regions.length > 0
+    && proposal.site_plan_backdrop_url;
+  const materialsHtml = hasLabeledRegions ? '' : renderMaterialsSection(materials, categoryToSection);
   const whyPrepHtml = renderWhyPrepSection(installSections, sections, materials);
   const photosHtml = renderPhotosSection(photos);
 
@@ -1144,295 +1170,144 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     stroke-width: 7;
   }
 
-  /* Phase 1B.2 — two-column layout: drawing sticky on the left,
-     scrollable card list on the right. Mobile collapses to single column.
-     The sticky column uses position: sticky with a top offset matching
-     the header height so it doesn't run under any fixed nav. align-self:
-     start prevents the grid from stretching the sticky col to match the
-     cards col height (which would break sticky). */
-  .pub-drawing-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-    gap: 32px;
-    align-items: start;
-    margin-top: 8px;
+  /* ════════════════════════════════════════════════════════════════════
+     Phase 1B.4 — full-width site plan + region legend strip + materials
+     grid (with region-usage badges) all stacked under the construction
+     drawing. Replaces the Phase 1B.2 two-column layout. The map is the
+     visual anchor at full width; the legend strip beneath gives at-a-
+     glance region context with click-to-scroll into the scope; the
+     materials grid below shows the full library with chips indicating
+     which regions each material is used in. Hover sync between polygons
+     ↔ legend rows ↔ material cards is wired by the inline IIFE rendered
+     at the end of the section.
+     ════════════════════════════════════════════════════════════════════ */
+
+  .pub-site-plan-map {
+    margin-top: 32px;
+    text-align: center;
   }
-  .pub-drawing-sticky-col {
-    position: sticky;
-    top: 24px;
-    align-self: start;
-  }
-  .pub-drawing-cards-col {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .pub-region-card {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-  }
-  .pub-region-card.is-active {
-    border-color: var(--green);
-    box-shadow: 0 6px 22px rgba(93, 126, 105, 0.20);
-    transform: translateY(-1px);
-  }
-  .pub-region-card-header {
-    display: block;
-    padding: 18px 20px;
-    text-decoration: none;
-    background: var(--cream);
-    border-bottom: 1px solid var(--border);
-    transition: background 0.15s ease;
-  }
-  .pub-region-card-header:hover {
-    background: var(--green-soft);
-  }
-  .pub-region-card-title {
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--navy);
-    letter-spacing: -0.01em;
-    margin-bottom: 4px;
-    line-height: 1.3;
-  }
-  .pub-region-card-meta {
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 600;
-  }
-  .pub-region-card-materials {
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .pub-region-card-materials--empty {
-    color: var(--muted);
+  .pub-drawing-caption {
     font-size: 13px;
+    color: var(--muted);
+    margin-top: 14px;
     font-style: italic;
-    line-height: 1.5;
   }
-  .pub-region-card-material {
+
+  /* Region legend — compact horizontal rail of color-dot + name + meta.
+     Each row is an <a> linking to its scope section so clicking it scrolls
+     to that part of the breakdown below. Hover sync lights the matching
+     polygon and any material cards that reference this region. */
+  .pub-region-legend {
+    margin-top: 36px;
+    padding: 4px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
+    flex-wrap: wrap;
   }
-  .pub-region-card-thumb {
-    width: 56px;
-    height: 56px;
-    object-fit: cover;
-    border-radius: 6px;
-    display: block;
-    background: var(--cream);
-    flex-shrink: 0;
-  }
-  .pub-region-card-thumb--placeholder {
+  .pub-region-legend-row {
     display: flex;
     align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--cream), var(--green-soft));
-    color: var(--green);
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 0.08em;
-  }
-  .pub-region-card-material-info {
-    flex: 1;
-    min-width: 0;
-  }
-  .pub-region-card-material-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--navy);
-    line-height: 1.35;
-  }
-  .pub-region-card-material-sub {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 2px;
-    line-height: 1.4;
-  }
-  .pub-region-card-cutsheet {
-    display: inline-block;
-    margin-top: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--green-dark);
-    text-decoration: none;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .pub-region-card-cutsheet:hover {
-    text-decoration: underline;
-    color: var(--green);
-  }
-
-  /* ═════════ Scope of Work ═════════ */
-  .pub-scope-list { list-style: none; }
-  .pub-scope-item {
-    padding: 28px 0;
-    border-bottom: 1px solid var(--border);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 32px;
-    align-items: start;
-    scroll-margin-top: 32px;
-  }
-  .pub-scope-item-body { min-width: 0; }
-  .pub-scope-item-name {
-    font-size: 19px;
-    font-weight: 600;
-    margin-bottom: 14px;
-    color: var(--navy);
-  }
-  .pub-scope-item-amount {
-    font-weight: 600;
-    font-size: 20px;
-    white-space: nowrap;
-    color: var(--charcoal);
-  }
-  .pub-scope-total {
-    margin-top: 8px;
-    padding: 28px 0 12px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 32px;
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--navy);
-    border-top: 2px solid var(--charcoal);
-  }
-
-  /* Structured per-material line items inside each scope section (Sprint 3D).
-     Replaces the prior middle-dot-joined paragraph. Each entry in
-     proposal_sections.line_items renders as its own small card — either a
-     structured block with a TYPE chip + name + attribute row, or a plain
-     body line for construction notes without structure. */
-  .pub-line-items {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .pub-line-item {
-    padding: 12px 16px;
-    background: var(--cream);
-    border-radius: 6px;
-    border-left: 3px solid var(--green-soft);
-    font-size: 14px;
-    line-height: 1.55;
-    color: var(--muted);
-    display: flex;
-    align-items: baseline;
     gap: 12px;
-    flex-wrap: wrap;
-  }
-  .pub-line-item--structured {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    border-left-color: var(--green);
-    padding: 14px 16px;
-  }
-  .pub-line-item-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .pub-line-item-type {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--green-dark);
-    background: #fff;
-    border: 1px solid var(--green-soft);
-    padding: 3px 8px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    white-space: nowrap;
+    padding: 14px 24px;
+    text-decoration: none;
+    color: inherit;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s ease;
     flex-shrink: 0;
   }
-  .pub-line-item-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--navy);
-    line-height: 1.4;
+  .pub-region-legend-row:last-child { border-right: none; }
+  .pub-region-legend-row:hover,
+  .pub-region-legend-row.is-active {
+    background: var(--cream);
   }
-  .pub-line-item-body {
-    color: var(--charcoal);
-    flex: 1;
-    min-width: 0;
+  .pub-region-legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.08);
   }
-  .pub-line-item-attrs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 22px;
-    font-size: 13px;
-    padding-left: 0;
-  }
-  .pub-line-item-attr {
-    color: var(--muted);
-  }
-  .pub-line-item-attr em {
-    font-style: normal;
-    font-weight: 600;
-    color: var(--charcoal);
-    letter-spacing: 0.02em;
-    margin-right: 4px;
-  }
-
-  /* ═════════ Materials ═════════ */
-  .pub-materials-group {
-    margin-bottom: 64px;
-  }
-  .pub-materials-group:last-child { margin-bottom: 0; }
-  .pub-materials-group-header {
-    display: flex;
-    align-items: baseline;
-    gap: 16px;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 2px solid var(--green);
-  }
-  .pub-materials-group-name {
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--navy);
-    letter-spacing: -0.01em;
-  }
-  .pub-materials-group-count {
-    font-size: 13px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-weight: 600;
-  }
-  .pub-materials-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 24px;
-  }
-  .pub-material-card {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    background: #fff;
+  .pub-region-legend-text {
     display: flex;
     flex-direction: column;
-    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    gap: 2px;
+    line-height: 1.2;
   }
+  .pub-region-legend-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: -0.005em;
+  }
+  .pub-region-legend-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  /* Materials block under the legend. Replaces the standalone Section 02
+     when the proposal has labeled regions — the same grid renders here
+     instead, beneath the map, so materials live next to the spatial
+     context they apply to. */
+  .pub-site-plan-materials {
+    margin-top: 64px;
+  }
+  .pub-site-plan-materials-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .pub-site-plan-materials-heading {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: -0.012em;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .pub-site-plan-materials-lede {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 28px;
+    max-width: 60ch;
+  }
+
+  .pub-materials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 28px;
+  }
+  .pub-material-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  }
+  .pub-material-card.is-active,
   .pub-material-card:hover {
     border-color: var(--green);
+    box-shadow: 0 12px 30px rgba(93, 126, 105, 0.16);
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  }
+  .pub-material-card .pub-lightbox-trigger {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: zoom-in;
+    width: 100%;
+    display: block;
+    border-bottom: 1px solid var(--border);
   }
   .pub-material-card img {
     width: 100%;
@@ -1449,59 +1324,222 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     align-items: center;
     justify-content: center;
     color: var(--green);
-    font-weight: 600;
-    font-size: 14px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.12em;
+    border-bottom: 1px solid var(--border);
   }
   .pub-material-card-body {
-    padding: 20px 22px;
+    padding: 22px 24px 24px;
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 14px;
   }
   .pub-material-card-name {
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 600;
     color: var(--navy);
-    line-height: 1.35;
-    flex: 1;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+  }
+  .pub-material-card-color {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin-top: -10px;
+    letter-spacing: 0.005em;
+  }
+  .pub-material-card-regions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .pub-region-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--charcoal);
+    letter-spacing: 0.015em;
+  }
+  .pub-region-badge-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
   .pub-material-card-actions {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-top: 4px;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
   }
-  .pub-material-card-btn {
+  .pub-material-card-action {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--green-dark);
+    text-decoration: none;
     display: inline-flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 10px 14px;
-    font-size: 13px;
+    transition: color 0.12s ease, transform 0.12s ease;
+  }
+  .pub-material-card-action:hover {
+    color: var(--green);
+    transform: translateX(2px);
+  }
+
+  /* ═════════ Scope of Work — Phase 1B.4 polished typography ═════════
+     Replaces the prior cream-card line items with a flow layout: hairline
+     dividers between rows, generous vertical rhythm, larger typography.
+     Each scope section opens with a numbered eyebrow + display-size name
+     and a tabular-num price right-aligned. Line items break the type tag
+     out as a green eyebrow above the body text. */
+  .pub-scope-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .pub-scope-item {
+    padding: 56px 0;
+    border-top: 1px solid var(--border);
+    scroll-margin-top: 32px;
+  }
+  .pub-scope-item:first-child {
+    padding-top: 8px;
+    border-top: none;
+  }
+  .pub-scope-item-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 32px;
+    margin-bottom: 28px;
+  }
+  .pub-scope-item-header-text { min-width: 0; flex: 1; }
+  .pub-scope-item-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .pub-scope-item-name {
+    font-size: 26px;
     font-weight: 600;
-    text-decoration: none;
-    border-radius: 6px;
-    transition: background 0.15s;
+    color: var(--navy);
+    letter-spacing: -0.014em;
+    line-height: 1.18;
   }
-  .pub-material-card-btn-primary {
-    background: var(--green-soft);
-    color: var(--green-dark);
+  .pub-scope-item-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--navy);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
-  .pub-material-card-btn-primary:hover {
-    background: var(--green);
-    color: #fff;
+  .pub-scope-total {
+    margin-top: 16px;
+    padding: 40px 0 12px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 32px;
+    border-top: 2px solid var(--charcoal);
   }
-  .pub-material-card-btn-secondary {
-    background: #fff;
+  .pub-scope-total-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
     color: var(--charcoal);
-    border: 1px solid var(--border);
   }
-  .pub-material-card-btn-secondary:hover {
-    border-color: var(--green);
+  .pub-scope-total-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: -0.012em;
+  }
+
+  /* Line items — flow layout with hairline rules between, no boxing. */
+  .pub-line-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .pub-line-item {
+    padding: 22px 0;
+    border-top: 1px solid var(--border);
+    color: var(--charcoal);
+  }
+  .pub-line-item:first-child {
+    border-top: none;
+    padding-top: 4px;
+  }
+  .pub-line-item-type {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
     color: var(--green-dark);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .pub-line-item-body {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--charcoal);
+    max-width: 68ch;
+  }
+  .pub-line-item--structured {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pub-line-item-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pub-line-item-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--navy);
+    line-height: 1.35;
+    letter-spacing: -0.005em;
+  }
+  .pub-line-item-attrs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 24px;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .pub-line-item-attr {
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .pub-line-item-attr em {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--charcoal);
+    letter-spacing: 0.015em;
+    margin-right: 6px;
   }
 
   /* ═════════ Why preparation matters ═════════ */
@@ -1704,64 +1742,36 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     .pub-drawing-inner { padding: 56px 20px 40px; }
     .pub-drawing-frame { padding: 14px; }
     .pub-loom { padding: 0 20px; margin-top: 48px; }
-    .pub-scope-item { grid-template-columns: 1fr; gap: 12px; }
-    .pub-scope-item-amount { font-size: 18px; }
 
-    /* Sprint 3G — mobile scope line-item layout fix.
-       Previously the non-structured line items used row flex with a
-       nowrap type chip, which compressed the body text into a narrow
-       right strip next to a wide empty column. Stack vertically on
-       mobile so chip + body each get full width and remain readable. */
-    .pub-line-item {
-      padding: 14px 16px;
+    /* Phase 1B.4 mobile — scope item header collapses to stacked layout
+       so the section name + price get full width. */
+    .pub-scope-item { padding: 40px 0; }
+    .pub-scope-item-header {
       flex-direction: column;
       align-items: flex-start;
       gap: 8px;
     }
-    .pub-line-item-body {
-      width: 100%;
-    }
-    .pub-line-item--structured {
-      padding: 14px 16px;
-      gap: 10px;
-    }
-    .pub-line-item-head {
-      gap: 8px;
-    }
-    .pub-line-item-name {
-      font-size: 15px;
-      line-height: 1.35;
-    }
-    .pub-line-item-attrs {
+    .pub-scope-item-name { font-size: 22px; }
+    .pub-scope-item-amount { font-size: 20px; }
+    .pub-scope-total { padding: 32px 0 8px; }
+    .pub-scope-total-amount { font-size: 26px; }
+
+    /* Region legend — wider padding eats the row width on phones; switch
+       to a stacked layout where each row is full-width with a top border. */
+    .pub-region-legend {
       flex-direction: column;
-      gap: 4px;
     }
-    .pub-line-item-attr {
-      font-size: 13px;
+    .pub-region-legend-row {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
     }
+    .pub-region-legend-row:last-child { border-bottom: none; }
+
+    .pub-site-plan-materials { margin-top: 48px; }
+    .pub-site-plan-materials-heading { font-size: 22px; }
 
     .pub-footer-ctas { padding: 64px 20px; }
-    .pub-materials-group-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-    }
-  }
-
-  /* Phase 1B.2 — collapse two-column drawing layout below 900px so the
-     drawing has full width and the cards stack underneath. The 900px
-     breakpoint is wider than the 640px mobile breakpoint above because
-     the two-column drawing layout starts to feel cramped well before
-     phone-sized viewports — tablets and narrow laptop windows are
-     better served by the stacked layout. */
-  @media (max-width: 900px) {
-    .pub-drawing-layout {
-      grid-template-columns: 1fr;
-      gap: 24px;
-    }
-    .pub-drawing-sticky-col {
-      position: static;
-    }
   }
 
   /* ═════════ Lightbox (Sprint 3H) ═════════
@@ -2113,7 +2123,7 @@ function buildDrawingSection(proposal, regions, materials, categoryToSection) {
   `;
 }
 
-// Phase 1B — polygon overlay renderer (Phase 1B.2 — two-column layout).
+// Phase 1B — polygon overlay renderer (Phase 1B.4 — hybrid full-width layout).
 //
 // Reads the backdrop's native pixel dimensions from the proposals row
 // (set when the labeling tool uploads the backdrop) and uses them as
@@ -2121,16 +2131,23 @@ function buildDrawingSection(proposal, regions, materials, categoryToSection) {
 // [0..1] of those native dimensions, so converting to user-space coords
 // is a single multiplication per vertex.
 //
-// Layout (Phase 1B.2): two-column grid on desktop. Left column holds
-// the drawing inside a sticky wrapper so it stays in view as the right
-// column scrolls. Right column is a vertical list of region cards —
-// one card per labeled region, showing the region name + the materials
-// assigned to its scope section (filtered from proposal_materials by
-// proposal_section_id). Hover sync between cards and polygons is wired
-// up by an inline IIFE rendered at the end of the section: hover a card
-// → its polygon gains the .is-active class; hover a polygon → its card
-// gains .is-active too. Mobile (<= 900px) collapses to a single column
-// with cards stacked below the drawing.
+// Layout (Phase 1B.4): a single stacked column. Top: full-width construction
+// drawing with the SVG polygon overlay. Middle: a horizontal "region legend"
+// strip — one row per region with a color dot, region name, and sqft/lnft.
+// Each row is an <a> link to the region's scope section so clicking it
+// scrolls to that part of the breakdown below. Bottom: the materials grid
+// (formerly Section 02). Each material card carries chips showing which
+// regions use it ("Pavers", "Pergola Paver Area"), with the matching
+// color dots, plus a data-region-ids="..." attribute consumed by the
+// inline hover-sync IIFE rendered at the end of the section.
+//
+// Hover sync is bidirectional in three directions:
+//   • polygons    → light the matching legend row + any material cards
+//                   referencing that region
+//   • legend rows → light the matching polygon + any material cards
+//                   referencing that region
+//   • material cards → light every polygon + legend row referenced in
+//                       that card's data-region-ids
 //
 // Each polygon either wraps in <a href="#section-{uuid}"> for click-to-
 // scroll (when proposal_section_id is set) or renders as a static visual
@@ -2138,10 +2155,65 @@ function buildDrawingSection(proposal, regions, materials, categoryToSection) {
 // `html { scroll-behavior: smooth }` in the snapshot CSS, and the
 // `scroll-margin-top: 32px` rule on .pub-scope-item ensures the section
 // header isn't crammed against the top of the viewport on landing.
+// Phase 1B.4 — distinct stable colors for region overlays. Each region
+// gets one of these by display order, used for both the polygon outline
+// and the matching legend dot / badge dot on material cards. Picked to
+// be visually distinct on a busy SketchUp drawing (the SVG fill itself
+// stays the green from .pub-drawing-region; these colors only appear in
+// the legend strip and material badges to identify each region).
+const REGION_LEGEND_COLORS = [
+  '#5d7e69', '#3b82f6', '#f59e0b', '#a855f7', '#ec4899',
+  '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#ef4444',
+];
+
+// Phase 1B.4 — for each material id, return the list of region rows
+// (full region objects) that reference it via proposal_region_materials.
+// Used to render usage badges on each material card and to populate
+// data-region-ids for hover sync.
+function buildMaterialRegionMap(regions) {
+  const map = new Map();
+  for (const r of regions) {
+    const assignments = Array.isArray(r.region_materials) ? r.region_materials : [];
+    for (const a of assignments) {
+      if (!a || !a.proposal_material_id) continue;
+      if (!map.has(a.proposal_material_id)) map.set(a.proposal_material_id, []);
+      map.get(a.proposal_material_id).push(r);
+    }
+  }
+  return map;
+}
+
+// Phase 1B.4 — render one row of the legend strip below the map.
+// Click navigates to the region's scope section; hover lights the matching
+// polygon and any material cards that reference this region.
+function renderLegendRow(region, color) {
+  const sqft = region.area_sqft != null && Number(region.area_sqft) > 0
+    ? `${Number(region.area_sqft).toLocaleString('en-US')} sqft` : '';
+  const lnft = region.area_lnft != null && Number(region.area_lnft) > 0
+    ? `${Number(region.area_lnft).toLocaleString('en-US')} lnft` : '';
+  const meta = [sqft, lnft].filter(Boolean).join(' · ');
+
+  return `
+    <a href="#section-${escapeAttr(region.proposal_section_id)}" class="pub-region-legend-row" data-region-id="${escapeAttr(region.id)}">
+      <span class="pub-region-legend-dot" style="background:${color};"></span>
+      <span class="pub-region-legend-text">
+        <span class="pub-region-legend-name">${escapeHtml(region.name || 'Region')}</span>
+        ${meta ? `<span class="pub-region-legend-meta">${escapeHtml(meta)}</span>` : ''}
+      </span>
+    </a>`;
+}
+
 function renderBackdropWithRegions(proposal, regions, materials, categoryToSection) {
   const W = proposal.site_plan_backdrop_width;
   const H = proposal.site_plan_backdrop_height;
   const url = proposal.site_plan_backdrop_url;
+
+  // Stable color per region by display order, reused everywhere a region
+  // is referenced (legend dot + material-card badge dot).
+  const regionColors = new Map();
+  regions.forEach((r, i) => {
+    regionColors.set(r.id, REGION_LEGEND_COLORS[i % REGION_LEGEND_COLORS.length]);
+  });
 
   const polygons = regions.map(r => {
     const verts = Array.isArray(r.polygon) ? r.polygon : [];
@@ -2167,211 +2239,157 @@ function renderBackdropWithRegions(proposal, regions, materials, categoryToSecti
 
   const anyLinked = regions.some(r => r.proposal_section_id);
   const caption = anyLinked
-    ? 'Tap any highlighted area — or any card on the right — to jump to that part of the scope.'
+    ? 'Tap any highlighted area on the plan — or any material below — to see how it connects to the scope.'
     : 'Highlighted areas show the scope of work for this project.';
 
   const lede = anyLinked
-    ? 'The working plan-view for your project — each highlighted area on the drawing is one part of the scope. The cards on the right show the materials assigned to each. Click any area or card to jump to its details below.'
+    ? 'Your project at a glance. Each highlighted area on the plan corresponds to a part of the scope below — hover any region or material to see how they connect.'
     : 'The working plan-view for your project — highlighted areas show the scope of work for each part of the project.';
 
-  // Cards on the right rail — one per region, in display order. Regions
-  // without a linked scope section (proposal_section_id null) render no
-  // card, since there's nothing to show under them; the polygon itself
-  // still renders as a visual marker on the drawing.
-  const cardsHtml = regions
-    .map(r => renderRegionCard(r, materials, categoryToSection))
-    .filter(Boolean)
+  // Legend strip — only regions linked to a scope section get a row, since
+  // the row navigates to that section. Standalone polygons still draw on
+  // the map but aren't part of the legend index.
+  const legendHtml = regions
+    .filter(r => r.proposal_section_id)
+    .map(r => renderLegendRow(r, regionColors.get(r.id)))
     .join('');
+
+  // Phase 1B.4 — materials grid lives inside the site plan section now,
+  // beneath the legend. Each card carries data-region-ids for hover sync
+  // and a small chip strip showing which regions use it.
+  const materialRegions = buildMaterialRegionMap(regions);
+  const materialCards = (materials || [])
+    .map(m => renderMaterialCard(m, categoryToSection, materialRegions, regionColors))
+    .join('');
+
+  const materialsBlock = materialCards ? `
+        <div class="pub-site-plan-materials">
+          <div class="pub-site-plan-materials-eyebrow">Materials</div>
+          <h3 class="pub-site-plan-materials-heading">Selected for your project</h3>
+          <p class="pub-site-plan-materials-lede">Each material below carries chips indicating which regions on the plan it's used for. Hover a card to highlight those regions on the drawing.</p>
+          <div class="pub-materials-grid">${materialCards}</div>
+        </div>` : '';
 
   return `
     <section class="pub-drawing">
       <div class="pub-drawing-inner">
-        <div class="pub-section-eyebrow">Construction drawing</div>
+        <div class="pub-section-eyebrow">01 / Site plan</div>
         <h2>Your project plan</h2>
         <p class="pub-section-lede">${escapeHtml(lede)}</p>
-        <div class="pub-drawing-layout">
-          <div class="pub-drawing-sticky-col">
-            <div class="pub-drawing-frame">
-              <div class="pub-drawing-overlay-wrap">
-                <img src="${escapeAttr(url)}" alt="Construction drawing" class="pub-drawing-overlay-img">
-                <svg class="pub-drawing-overlay-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${polygons}</svg>
-              </div>
+
+        <div class="pub-site-plan-map">
+          <div class="pub-drawing-frame">
+            <div class="pub-drawing-overlay-wrap">
+              <img src="${escapeAttr(url)}" alt="Construction drawing" class="pub-drawing-overlay-img">
+              <svg class="pub-drawing-overlay-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${polygons}</svg>
             </div>
-            <p class="pub-drawing-caption">${escapeHtml(caption)}</p>
           </div>
-          <div class="pub-drawing-cards-col">
-            ${cardsHtml}
-          </div>
+          <p class="pub-drawing-caption">${escapeHtml(caption)}</p>
         </div>
+
+        ${legendHtml ? `<div class="pub-region-legend">${legendHtml}</div>` : ''}
+
+        ${materialsBlock}
       </div>
     </section>
     <script>
       (function () {
-        var cards = Array.prototype.slice.call(
-          document.querySelectorAll('.pub-region-card[data-region-id]')
-        );
-        var polys = Array.prototype.slice.call(
+        var polygons = Array.prototype.slice.call(
           document.querySelectorAll('polygon[data-region-id]')
         );
-        if (!cards.length || !polys.length) return;
+        var legendRows = Array.prototype.slice.call(
+          document.querySelectorAll('.pub-region-legend-row[data-region-id]')
+        );
+        var materialCards = Array.prototype.slice.call(
+          document.querySelectorAll('.pub-material-card[data-region-ids]')
+        );
+        if (!polygons.length) return;
 
-        function setActive(regionId, active) {
-          cards.forEach(function (c) {
-            if (c.getAttribute('data-region-id') === regionId) {
-              c.classList.toggle('is-active', active);
+        // setActiveByIds toggles .is-active on every polygon, legend row,
+        // and material card whose region IDs intersect with the given set.
+        // Used by all three hover sources — polygons, legend rows, material
+        // cards — so any of them can light the others.
+        function setActiveByIds(ids, active) {
+          if (!ids || !ids.length) return;
+          var idSet = {};
+          for (var i = 0; i < ids.length; i++) idSet[ids[i]] = true;
+          polygons.forEach(function (p) {
+            if (idSet[p.getAttribute('data-region-id')]) {
+              p.classList.toggle('is-active', active);
             }
           });
-          polys.forEach(function (p) {
-            if (p.getAttribute('data-region-id') === regionId) {
-              if (active) p.classList.add('is-active');
-              else p.classList.remove('is-active');
+          legendRows.forEach(function (r) {
+            if (idSet[r.getAttribute('data-region-id')]) {
+              r.classList.toggle('is-active', active);
+            }
+          });
+          materialCards.forEach(function (c) {
+            var cardIds = (c.getAttribute('data-region-ids') || '').split(',').filter(Boolean);
+            for (var j = 0; j < cardIds.length; j++) {
+              if (idSet[cardIds[j]]) {
+                c.classList.toggle('is-active', active);
+                break;
+              }
             }
           });
         }
 
-        cards.forEach(function (card) {
-          var rid = card.getAttribute('data-region-id');
-          card.addEventListener('mouseenter', function () { setActive(rid, true); });
-          card.addEventListener('mouseleave', function () { setActive(rid, false); });
-        });
-
-        polys.forEach(function (poly) {
-          var rid = poly.getAttribute('data-region-id');
+        polygons.forEach(function (p) {
+          var rid = p.getAttribute('data-region-id');
           if (!rid) return;
-          poly.addEventListener('mouseenter', function () { setActive(rid, true); });
-          poly.addEventListener('mouseleave', function () { setActive(rid, false); });
+          p.addEventListener('mouseenter', function () { setActiveByIds([rid], true); });
+          p.addEventListener('mouseleave', function () { setActiveByIds([rid], false); });
+        });
+        legendRows.forEach(function (r) {
+          var rid = r.getAttribute('data-region-id');
+          if (!rid) return;
+          r.addEventListener('mouseenter', function () { setActiveByIds([rid], true); });
+          r.addEventListener('mouseleave', function () { setActiveByIds([rid], false); });
+        });
+        materialCards.forEach(function (c) {
+          var cardIds = (c.getAttribute('data-region-ids') || '').split(',').filter(Boolean);
+          if (!cardIds.length) return;
+          c.addEventListener('mouseenter', function () { setActiveByIds(cardIds, true); });
+          c.addEventListener('mouseleave', function () { setActiveByIds(cardIds, false); });
         });
       })();
     </script>
   `;
 }
 
-// Phase 1B.2 — render one region card on the right rail.
-//
-// Region without a linked scope section returns empty string (no card).
-// The polygon still renders on the drawing as a visual marker, but the
-// right rail only lists regions that point at scope content.
-//
-// Materials selection (Phase 1B.3 strategy):
-//   1. PRIMARY — read from region.region_materials (the proposal_region_materials
-//      join table embed). When non-empty, render those materials in their
-//      stored display_order. This is what Tim curates in the labeling tool.
-//   2. FALLBACK — when the join is empty (no assignments yet), fall back to
-//      the Phase 1B.2 behavior: every material whose proposal_section_id
-//      matches the region's section. This keeps un-labeled regions showing
-//      something useful instead of "No materials assigned" noise, and
-//      preserves backwards compatibility for existing proposals.
-//
-// extractMaterialInfo is reused so the swatch URL preference order
-// (per-color swatch → primary → image_url) and the install-guide routing
-// match the existing material cards in section 02.
-function renderRegionCard(region, materials, categoryToSection) {
-  if (!region.proposal_section_id) return '';
-
-  // Phase 1B.3 — explicit join-table assignments take priority. Map the
-  // assignments back to full proposal_materials rows so we have the
-  // catalog data needed for thumbnails / names / cut-sheets.
-  let cardMaterials = [];
-  const assignments = Array.isArray(region.region_materials) ? region.region_materials : [];
-  if (assignments.length > 0) {
-    const sorted = [...assignments].sort(
-      (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
-    );
-    const matMap = new Map((materials || []).map(m => [m.id, m]));
-    cardMaterials = sorted
-      .map(a => matMap.get(a.proposal_material_id))
-      .filter(Boolean);
-  } else {
-    // Legacy fallback — section filter. Preserved verbatim from Phase 1B.2.
-    cardMaterials = (materials || [])
-      .filter(m => m.proposal_section_id === region.proposal_section_id);
-  }
-
-  const sqftBadge = region.area_sqft != null && Number(region.area_sqft) > 0
-    ? `${Number(region.area_sqft).toLocaleString('en-US')} sqft`
-    : '';
-  const lnftBadge = region.area_lnft != null && Number(region.area_lnft) > 0
-    ? `${Number(region.area_lnft).toLocaleString('en-US')} lnft`
-    : '';
-  const meta = [sqftBadge, lnftBadge].filter(Boolean).join(' · ');
-
-  const materialRows = cardMaterials.map(m => {
-    const info = extractMaterialInfo(m, categoryToSection);
-
-    // Pull color/pattern from the underlying catalog row when present —
-    // these are the most useful disambiguators for paver products
-    // (Catalina Grana Scandina Grey vs Catalina Grana Sepia).
-    const subtitleParts = [];
-    if (m.belgard_material) {
-      if (m.belgard_material.color) subtitleParts.push(m.belgard_material.color);
-      if (m.belgard_material.pattern) subtitleParts.push(m.belgard_material.pattern);
-    } else if (m.third_party_material) {
-      if (m.third_party_material.color) subtitleParts.push(m.third_party_material.color);
-    }
-    const subtitle = subtitleParts.join(' · ');
-
-    const thumbHtml = info.imageUrl
-      ? `<img src="${escapeAttr(info.imageUrl)}" alt="${escapeAttr(info.name)}" class="pub-region-card-thumb" loading="lazy">`
-      : `<div class="pub-region-card-thumb pub-region-card-thumb--placeholder">${escapeHtml((info.name || 'M').slice(0, 2).toUpperCase())}</div>`;
-
-    const cutSheetLink = info.cutSheetUrl
-      ? `<a href="${escapeAttr(info.cutSheetUrl)}" target="_blank" rel="noopener" class="pub-region-card-cutsheet">Cut sheet ↗</a>`
-      : '';
-
-    return `
-        <div class="pub-region-card-material">
-          ${thumbHtml}
-          <div class="pub-region-card-material-info">
-            <div class="pub-region-card-material-name">${escapeHtml(info.name)}</div>
-            ${subtitle ? `<div class="pub-region-card-material-sub">${escapeHtml(subtitle)}</div>` : ''}
-            ${cutSheetLink}
-          </div>
-        </div>`;
-  }).join('');
-
-  const materialsBlock = materialRows
-    ? `<div class="pub-region-card-materials">${materialRows}</div>`
-    : `<div class="pub-region-card-materials pub-region-card-materials--empty">No materials assigned to this region yet.</div>`;
-
-  return `
-      <div class="pub-region-card" data-region-id="${escapeAttr(region.id)}">
-        <a href="#section-${escapeAttr(region.proposal_section_id)}" class="pub-region-card-header">
-          <div class="pub-region-card-title">${escapeHtml(region.name || 'Region')}</div>
-          ${meta ? `<div class="pub-region-card-meta">${escapeHtml(meta)}</div>` : ''}
-        </a>
-        ${materialsBlock}
-      </div>`;
-}
-
 function renderScopeSection(sections, totalAmount) {
   if (!sections.length) return '';
 
-  const items = sections.map(s => {
+  const items = sections.map((s, i) => {
     const lineItemsHtml = formatLineItemsHtml(s.line_items);
     const amount = s.total_amount != null ? formatMoney(s.total_amount) : '';
+    const indexNum = String(i + 1).padStart(2, '0');
     return `
       <li class="pub-scope-item" id="section-${escapeAttr(s.id)}">
-        <div class="pub-scope-item-body">
-          <div class="pub-scope-item-name">${escapeHtml(s.name || 'Untitled section')}</div>
-          ${lineItemsHtml}
+        <div class="pub-scope-item-header">
+          <div class="pub-scope-item-header-text">
+            <div class="pub-scope-item-eyebrow">Section ${escapeHtml(indexNum)}</div>
+            <div class="pub-scope-item-name">${escapeHtml(s.name || 'Untitled section')}</div>
+          </div>
+          ${amount ? `<div class="pub-scope-item-amount num">${escapeHtml(amount)}</div>` : ''}
         </div>
-        ${amount ? `<div class="pub-scope-item-amount num">${escapeHtml(amount)}</div>` : ''}
+        ${lineItemsHtml}
       </li>
     `;
   }).join('');
 
   const totalRow = totalAmount != null ? `
     <div class="pub-scope-total">
-      <span>Total</span>
-      <span class="num">${escapeHtml(formatMoney(totalAmount))}</span>
+      <span class="pub-scope-total-label">Project total</span>
+      <span class="pub-scope-total-amount num">${escapeHtml(formatMoney(totalAmount))}</span>
     </div>
   ` : '';
 
   return `
     <section class="pub-section">
-      <div class="pub-section-eyebrow">01</div>
-      <h2>Scope of work</h2>
-      <p class="pub-section-lede">The complete breakdown of everything included in your project, with materials, colors, and construction details broken out per line.</p>
+      <div class="pub-section-eyebrow">02 / Scope of work</div>
+      <h2>The complete breakdown</h2>
+      <p class="pub-section-lede">Everything included in your project, organized by section. Each line is one piece of the work, with materials, colors, and construction details called out where relevant.</p>
       <ul class="pub-scope-list">${items}</ul>
       ${totalRow}
     </section>
@@ -2404,8 +2422,34 @@ function renderMaterialsSection(materials, categoryToSection) {
   `;
 }
 
-function renderMaterialCard(m, categoryToSection) {
+// Phase 1B.4 — material card with color subtitle, region usage chips, and
+// hover-sync wiring.
+//
+// Signature is backwards-compatible — `materialRegions` and `regionColors`
+// are optional. When omitted (legacy renderMaterialsSection path used by
+// proposals without labeled regions) the card renders without badges or
+// data-region-ids, which is the original behavior.
+//
+// When supplied (the Phase 1B.4 hybrid layout), each card carries:
+//   • A color/pattern subtitle pulled from the underlying catalog row
+//   • One <span class="pub-region-badge"> per region the material is used in
+//   • A data-region-ids="..." attr for the inline hover-sync IIFE
+function renderMaterialCard(m, categoryToSection, materialRegions, regionColors) {
   const info = extractMaterialInfo(m, categoryToSection);
+  const usedInRegions = materialRegions ? (materialRegions.get(m.id) || []) : [];
+
+  // Color/pattern subtitle. Belgard uses color + pattern; third-party uses
+  // manufacturer + color. Empty if neither catalog row supplies anything.
+  const subtitleParts = [];
+  if (m.belgard_material) {
+    if (m.belgard_material.color) subtitleParts.push(m.belgard_material.color);
+    if (m.belgard_material.pattern) subtitleParts.push(m.belgard_material.pattern);
+  } else if (m.third_party_material) {
+    if (m.third_party_material.manufacturer) subtitleParts.push(m.third_party_material.manufacturer);
+    if (m.third_party_material.color) subtitleParts.push(m.third_party_material.color);
+  }
+  const colorSub = subtitleParts.join(' · ');
+
   const imgHtml = info.imageUrl
     ? `<button type="button" class="pub-lightbox-trigger"
               data-lightbox-src="${escapeAttr(info.imageUrl)}"
@@ -2416,19 +2460,20 @@ function renderMaterialCard(m, categoryToSection) {
        </button>`
     : `<div class="pub-material-card-placeholder">${escapeHtml((info.name || 'Material').slice(0, 3).toUpperCase())}</div>`;
 
+  const regionBadges = usedInRegions.map(r => {
+    const color = regionColors ? (regionColors.get(r.id) || '#5d7e69') : '#5d7e69';
+    return `<span class="pub-region-badge"><span class="pub-region-badge-dot" style="background:${color};"></span>${escapeHtml(r.name || 'Region')}</span>`;
+  }).join('');
+
   const cutSheetBtn = info.cutSheetUrl ? `
-    <a href="${escapeAttr(info.cutSheetUrl)}" target="_blank" rel="noopener"
-      class="pub-material-card-btn pub-material-card-btn-primary">
-      <span>View cut sheet</span>
-      <span>↗</span>
+    <a href="${escapeAttr(info.cutSheetUrl)}" target="_blank" rel="noopener" class="pub-material-card-action">
+      <span>Cut sheet</span><span>↗</span>
     </a>
   ` : '';
 
   const installBtn = info.installGuideUrl ? `
-    <a href="${escapeAttr(info.installGuideUrl)}" target="_blank" rel="noopener"
-      class="pub-material-card-btn pub-material-card-btn-secondary">
-      <span>See installation</span>
-      <span>↗</span>
+    <a href="${escapeAttr(info.installGuideUrl)}" target="_blank" rel="noopener" class="pub-material-card-action">
+      <span>Installation guide</span><span>↗</span>
     </a>
   ` : '';
 
@@ -2436,11 +2481,21 @@ function renderMaterialCard(m, categoryToSection) {
     ? `<div class="pub-material-card-actions">${cutSheetBtn}${installBtn}</div>`
     : '';
 
+  // data-region-ids drives the hover-sync IIFE in renderBackdropWithRegions.
+  // Cards without any region usage still render (the material is in the
+  // proposal, just not assigned to a polygon yet) but skip the attr so they
+  // don't participate in the sync.
+  const regionIdsAttr = usedInRegions.length
+    ? ` data-region-ids="${usedInRegions.map(r => escapeAttr(r.id)).join(',')}"`
+    : '';
+
   return `
-    <div class="pub-material-card">
+    <div class="pub-material-card"${regionIdsAttr}>
       ${imgHtml}
       <div class="pub-material-card-body">
         <div class="pub-material-card-name">${escapeHtml(info.name)}</div>
+        ${colorSub ? `<div class="pub-material-card-color">${escapeHtml(colorSub)}</div>` : ''}
+        ${regionBadges ? `<div class="pub-material-card-regions">${regionBadges}</div>` : ''}
         ${actions}
       </div>
     </div>
