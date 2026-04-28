@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BPB Phase 2B — Supabase client + auth gate
+// BPB Phase 2B + 2C — Supabase client + auth gate + team modal entry
 //
 // Drop-in replacement for the prior 5-line supabase-client.js. Same
 // `import { supabase } from './supabase-client.js'` works everywhere
@@ -13,6 +13,9 @@
 //      imports this module, no per-page wiring required).
 //   4. Validates the session async via supabase.auth.getSession() in the
 //      background; if invalidated, redirects to login.
+//   5. [Phase 2C] For master users, the pill also shows a "Team" button
+//      that lazy-imports team-modal.js on click — designers never load
+//      that module at all.
 //
 // Public proposal pages at /p/{slug} are static HTML snapshots rendered
 // by the CF Pages function and do NOT import this module — they remain
@@ -146,6 +149,14 @@ async function injectAuthPill() {
     '  font-size: 9px; letter-spacing: 0.18em;' +
     '  color: #5d7e69; text-transform: uppercase; font-weight: 600;' +
     '}' +
+    '#bpb-auth-pill .bpb-auth-team {' +
+    '  background: transparent; border: 1px solid #e5e5e5;' +
+    '  border-radius: 999px; padding: 5px 12px;' +
+    '  font: inherit; font-weight: 600; font-size: 11px;' +
+    '  color: #5d7e69; cursor: pointer;' +
+    '  transition: background 0.15s, color 0.15s, border-color 0.15s;' +
+    '}' +
+    '#bpb-auth-pill .bpb-auth-team:hover { background: #e8eee9; border-color: #5d7e69; }' +
     '#bpb-auth-pill .bpb-auth-logout {' +
     '  background: #f5f5f5; border: none;' +
     '  border-radius: 999px; padding: 5px 12px;' +
@@ -161,6 +172,7 @@ async function injectAuthPill() {
     '</style>' +
     '<span class="bpb-auth-name"></span>' +
     (role ? '<span class="bpb-auth-role"></span>' : '') +
+    (role === 'master' ? '<button type="button" class="bpb-auth-team">Team</button>' : '') +
     '<button type="button" class="bpb-auth-logout">Sign out</button>';
 
   // Set text content (safe vs HTML injection)
@@ -168,6 +180,21 @@ async function injectAuthPill() {
   if (role) pill.querySelector('.bpb-auth-role').textContent = role;
 
   document.body.appendChild(pill);
+
+  // Master-only: lazy-load and open the team management modal.
+  // Non-master users never load team-modal.js at all.
+  if (role === 'master') {
+    pill.querySelector('.bpb-auth-team').addEventListener('click', async () => {
+      try {
+        const mod = await import('./team-modal.js');
+        mod.openTeamModal();
+      } catch (err) {
+        // Network / build issue — fall back gracefully.
+        console.error('Failed to load team modal:', err);
+        alert('Could not load team manager. Refresh and try again.');
+      }
+    });
+  }
 
   pill.querySelector('.bpb-auth-logout').addEventListener('click', async () => {
     try { await supabase.auth.signOut(); } catch (_) {}
