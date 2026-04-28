@@ -151,6 +151,24 @@
 //      legacy construction_drawing_url branch (no regions) is still
 //      unchanged.
 //
+//  13. [Phase 1B.5] Quality Standards section redesigned as a
+//      horizontally scrollable rail showcasing every category Bayside
+//      installs, not just the categories present in this specific bid.
+//      Two data-layer changes feed it: loadInstallGuideData now
+//      fetches every row from installation_guide_sections (instead of
+//      filtering to the proposal's belgard categories), and the
+//      proposalHasTurf / proposalHasTruScapesLighting predicates no
+//      longer gate the third-party turf + lighting cards — both
+//      always render. categoryToSection (used by per-material
+//      "Installation guide" deep-links) stays bid-filtered since its
+//      job is unchanged. UI: cards live in a flex rail with
+//      scroll-snap-type: x mandatory and fixed 380px-wide cards;
+//      gradient fades on the rail edges + circular chevron arrow
+//      buttons absolutely positioned over the fade zones provide
+//      explicit nav. The arrow buttons disable themselves at the
+//      rail's start/end via an inline IIFE. Mobile hides the arrows,
+//      narrows cards to 320px, and lets touch scroll do the work.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
@@ -322,12 +340,28 @@ async function reload() {
 }
 
 async function loadInstallGuideData(belgardRows) {
+  // Phase 1B.4 — fetch ALL install guide sections for the Quality
+  // Standards rail. The section is now a showcase of every category
+  // Bayside installs, not just what's in this bid, so the unfiltered
+  // sections feed renderWhyPrepSection. categoryToSection (built below)
+  // remains bid-filtered because it powers the deep-link from each
+  // per-material "Installation guide" button to its matching section.
+  const { data: allSectionsData, error: allSectionsErr } = await supabase
+    .from('installation_guide_sections')
+    .select('*');
+
+  if (allSectionsErr) {
+    console.error('Could not load install guide sections:', allSectionsErr);
+    return { installSections: [], categoryToSection: new Map() };
+  }
+  const installSections = allSectionsData || [];
+
   const usedCategoryIds = [...new Set(
     belgardRows.map(b => b.category_id).filter(Boolean)
   )];
 
   if (usedCategoryIds.length === 0) {
-    return { installSections: [], categoryToSection: new Map() };
+    return { installSections, categoryToSection: new Map() };
   }
 
   // Fetch the join-table rows that link a category to a section
@@ -337,30 +371,14 @@ async function loadInstallGuideData(belgardRows) {
     .in('category_id', usedCategoryIds);
 
   if (linksErr) {
-    // Non-fatal — the Why Prep section falls back to hardcoded content
-    // and material cards fall back to the generic install guide URL.
+    // Non-fatal — categoryToSection just stays empty, so per-material
+    // install buttons fall back to the generic guide URL. The Quality
+    // Standards rail is unaffected since it doesn't use this map.
     console.error('Could not load install guide category links:', linksErr);
-    return { installSections: [], categoryToSection: new Map() };
+    return { installSections, categoryToSection: new Map() };
   }
 
   const linkRows = linksData || [];
-  const sectionIds = [...new Set(linkRows.map(l => l.section_id))];
-
-  if (sectionIds.length === 0) {
-    return { installSections: [], categoryToSection: new Map() };
-  }
-
-  const { data: sectionsData, error: sectionsErr } = await supabase
-    .from('installation_guide_sections')
-    .select('*')
-    .in('id', sectionIds);
-
-  if (sectionsErr) {
-    console.error('Could not load install guide sections:', sectionsErr);
-    return { installSections: [], categoryToSection: new Map() };
-  }
-
-  const installSections = sectionsData || [];
   const sectionById = new Map(installSections.map(s => [s.id, s]));
 
   const categoryToSection = new Map();
@@ -1562,19 +1580,104 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     line-height: 1.65;
     color: var(--charcoal);
   }
-  .pub-prep-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 20px;
+  /* Phase 1B.4 — horizontal scrollable rail. Replaces the prior auto-fit
+     grid. Cards have a fixed width and the rail uses scroll-snap so each
+     stop lands cleanly on the next card. Edge gradient fades signal that
+     more content is to the side; absolutely-positioned arrow buttons
+     give an explicit nav for desktop users without obscuring touch
+     scrolling on mobile. */
+  .pub-prep-rail-wrap {
+    position: relative;
+    margin: 0 -32px; /* break out of the .pub-prep-inner padding so the rail can extend edge-to-edge within the cream band */
   }
+  .pub-prep-rail-wrap::before,
+  .pub-prep-rail-wrap::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 16px;
+    width: 56px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .pub-prep-rail-wrap::before {
+    left: 0;
+    background: linear-gradient(to right, var(--cream) 30%, rgba(250, 248, 243, 0));
+  }
+  .pub-prep-rail-wrap::after {
+    right: 0;
+    background: linear-gradient(to left, var(--cream) 30%, rgba(250, 248, 243, 0));
+  }
+  .pub-prep-rail {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scroll-padding: 0 32px;
+    padding: 8px 32px 16px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .pub-prep-rail::-webkit-scrollbar { height: 8px; }
+  .pub-prep-rail::-webkit-scrollbar-track { background: transparent; }
+  .pub-prep-rail::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  .pub-prep-rail::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  .pub-prep-rail-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--navy);
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 400;
+    cursor: pointer;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    padding: 0 0 2px; /* nudge chevron up slightly to optically center */
+  }
+  .pub-prep-rail-arrow:hover {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    transform: translateY(-50%) scale(1.04);
+  }
+  .pub-prep-rail-arrow.is-disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+    box-shadow: none;
+  }
+  .pub-prep-rail-arrow--prev { left: 8px; }
+  .pub-prep-rail-arrow--next { right: 8px; }
   .pub-prep-card {
     background: #fff;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 32px 28px;
     display: flex;
     flex-direction: column;
     gap: 14px;
+    flex: 0 0 380px;
+    max-width: 380px;
+    scroll-snap-align: start;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .pub-prep-card:hover {
+    border-color: var(--green);
+    box-shadow: 0 12px 28px rgba(93, 126, 105, 0.12);
+    transform: translateY(-2px);
   }
   .pub-prep-card-number {
     font-family: 'JetBrains Mono', monospace;
@@ -1770,6 +1873,27 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 
     .pub-site-plan-materials { margin-top: 48px; }
     .pub-site-plan-materials-heading { font-size: 22px; }
+
+    /* Phase 1B.4 mobile — Quality Standards rail. Arrow buttons hide on
+       mobile (touch scrolling is the native gesture; the buttons would
+       just clutter the corners). Card width drops so the next card
+       peeks in at the right edge, hinting the rail scrolls. The rail's
+       margin/padding also re-aligns to the 20px mobile gutter. */
+    .pub-prep-rail-wrap {
+      margin: 0 -20px;
+    }
+    .pub-prep-rail {
+      scroll-padding: 0 20px;
+      padding: 8px 20px 16px;
+    }
+    .pub-prep-rail-arrow { display: none; }
+    .pub-prep-card {
+      flex: 0 0 320px;
+      max-width: 320px;
+      padding: 28px 24px;
+    }
+    .pub-prep-rail-wrap::before,
+    .pub-prep-rail-wrap::after { width: 32px; }
 
     .pub-footer-ctas { padding: 64px 20px; }
   }
@@ -2657,6 +2781,10 @@ function renderWhyPrepSection(installSections, sections, materials) {
     : '';
 
   const belgardCount = Array.isArray(installSections) ? installSections.length : 0;
+  // Phase 1B.4 — third-party cards now always render (turf + lighting),
+  // so the rail showcases every category Bayside installs regardless of
+  // what's in this specific bid. The proposalHasTurf / Lighting predicates
+  // are no longer consulted here.
   const thirdPartyCardsHtml = renderThirdPartyPrepCards(sections, materials, belgardCount);
 
   const combinedHtml = belgardCardsHtml + thirdPartyCardsHtml;
@@ -2668,16 +2796,57 @@ function renderWhyPrepSection(installSections, sections, materials) {
         <div class="pub-section-eyebrow">03 · Quality standards</div>
         <h2>Why our preparation matters</h2>
         <div class="pub-prep-intro">
-          <p>The biggest cost difference between paver installers isn't the pavers themselves — it's what happens <em>before</em> the first stone is placed. Base preparation, compaction, drainage, and edge restraint are the work that determines whether your installation lasts 5 years or 30. Here's what we do that cheaper bids skip.</p>
+          <p>The biggest cost difference between contractors isn't the materials — it's the work that happens before they go in. Every category we install — pavers, porcelain, retaining walls, accessories, fire features, artificial turf, low-voltage lighting — has its own preparation standard, and the standard is what determines whether your installation lasts 5 years or 30. Below is what we hold ourselves to for every category we touch.</p>
         </div>
-        <div class="pub-prep-grid">
-          ${cardsHtml}
+        <div class="pub-prep-rail-wrap">
+          <button type="button" class="pub-prep-rail-arrow pub-prep-rail-arrow--prev" aria-label="Scroll to previous">‹</button>
+          <button type="button" class="pub-prep-rail-arrow pub-prep-rail-arrow--next" aria-label="Scroll to next">›</button>
+          <div class="pub-prep-rail">
+            ${cardsHtml}
+          </div>
         </div>
         <div class="pub-prep-footer">
           Want to see what this looks like in practice? Ask Tim for a site visit to an active installation — it's the fastest way to understand what you're paying for.
         </div>
       </div>
     </section>
+    <script>
+      (function () {
+        // Phase 1B.4 — Quality Standards rail nav. The arrow buttons scroll
+        // the card rail by roughly one card-width (so a click feels like
+        // "next card") and the buttons disable themselves at the rail's
+        // start/end so the user can see how far they've scrolled.
+        var wraps = document.querySelectorAll('.pub-prep-rail-wrap');
+        wraps.forEach(function (wrap) {
+          var rail = wrap.querySelector('.pub-prep-rail');
+          var prev = wrap.querySelector('.pub-prep-rail-arrow--prev');
+          var next = wrap.querySelector('.pub-prep-rail-arrow--next');
+          if (!rail || !prev || !next) return;
+
+          function scrollDir(dir) {
+            // First card width + gap is a sensible scroll step. Falls back
+            // to 400px if no cards present (which shouldn't happen, but
+            // protects against blank rails).
+            var firstCard = rail.querySelector('.pub-prep-card');
+            var step = firstCard
+              ? Math.round(firstCard.getBoundingClientRect().width + 20)
+              : 400;
+            rail.scrollBy({ left: dir * step, behavior: 'smooth' });
+          }
+          prev.addEventListener('click', function () { scrollDir(-1); });
+          next.addEventListener('click', function () { scrollDir(1); });
+
+          function updateArrowState() {
+            var maxScroll = rail.scrollWidth - rail.clientWidth;
+            prev.classList.toggle('is-disabled', rail.scrollLeft <= 4);
+            next.classList.toggle('is-disabled', rail.scrollLeft >= maxScroll - 4);
+          }
+          rail.addEventListener('scroll', updateArrowState, { passive: true });
+          window.addEventListener('resize', updateArrowState);
+          updateArrowState();
+        });
+      })();
+    </script>
   `;
 }
 
@@ -2716,21 +2885,15 @@ function renderDynamicPrepCards(installSections) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Third-party quality-standards cards (Sprint 3 Part C)
+// Third-party quality-standards cards
 //
-// Renders additional "Why preparation matters" cards for non-Belgard
-// categories that need client-facing standards education — currently
-// artificial turf (Evergrass / MSI) and Tru-Scapes® low-voltage lighting.
-//
-// Detection is pattern-based against BOTH:
-//   • proposal_sections.line_items — where scope-line notes live for products
-//     that haven't been catalogued as materials yet. Sprint 3J narrowed the
-//     turf scan here to TURF_SPECIFIC_PATTERN only, avoiding false positives
-//     from demolition language. Tru-Scapes scan remains unchanged — the
-//     brand name is specific enough to never false-match.
-//   • proposal_materials (third-party rows) — for structured product picks.
-//     Uses the combined TURF_PRODUCT_PATTERNS here since a third_party_materials
-//     row that mentions turf at all is authoritatively a turf product.
+// Phase 1B.4 — these always render now (turf + lighting), regardless of
+// what's in this specific bid. The Quality Standards rail showcases every
+// category Bayside installs to demonstrate breadth + expertise; gating
+// these cards by proposalHasTurf / proposalHasTruScapesLighting was
+// appropriate when the section was bid-scoped, but the new framing is
+// "here's what we install across the board." The detection helpers are
+// preserved below for any future per-bid use, but no longer consulted here.
 //
 // When the installation_guide_sections schema is extended to cover
 // non-Belgard categories, this function migrates to a data-driven query.
@@ -2738,37 +2901,33 @@ function renderDynamicPrepCards(installSections) {
 function renderThirdPartyPrepCards(sections, materials, startIndex = 0) {
   const cards = [];
 
-  if (proposalHasTurf(sections, materials)) {
-    cards.push({
-      title: 'Artificial Turf Installation',
-      summary: "Long-lasting synthetic turf installations depend on base preparation that matches paver-grade standards: 4–6 inches of excavation, compaction of subgrade soil, and a 3–4 inch crushed gravel base compacted in lifts. The difference between a turf installation that stays level and plush for 15 years and one that ripples, pools water, or mats down in two is whether the installer treats the base with the same rigor as a paver base. We do. We also direction-match turf pieces, use S-cut seams for invisible transitions, and finish with silica sand infill to keep blades upright and UV-protected.",
-      keyPoints: [
-        'Minimum 4–6 inches of excavation below finished grade, with existing sprinkler heads capped at pipe level (not the riser) to prevent leakage, and irrigation/electrical lines mapped before any digging',
-        'Subgrade compacted with a minimum 5,000 lb plate compactor — the same machine used for paver bases — followed by a weed barrier on compacted subgrade; plastic sheeting is explicitly prohibited as it traps water and causes turf to heave',
-        'Base layer of 3/4-inch to dust crushed gravel installed in 3–4 inch lifts, compacted with water-assist; minimum 2% slope away from structures to drainage points, identical to our paver drainage spec',
-        'All turf pieces laid with blade direction matched (pile nap running the same way); seams joined via S-cut method with seam tape and synthetic turf adhesive, then secured with U-nails spaced every 6 inches along the full seam length',
-        'Edges tucked with wonder bar into hardscape perimeters; silica sand infill applied via drop spreader and power-brushed into the base of the blades, then watered to settle — the infill is what keeps blades upright and the surface walkable for 15+ years',
-      ],
-      pdfUrl: EVERGRASS_INSTALL_GUIDE_URL,
-      linkLabel: 'View the Evergrass installation guide',
-    });
-  }
+  cards.push({
+    title: 'Artificial Turf Installation',
+    summary: "Long-lasting synthetic turf installations depend on base preparation that matches paver-grade standards: 4–6 inches of excavation, compaction of subgrade soil, and a 3–4 inch crushed gravel base compacted in lifts. The difference between a turf installation that stays level and plush for 15 years and one that ripples, pools water, or mats down in two is whether the installer treats the base with the same rigor as a paver base. We do. We also direction-match turf pieces, use S-cut seams for invisible transitions, and finish with silica sand infill to keep blades upright and UV-protected.",
+    keyPoints: [
+      'Minimum 4–6 inches of excavation below finished grade, with existing sprinkler heads capped at pipe level (not the riser) to prevent leakage, and irrigation/electrical lines mapped before any digging',
+      'Subgrade compacted with a minimum 5,000 lb plate compactor — the same machine used for paver bases — followed by a weed barrier on compacted subgrade; plastic sheeting is explicitly prohibited as it traps water and causes turf to heave',
+      'Base layer of 3/4-inch to dust crushed gravel installed in 3–4 inch lifts, compacted with water-assist; minimum 2% slope away from structures to drainage points, identical to our paver drainage spec',
+      'All turf pieces laid with blade direction matched (pile nap running the same way); seams joined via S-cut method with seam tape and synthetic turf adhesive, then secured with U-nails spaced every 6 inches along the full seam length',
+      'Edges tucked with wonder bar into hardscape perimeters; silica sand infill applied via drop spreader and power-brushed into the base of the blades, then watered to settle — the infill is what keeps blades upright and the surface walkable for 15+ years',
+    ],
+    pdfUrl: EVERGRASS_INSTALL_GUIDE_URL,
+    linkLabel: 'View the Evergrass installation guide',
+  });
 
-  if (proposalHasTruScapesLighting(sections, materials)) {
-    cards.push({
-      title: 'Landscape & Hardscape Lighting',
-      summary: "Your proposal includes Tru-Scapes® low-voltage landscape lighting — a complete outdoor system covering path lights, accent spots, in-ground well lights, paver-integrated fixtures, and Color Control app-based tuning (RGBCW, dimming, zones). The fixture count and budget are set in your bid, but fixture placement is intentionally flexible: we finalize exact positioning during the Pre-Walk with you on-site, so the lighting accents what actually matters — tree canopies, walkway curves, step transitions, architectural features — rather than being locked to a blueprint before we've seen it in context.",
-      keyPoints: [
-        'Low-voltage 12V/15V system with Tru-Scapes® transformers sized to load (100W, 200W, or 400W WiFi-enabled) and tin-plated copper heat-shrink wire connectors for waterproof, lifetime-duty splices',
-        'Color Control available on most fixtures: full-color RGBCW spectrum, warm-to-cool white tuning (2700K–6500K), dimming, and multi-zone scene control via the Tru-Scapes® Bluetooth app',
-        'Fixture library covers every outdoor placement — path, accent, wall-wash, in-ground well, paver-integrated, step riser, post cap, sconce, pendant, bistro, and concrete-embed — so the same system scales from subtle to dramatic without mixing manufacturers',
-        'Final placement decided at Pre-Walk: before wiring is pulled, we walk the site with you and mark each fixture location together — path lights spaced to the actual walkway curve, accent lights aimed at the real tree or feature, step lights positioned for the true stride of each tread',
-        '5-year warranty on fixtures, bulbs, and transformers; all fixtures IP-rated for direct-burial and year-round outdoor use in California climate',
-      ],
-      pdfUrl: TRU_SCAPES_PRODUCT_GUIDE_URL,
-      linkLabel: 'View the Tru-Scapes product guide',
-    });
-  }
+  cards.push({
+    title: 'Landscape & Hardscape Lighting',
+    summary: "Tru-Scapes® low-voltage landscape lighting covers every outdoor placement we install — path lights, accent spots, in-ground well lights, paver-integrated fixtures, step risers — with Color Control app-based tuning (RGBCW, dimming, zones). Fixture placement is intentionally flexible on every job: we finalize exact positioning during the Pre-Walk on-site, so the lighting accents what actually matters — tree canopies, walkway curves, step transitions, architectural features — rather than being locked to a blueprint before we've seen it in context.",
+    keyPoints: [
+      'Low-voltage 12V/15V system with Tru-Scapes® transformers sized to load (100W, 200W, or 400W WiFi-enabled) and tin-plated copper heat-shrink wire connectors for waterproof, lifetime-duty splices',
+      'Color Control available on most fixtures: full-color RGBCW spectrum, warm-to-cool white tuning (2700K–6500K), dimming, and multi-zone scene control via the Tru-Scapes® Bluetooth app',
+      'Fixture library covers every outdoor placement — path, accent, wall-wash, in-ground well, paver-integrated, step riser, post cap, sconce, pendant, bistro, and concrete-embed — so the same system scales from subtle to dramatic without mixing manufacturers',
+      'Final placement decided at Pre-Walk: before wiring is pulled, we walk the site with you and mark each fixture location together — path lights spaced to the actual walkway curve, accent lights aimed at the real tree or feature, step lights positioned for the true stride of each tread',
+      '5-year warranty on fixtures, bulbs, and transformers; all fixtures IP-rated for direct-burial and year-round outdoor use in California climate',
+    ],
+    pdfUrl: TRU_SCAPES_PRODUCT_GUIDE_URL,
+    linkLabel: 'View the Tru-Scapes product guide',
+  });
 
   return cards.map((c, i) => {
     const number = String(startIndex + i + 1).padStart(2, '0');
