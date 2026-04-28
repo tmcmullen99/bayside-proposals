@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Bayside Pavers Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #5d7e69;
+      --green-dark: #4a6654;
+      --green-soft: #e8eee9;
+      --charcoal: #353535;
+      --tan: #dad7c5;
+      --cream: #faf8f3;
+      --navy: #1a1f2e;
+      --navy-light: #2a3142;
+      --border: #e5e5e5;
+      --muted: #666;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--charcoal);
+      background: var(--navy);
+      background-image:
+        radial-gradient(ellipse at top, var(--navy-light) 0%, var(--navy) 60%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      line-height: 1.5;
+      font-size: 16px;
+    }
+    .num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+    /* ─── Logo + brand mark above card ─────────────────────────────── */
+    .login-wrap {
+      width: 100%;
+      max-width: 440px;
+    }
+    .login-brand {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .login-brand img {
+      height: 36px;
+      width: auto;
+      filter: brightness(0) invert(1);
+      opacity: 0.92;
+    }
+    .login-brand-tagline {
+      margin-top: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.24em;
+      color: var(--tan);
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    /* ─── Card ─────────────────────────────────────────────────────── */
+    .login-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px 36px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+    }
+    .login-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .login-title {
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--navy);
+      letter-spacing: -0.014em;
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+    .login-lede {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    /* ─── Form ─────────────────────────────────────────────────────── */
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .login-form[hidden] { display: none; }
+    .login-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .login-field-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--charcoal);
+      letter-spacing: 0.005em;
+    }
+    .login-field input {
+      font-family: inherit;
+      font-size: 15px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--charcoal);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      width: 100%;
+    }
+    .login-field input:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.15);
+    }
+
+    .login-btn {
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      border: 1px solid transparent;
+      transition: background 0.15s ease, color 0.15s ease,
+                  border-color 0.15s ease, transform 0.12s ease,
+                  box-shadow 0.15s ease, opacity 0.15s ease;
+    }
+    .login-btn-primary {
+      background: var(--green);
+      color: #fff;
+      box-shadow: 0 6px 16px rgba(93, 126, 105, 0.24);
+    }
+    .login-btn-primary:hover {
+      background: var(--green-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(93, 126, 105, 0.32);
+    }
+    .login-btn-secondary {
+      background: #fff;
+      color: var(--navy);
+      border-color: var(--border);
+    }
+    .login-btn-secondary:hover {
+      border-color: var(--navy);
+      background: var(--cream);
+    }
+    .login-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 4px 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .login-divider::before,
+    .login-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .login-foot {
+      text-align: center;
+      margin-top: 4px;
+    }
+    .login-link {
+      background: none;
+      border: none;
+      color: var(--green-dark);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: color 0.12s ease, background 0.12s ease;
+    }
+    .login-link:hover {
+      color: var(--green);
+      background: var(--green-soft);
+    }
+
+    /* ─── States: error + success + sent ──────────────────────────── */
+    .login-error {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+    .login-error[hidden] { display: none; }
+
+    .login-state {
+      text-align: center;
+    }
+    .login-state[hidden] { display: none; }
+    .login-state-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--green-soft);
+      color: var(--green-dark);
+      font-size: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 4px auto 18px;
+    }
+    .login-state h2 {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--navy);
+      letter-spacing: -0.012em;
+      margin-bottom: 10px;
+    }
+    .login-state p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .login-state .login-state-email {
+      font-weight: 600;
+      color: var(--charcoal);
+    }
+
+    @media (max-width: 480px) {
+      .login-card { padding: 32px 24px; }
+      .login-title { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-brand">
+      <img src="https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69a04f4369bc9cc20b8d2155_BaysidePavers_original%20(2)%20(1).png" alt="Bayside Pavers">
+      <div class="login-brand-tagline">Internal proposal builder</div>
+    </div>
+
+    <div class="login-card">
+      <div class="login-eyebrow" id="loginEyebrow">Welcome back</div>
+      <h1 class="login-title" id="loginTitle">Sign in</h1>
+      <p class="login-lede" id="loginLede">Bayside team members only — your homeowner clients access proposals via direct link, no login needed.</p>
+
+      <!-- ─── State: signin (email/password) ───────────────────────── -->
+      <form class="login-form" id="signinForm" novalidate>
+        <label class="login-field">
+          <span class="login-field-label">Email</span>
+          <input type="email" name="email" required autocomplete="email" autofocus>
+        </label>
+        <label class="login-field">
+          <span class="login-field-label">Password</span>
+          <input type="password" name="password" required autocomplete="current-password">
+        </label>
+        <button type="submit" class="login-btn login-btn-primary" id="signinSubmit">
+          Sign in
+        </button>
+        <div class="login-divider"><span>or</span></div>
+        <button type="button" class="login-btn login-btn-secondary" id="magicLinkBtn">
+          Email me a magic link instead
+        </button>
+        <div class="login-foot">
+          <button type="button" class="login-link" id="forgotBtn">Forgot password?</button>
+        </div>
+      </form>
+
+      <!-- ─── State: forgot password ───────────────────────────────── -->
+      <form class="login-form" id="forgotForm" hidden novalidate>
+        <p class="login-lede" style="margin-bottom: 0;">Enter your email — we'll send a recovery link to set a new password.</p>
+        <label class="login-field">
+          <span class="login-field-label">Email</span>
+          <input type="email" name="email" required autocomplete="email">
+        </label>
+        <button type="submit" class="login-btn login-btn-primary" id="forgotSubmit">
+          Send recovery link
+        </button>
+        <div class="login-foot">
+          <button type="button" class="login-link" id="forgotCancel">Back to sign in</button>
+        </div>
+      </form>
+
+      <!-- ─── State: magic link sent ───────────────────────────────── -->
+      <div class="login-state" id="magicSent" hidden>
+        <div class="login-state-icon">📧</div>
+        <h2>Check your email</h2>
+        <p>We sent a magic link to <span class="login-state-email" id="magicSentEmail"></span>.</p>
+        <p>Click the link in your inbox to sign in instantly. The link expires in 1 hour.</p>
+      </div>
+
+      <!-- ─── State: recovery email sent ───────────────────────────── -->
+      <div class="login-state" id="recoverySent" hidden>
+        <div class="login-state-icon">✉️</div>
+        <h2>Recovery link sent</h2>
+        <p>Check <span class="login-state-email" id="recoverySentEmail"></span> for a link to set a new password.</p>
+        <p>Didn't get it? Check spam, or <button type="button" class="login-link" id="recoverySentRetry">try again</button>.</p>
+      </div>
+
+      <!-- ─── State: recovery (set new password from email link) ───── -->
+      <form class="login-form" id="recoveryForm" hidden novalidate>
+        <p class="login-lede" style="margin-bottom: 0;">Set a new password for your account.</p>
+        <label class="login-field">
+          <span class="login-field-label">New password</span>
+          <input type="password" name="password" required autocomplete="new-password" minlength="8">
+        </label>
+        <label class="login-field">
+          <span class="login-field-label">Confirm new password</span>
+          <input type="password" name="confirm" required autocomplete="new-password" minlength="8">
+        </label>
+        <button type="submit" class="login-btn login-btn-primary" id="recoverySubmit">
+          Set password &amp; sign in
+        </button>
+      </form>
+
+      <!-- ─── Error display (used by all states) ───────────────────── -->
+      <div class="login-error" id="loginError" hidden></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from '/js/supabase-client.js';
+
+    // ─── DOM refs ───────────────────────────────────────────────────
+    const eyebrowEl   = document.getElementById('loginEyebrow');
+    const titleEl     = document.getElementById('loginTitle');
+    const ledeEl      = document.getElementById('loginLede');
+
+    const signinForm  = document.getElementById('signinForm');
+    const forgotForm  = document.getElementById('forgotForm');
+    const recoveryForm = document.getElementById('recoveryForm');
+    const magicSent   = document.getElementById('magicSent');
+    const recoverySent = document.getElementById('recoverySent');
+
+    const signinSubmit = document.getElementById('signinSubmit');
+    const magicLinkBtn = document.getElementById('magicLinkBtn');
+    const forgotBtn    = document.getElementById('forgotBtn');
+    const forgotSubmit = document.getElementById('forgotSubmit');
+    const forgotCancel = document.getElementById('forgotCancel');
+    const recoverySubmit = document.getElementById('recoverySubmit');
+    const recoverySentRetry = document.getElementById('recoverySentRetry');
+
+    const errorEl = document.getElementById('loginError');
+
+    // ─── State machine ──────────────────────────────────────────────
+    function setState(state, opts = {}) {
+      hideError();
+      [signinForm, forgotForm, recoveryForm, magicSent, recoverySent].forEach(el => {
+        el.hidden = true;
+      });
+      switch (state) {
+        case 'signin':
+          eyebrowEl.textContent = 'Welcome back';
+          titleEl.textContent = 'Sign in';
+          ledeEl.textContent = 'Bayside team members only — your homeowner clients access proposals via direct link, no login needed.';
+          ledeEl.hidden = false;
+          signinForm.hidden = false;
+          break;
+        case 'forgot':
+          eyebrowEl.textContent = 'Reset password';
+          titleEl.textContent = 'Forgot your password?';
+          ledeEl.hidden = true;
+          forgotForm.hidden = false;
+          break;
+        case 'magic-sent':
+          eyebrowEl.textContent = 'Magic link sent';
+          titleEl.textContent = 'Almost there';
+          ledeEl.hidden = true;
+          magicSent.hidden = false;
+          document.getElementById('magicSentEmail').textContent = opts.email || '';
+          break;
+        case 'recovery-sent':
+          eyebrowEl.textContent = 'Recovery link sent';
+          titleEl.textContent = 'Check your inbox';
+          ledeEl.hidden = true;
+          recoverySent.hidden = false;
+          document.getElementById('recoverySentEmail').textContent = opts.email || '';
+          break;
+        case 'recovery':
+          eyebrowEl.textContent = 'Set new password';
+          titleEl.textContent = 'New password';
+          ledeEl.hidden = true;
+          recoveryForm.hidden = false;
+          break;
+      }
+    }
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+    }
+    function hideError() {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+    }
+
+    // ─── If we already have a session, skip straight to editor ─────
+    // (covers the case where someone bookmarks /login.html but is
+    // already signed in — bounce them through to the editor.)
+    const { data: { session: existingSession } } = await supabase.auth.getSession();
+    if (existingSession) {
+      // Don't redirect if URL hash indicates a recovery flow — that's
+      // handled by the onAuthStateChange listener below.
+      const hash = window.location.hash || '';
+      if (!hash.includes('type=recovery')) {
+        window.location.replace(getRedirectTarget());
+      }
+    }
+
+    // ─── Recovery state detection ──────────────────────────────────
+    // Supabase fires PASSWORD_RECOVERY when the user lands on the page
+    // via a recovery link (with type=recovery in the URL hash).
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setState('recovery');
+      }
+    });
+
+    // ─── Helpers ───────────────────────────────────────────────────
+    function getRedirectTarget() {
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get('redirect');
+      if (next && next.startsWith('/') && !next.startsWith('//')) {
+        return next;
+      }
+      return '/editor.html';
+    }
+
+    function withLoading(btn, label) {
+      btn.disabled = true;
+      btn.dataset.origLabel = btn.textContent;
+      btn.textContent = label;
+    }
+    function clearLoading(btn) {
+      btn.disabled = false;
+      if (btn.dataset.origLabel) btn.textContent = btn.dataset.origLabel;
+    }
+
+    // ─── Sign in (email + password) ────────────────────────────────
+    signinForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const fd = new FormData(signinForm);
+      const email = String(fd.get('email') || '').trim();
+      const password = String(fd.get('password') || '');
+      if (!email || !password) {
+        showError('Email and password are both required.');
+        return;
+      }
+      withLoading(signinSubmit, 'Signing in…');
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        if (!data.session) throw new Error('No session returned');
+        window.location.replace(getRedirectTarget());
+      } catch (err) {
+        clearLoading(signinSubmit);
+        const msg = (err && err.message) || 'Sign in failed.';
+        // Friendlier error for the most common failure
+        if (/invalid login credentials/i.test(msg)) {
+          showError("Email and password don't match. Try again or reset your password.");
+        } else {
+          showError(msg);
+        }
+      }
+    });
+
+    // ─── Magic link ────────────────────────────────────────────────
+    magicLinkBtn.addEventListener('click', async () => {
+      hideError();
+      const fd = new FormData(signinForm);
+      const email = String(fd.get('email') || '').trim();
+      if (!email) {
+        showError('Enter your email above first, then click "Email me a magic link".');
+        return;
+      }
+      withLoading(magicLinkBtn, 'Sending…');
+      try {
+        const redirectTarget = getRedirectTarget();
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: window.location.origin + redirectTarget,
+            shouldCreateUser: false, // only existing accounts can magic-link in
+          },
+        });
+        if (error) throw error;
+        setState('magic-sent', { email });
+      } catch (err) {
+        clearLoading(magicLinkBtn);
+        const msg = (err && err.message) || 'Could not send magic link.';
+        if (/signups not allowed/i.test(msg) || /not found/i.test(msg)) {
+          showError("We couldn't find an account for that email. Ask Tim to invite you, or check the spelling.");
+        } else {
+          showError(msg);
+        }
+      }
+    });
+
+    // ─── Forgot password ────────────────────────────────────────────
+    forgotBtn.addEventListener('click', () => setState('forgot'));
+    forgotCancel.addEventListener('click', () => setState('signin'));
+
+    forgotForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const fd = new FormData(forgotForm);
+      const email = String(fd.get('email') || '').trim();
+      if (!email) {
+        showError('Email is required.');
+        return;
+      }
+      withLoading(forgotSubmit, 'Sending…');
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/login.html',
+        });
+        if (error) throw error;
+        setState('recovery-sent', { email });
+      } catch (err) {
+        clearLoading(forgotSubmit);
+        showError((err && err.message) || 'Could not send recovery link.');
+      }
+    });
+
+    if (recoverySentRetry) {
+      recoverySentRetry.addEventListener('click', () => setState('forgot'));
+    }
+
+    // ─── Recovery (set new password) ───────────────────────────────
+    recoveryForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const fd = new FormData(recoveryForm);
+      const password = String(fd.get('password') || '');
+      const confirm  = String(fd.get('confirm') || '');
+      if (password.length < 8) {
+        showError('Password must be at least 8 characters.');
+        return;
+      }
+      if (password !== confirm) {
+        showError("Passwords don't match.");
+        return;
+      }
+      withLoading(recoverySubmit, 'Setting password…');
+      try {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        // Already authenticated via the recovery token — go straight to editor.
+        window.location.replace(getRedirectTarget());
+      } catch (err) {
+        clearLoading(recoverySubmit);
+        showError((err && err.message) || 'Could not set new password.');
+      }
+    });
+  </script>
+</body>
+</html>
