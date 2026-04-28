@@ -169,6 +169,21 @@
 //      rail's start/end via an inline IIFE. Mobile hides the arrows,
 //      narrows cards to 320px, and lets touch scroll do the work.
 //
+//  14. [Phase 1B.6] Cohesion pass on Sections 04, 05, footer CTAs,
+//      and bottom strip — bringing them up to the Phase 1B.4/1B.5
+//      luxe baseline. Photo group labels (formerly green
+//      eyebrow-style 12px) now render as a navy 18px sub-heading
+//      with a tabular-num "N photos" count to the right, separated
+//      from the next group by a hairline divider — same rhythm as
+//      the Phase 1B.4 materials grid. Photo cards get the 14px
+//      border-radius + hover lift that material cards introduced.
+//      Footer CTAs gain a "What happens next" eyebrow for section
+//      identity, the call/email buttons invert to navy fill on hover
+//      (was a flat translate), and the lede paragraph caps at 520px
+//      so it doesn't sprawl. The bottom byline ("Proposal prepared
+//      by…") becomes a JetBrains Mono uppercase mark rather than
+//      plain text, finishing the page with an editorial signature.
+//
 // Preserved from Sprint 1 / Sprint 1.5:
 //   • Hero picker grid (bid-PDF-extracted + manually uploaded images)
 //   • Hero banner at top of published page
@@ -1756,47 +1771,100 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     line-height: 1.65;
   }
 
-  /* ═════════ Photos ═════════ */
-  .pub-photos-group { margin-bottom: 56px; }
-  .pub-photos-group:last-child { margin-bottom: 0; }
+  /* ═════════ Photos — Phase 1B.6 polish ═════════
+     Group label + count render side-by-side in a flex header with a hairline
+     divider below each group. Photo cards get the same 14px radius as
+     materials, a 24px grid gap (up from 14px), and a subtle hover lift so
+     they feel interactive — they're already buttons that open the lightbox,
+     but the previous styling gave no visual feedback. */
+  .pub-photos-group {
+    margin-bottom: 56px;
+    padding-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pub-photos-group:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .pub-photos-group-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
   .pub-photos-group-label {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--green);
+    font-size: 18px;
     font-weight: 600;
-    margin-bottom: 16px;
+    color: var(--navy);
+    letter-spacing: -0.005em;
+    line-height: 1.3;
+  }
+  .pub-photos-group-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    text-transform: uppercase;
+    white-space: nowrap;
   }
   .pub-photos-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 14px;
+    gap: 24px;
+  }
+  .pub-photos-grid .pub-lightbox-trigger {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: zoom-in;
+    border-radius: 14px;
+    overflow: hidden;
+    display: block;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .pub-photos-grid .pub-lightbox-trigger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10);
   }
   .pub-photos-grid img {
     width: 100%;
     aspect-ratio: 4/3;
     object-fit: cover;
-    border-radius: 8px;
     display: block;
     background: var(--cream);
   }
 
-  /* ═════════ Footer CTAs ═════════ */
+  /* ═════════ Footer CTAs — Phase 1B.6 polish ═════════ */
   .pub-footer-ctas {
     background: var(--cream);
     padding: 96px 32px;
     text-align: center;
     border-top: 1px solid var(--border);
   }
+  .pub-footer-ctas-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
   .pub-footer-ctas h2 {
     font-size: clamp(28px, 4vw, 36px);
     font-weight: 600;
-    margin-bottom: 12px;
+    letter-spacing: -0.012em;
+    margin-bottom: 14px;
+    color: var(--navy);
   }
   .pub-footer-ctas p {
     color: var(--muted);
-    margin-bottom: 40px;
+    margin: 0 auto 40px;
     font-size: 17px;
+    line-height: 1.6;
+    max-width: 520px;
   }
   .pub-cta-row {
     display: flex;
@@ -1805,32 +1873,49 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     flex-wrap: wrap;
   }
   .pub-btn {
-    display: inline-block;
-    padding: 17px 34px;
-    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 30px;
+    border-radius: 12px;
     font-weight: 600;
     text-decoration: none;
-    font-size: 15px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    font-size: 14px;
+    letter-spacing: 0.005em;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
     border: 1px solid transparent;
   }
-  .pub-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+  .pub-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.10);
+  }
   .pub-btn-call {
     background: #fff;
     color: var(--navy);
     border-color: var(--navy);
   }
+  .pub-btn-call:hover {
+    background: var(--navy);
+    color: #fff;
+  }
   .pub-btn-guide {
     background: var(--green);
     color: var(--tan);
   }
+  .pub-btn-guide:hover {
+    background: var(--green-dark);
+    color: var(--tan);
+  }
 
-  /* ═════════ Bottom strip ═════════ */
+  /* ═════════ Bottom strip — Phase 1B.6 polish ═════════ */
   .pub-bottom {
-    padding: 40px 32px;
+    padding: 36px 32px;
     text-align: center;
-    color: #999;
-    font-size: 13px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
     border-top: 1px solid var(--border);
   }
 
@@ -2046,6 +2131,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   ${photosHtml}
 
   <section class="pub-footer-ctas">
+    <div class="pub-footer-ctas-eyebrow">What happens next</div>
     <h2>Ready to move forward?</h2>
     <p>Questions about the scope, materials, or next steps? Call or email Tim directly.</p>
     <div class="pub-cta-row">
@@ -3090,9 +3176,13 @@ function renderPhotosBlock(photos, number, heading, lede) {
                 <img src="${escapeAttr(url)}" alt="${escapeAttr(altText)}" loading="lazy">
               </button>`;
     }).join('');
+    const countLabel = `${items.length} ${items.length === 1 ? 'photo' : 'photos'}`;
     return `
       <div class="pub-photos-group">
-        <div class="pub-photos-group-label">${escapeHtml(label)}</div>
+        <div class="pub-photos-group-header">
+          <div class="pub-photos-group-label">${escapeHtml(label)}</div>
+          <div class="pub-photos-group-count num">${escapeHtml(countLabel)}</div>
+        </div>
         <div class="pub-photos-grid">${imgs}</div>
       </div>
     `;
