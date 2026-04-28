@@ -59,17 +59,37 @@ async function loadProposal() {
     return false;
   }
   proposal = data;
-  document.title = `${proposal.client_name || 'Untitled draft'} · Editor`;
+  // Phase 2E.1: tab title falls back through label and address before "Untitled draft".
+  document.title = `${getProposalTitle(proposal)} · Editor`;
   return true;
 }
 
 function renderProjectTitle() {
-  const title = proposal.client_name || proposal.project_label || 'Untitled draft';
-  const addr = [proposal.project_address, proposal.project_city].filter(Boolean).join(', ');
+  // Phase 2E.1: use shared fallback chain. When the address itself is the title,
+  // show city (if any) as subtitle instead of repeating the address.
+  const title = getProposalTitle(proposal);
+  const subtitle = getProposalSubtitle(proposal);
   projectTitleEl.innerHTML = `
     <span class="title">${escapeHtml(title)}</span>
-    ${addr ? `<span class="subtitle">${escapeHtml(addr)}</span>` : ''}
+    ${subtitle ? `<span class="subtitle">${escapeHtml(subtitle)}</span>` : ''}
   `;
+}
+
+// Title + subtitle fallback used by the editor and matched in dashboard.js.
+// Order: client_name → project_label → project_address → "Untitled draft".
+function getProposalTitle(p) {
+  return p.client_name || p.project_label || p.project_address || 'Untitled draft';
+}
+function getProposalSubtitle(p) {
+  if (p.client_name || p.project_label) {
+    // Real-world title — subtitle is full address.
+    return [p.project_address, p.project_city].filter(Boolean).join(', ');
+  }
+  if (p.project_address) {
+    // Address became the title — subtitle is just city.
+    return p.project_city || '';
+  }
+  return '';
 }
 
 // ───────────────────────────────────────────────────────────────────────────
