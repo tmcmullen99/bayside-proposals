@@ -1003,6 +1003,11 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   const total = proposal.bid_total_amount != null
     ? formatMoney(proposal.bid_total_amount) : null;
   const dateStr = formatDate(new Date());
+  // Phase 1B.7 + post-launch — discount deadline anchored to publish time.
+  // 48h from the moment this snapshot is generated. Stamped into HTML as
+  // data-publish-deadline so all viewers count down toward the same fixed
+  // moment instead of each visitor getting their own fresh 48h.
+  const discountDeadlineIso = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
   const loomEmbed = buildLoomEmbed(proposal.loom_url);
   const heroBanner = buildHeroBanner(proposal.hero_image_url);
   const drawingSection = buildDrawingSection(proposal, regions, materials, categoryToSection);
@@ -2012,6 +2017,12 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     line-height: 1;
     padding-bottom: 18px;
   }
+  /* Post-launch — when the publish-time-anchored 48h discount window has
+     elapsed, every element in the .pub-cta-discount-block hides at once
+     (eyebrow, headline, lede, countdown box, expired-msg). The sign
+     button + secondary contact links remain. */
+  .pub-cta-final.is-discount-expired .pub-cta-discount-block { display: none; }
+
   .pub-cta-countdown.is-expired { opacity: 0.6; }
   .pub-cta-countdown.is-expired .pub-cta-countdown-value {
     color: rgba(255, 255, 255, 0.4);
@@ -2493,18 +2504,18 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 
   ${photosHtml}
 
-  <section class="pub-cta-final" data-proposal-id="${escapeAttr(proposal.id || '')}" data-bid-total="${escapeAttr(String(proposal.bid_total_amount || 0))}">
+  <section class="pub-cta-final" data-proposal-id="${escapeAttr(proposal.id || '')}" data-bid-total="${escapeAttr(String(proposal.bid_total_amount || 0))}" data-publish-deadline="${escapeAttr(discountDeadlineIso)}">
     <div class="pub-cta-final-inner">
-      <div class="pub-cta-final-eyebrow">Limited time · Immediate start discount</div>
-      <h2 class="pub-cta-final-headline">
+      <div class="pub-cta-final-eyebrow pub-cta-discount-block">Limited time · Immediate start discount</div>
+      <h2 class="pub-cta-final-headline pub-cta-discount-block">
         Sign within 48 hours and save 5%${proposal.bid_total_amount ? `
         <span class="pub-cta-final-amount num">— that's $<span id="ctaDiscountAmt">${escapeHtml(Math.round(proposal.bid_total_amount * 0.05).toLocaleString('en-US'))}</span> off</span>` : ''}
       </h2>
-      <p class="pub-cta-final-lede">
+      <p class="pub-cta-final-lede pub-cta-discount-block">
         The Immediate Start Discount locks your project into our next build window. Construction begins within 14 days of signing — materials, crew, and permits coordinated by Tim directly.
       </p>
 
-      <div class="pub-cta-countdown" aria-live="polite">
+      <div class="pub-cta-countdown pub-cta-discount-block" aria-live="polite">
         <div class="pub-cta-countdown-unit">
           <div class="pub-cta-countdown-value num" id="ctaHours">48</div>
           <div class="pub-cta-countdown-label">Hours</div>
@@ -2521,7 +2532,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
         </div>
       </div>
 
-      <div class="pub-cta-expired-msg" id="ctaExpiredMsg" hidden>
+      <div class="pub-cta-expired-msg pub-cta-discount-block" id="ctaExpiredMsg" hidden>
         The Immediate Start window has closed — but Tim can still help you move forward. Click below or give him a call.
       </div>
 
@@ -2718,23 +2729,25 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
       var bidTotal = parseFloat(section.getAttribute('data-bid-total') || '0');
       var slug = (window.location.pathname.split('/p/')[1] || '').replace(/\\/$/, '');
       var DISCOUNT_PERCENT = 5;
-      var TIMER_HOURS = 48;
-      var STORAGE_KEY = 'bpb-cta-deadline-' + slug;
 
       var hoursEl = document.getElementById('ctaHours');
       var minsEl  = document.getElementById('ctaMins');
       var secsEl  = document.getElementById('ctaSecs');
-      var countdownEl = section.querySelector('.pub-cta-countdown');
-      var expiredMsgEl = document.getElementById('ctaExpiredMsg');
       var signBtn = document.getElementById('ctaSignBtn');
 
       // ─── Countdown ─────────────────────────────────────────────────────
-      var deadline = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
-      var now = Date.now();
-      if (!deadline || deadline < now) {
-        // First visit OR previous deadline already expired — start fresh
-        deadline = now + TIMER_HOURS * 60 * 60 * 1000;
-        try { localStorage.setItem(STORAGE_KEY, deadline.toString()); } catch (e) {}
+      // Publish-time-anchored deadline: stamped into HTML as
+      // data-publish-deadline at snapshot generation. All viewers count
+      // down toward the same fixed moment — so a homeowner who opens the
+      // page 3 days late sees an expired window, not a fresh 48h.
+      //
+      // Fallback: if the attribute is missing or unparseable (defensive
+      // against future schema changes or copy-paste corruption), default
+      // to 48h from page load. This is per-session, not persisted.
+      var publishDeadlineStr = section.getAttribute('data-publish-deadline');
+      var deadline = publishDeadlineStr ? Date.parse(publishDeadlineStr) : NaN;
+      if (!Number.isFinite(deadline)) {
+        deadline = Date.now() + 48 * 60 * 60 * 1000;
       }
 
       function pad(n) { return String(n).padStart(2, '0'); }
@@ -2744,12 +2757,12 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
         if (remaining <= 0) {
           if (!expired) {
             expired = true;
-            countdownEl && countdownEl.classList.add('is-expired');
-            if (expiredMsgEl) expiredMsgEl.hidden = false;
+            // Hide every element with .pub-cta-discount-block — eyebrow,
+            // headline, lede, countdown, expired-msg — via the CSS rule
+            // that targets .pub-cta-final.is-discount-expired. The sign
+            // button + secondary contact links remain.
+            section.classList.add('is-discount-expired');
           }
-          if (hoursEl) hoursEl.textContent = '00';
-          if (minsEl)  minsEl.textContent  = '00';
-          if (secsEl)  secsEl.textContent  = '00';
           return;
         }
         var totalSec = Math.floor(remaining / 1000);
