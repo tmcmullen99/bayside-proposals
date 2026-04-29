@@ -30,8 +30,6 @@
     background: var(--bp-bg);
     line-height: 1.5; font-size: 15px;
   }
-
-  /* ── Header ─────────────────────────────────────────────────── */
   .ho-nav {
     background: #fff;
     border-bottom: 1px solid var(--bp-border);
@@ -41,18 +39,12 @@
   }
   .ho-nav-brand { display: flex; align-items: center; gap: 14px; }
   .ho-nav-brand img { height: 30px; width: auto; }
-  .ho-nav-brand-divider {
-    width: 1px; height: 22px; background: var(--bp-border);
-  }
+  .ho-nav-brand-divider { width: 1px; height: 22px; background: var(--bp-border); }
   .ho-nav-brand-tag {
     font-size: 11px; letter-spacing: 0.18em;
-    color: var(--bp-muted); text-transform: uppercase;
-    font-weight: 600;
+    color: var(--bp-muted); text-transform: uppercase; font-weight: 600;
   }
-  .ho-nav-user {
-    display: flex; align-items: center; gap: 14px;
-    font-size: 13px;
-  }
+  .ho-nav-user { display: flex; align-items: center; gap: 14px; font-size: 13px; }
   .ho-nav-name { font-weight: 600; color: var(--bp-text); }
   .ho-nav-out {
     background: transparent;
@@ -64,14 +56,10 @@
     cursor: pointer;
     transition: background .15s, color .15s, border-color .15s;
   }
-  .ho-nav-out:hover {
-    background: var(--bp-text); color: #fff; border-color: var(--bp-text);
-  }
+  .ho-nav-out:hover { background: var(--bp-text); color: #fff; border-color: var(--bp-text); }
 
-  /* ── Page wrap ──────────────────────────────────────────────── */
   .ho-page { max-width: 1080px; margin: 0 auto; padding: 36px 24px 80px; }
 
-  /* ── Hero / welcome banner ──────────────────────────────────── */
   .ho-hero {
     background: linear-gradient(135deg, var(--bp-green) 0%, var(--bp-green-dk) 100%);
     color: #fff;
@@ -89,8 +77,7 @@
   .ho-hero-title {
     font-size: 28px; font-weight: 600;
     letter-spacing: -0.014em;
-    margin-bottom: 10px;
-    line-height: 1.2;
+    margin-bottom: 10px; line-height: 1.2;
   }
   .ho-hero-lede {
     font-size: 15px; line-height: 1.6;
@@ -98,7 +85,6 @@
     max-width: 680px;
   }
 
-  /* ── Section ────────────────────────────────────────────────── */
   .ho-section { margin-bottom: 32px; }
   .ho-section-head {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -113,7 +99,6 @@
     letter-spacing: 0.04em;
   }
 
-  /* ── Proposal cards ─────────────────────────────────────────── */
   .ho-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -161,13 +146,9 @@
   .ho-prop-addr {
     font-size: 16px; font-weight: 600;
     color: var(--bp-text);
-    margin-bottom: 6px;
-    line-height: 1.3;
+    margin-bottom: 6px; line-height: 1.3;
   }
-  .ho-prop-meta {
-    font-size: 12px; color: var(--bp-muted);
-    margin-bottom: 12px;
-  }
+  .ho-prop-meta { font-size: 12px; color: var(--bp-muted); margin-bottom: 12px; }
   .ho-prop-total {
     font-size: 22px; font-weight: 600;
     color: var(--bp-green-dk);
@@ -187,7 +168,6 @@
   }
   .ho-prop-cta:hover { background: var(--bp-green-dk); }
 
-  /* ── Empty state ────────────────────────────────────────────── */
   .ho-empty {
     background: #fff;
     border: 1px dashed var(--bp-border);
@@ -196,27 +176,17 @@
     text-align: center;
     color: var(--bp-muted);
   }
-  .ho-empty-icon {
-    font-size: 36px; margin-bottom: 12px;
-    color: var(--bp-green); opacity: 0.6;
-  }
-  .ho-empty h3 {
-    font-size: 16px; font-weight: 600;
-    color: var(--bp-text); margin-bottom: 6px;
-  }
+  .ho-empty-icon { font-size: 36px; margin-bottom: 12px; color: var(--bp-green); opacity: 0.6; }
+  .ho-empty h3 { font-size: 16px; font-weight: 600; color: var(--bp-text); margin-bottom: 6px; }
   .ho-empty p { font-size: 13px; line-height: 1.6; max-width: 420px; margin: 0 auto; }
 
-  /* ── Two-column layout for credit + resources ──────────────── */
   .ho-two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
   }
-  @media (max-width: 760px) {
-    .ho-two-col { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 760px) { .ho-two-col { grid-template-columns: 1fr; } }
 
-  /* ── Credit card ────────────────────────────────────────────── */
   .ho-credit-card {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -233,24 +203,17 @@
   .ho-credit-amount {
     font-size: 32px; font-weight: 600;
     color: var(--bp-green-dk);
-    letter-spacing: -0.018em;
-    margin-bottom: 4px;
+    letter-spacing: -0.018em; margin-bottom: 4px;
   }
-  .ho-credit-cap {
-    font-size: 13px; color: var(--bp-muted);
-    margin-bottom: 16px;
-  }
+  .ho-credit-cap { font-size: 13px; color: var(--bp-muted); margin-bottom: 16px; }
   .ho-credit-bar {
     background: var(--bp-cream);
-    border-radius: 999px;
-    height: 8px;
-    overflow: hidden;
-    margin-bottom: 16px;
+    border-radius: 999px; height: 8px;
+    overflow: hidden; margin-bottom: 16px;
   }
   .ho-credit-bar-fill {
     background: linear-gradient(90deg, var(--bp-green) 0%, var(--bp-green-dk) 100%);
-    height: 100%;
-    border-radius: 999px;
+    height: 100%; border-radius: 999px;
     transition: width .4s ease;
   }
   .ho-credit-desc {
@@ -259,19 +222,17 @@
     margin-bottom: 18px;
   }
   .ho-credit-cta {
-    background: var(--bp-text); color: #fff;
+    background: var(--bp-green); color: #fff;
     border: none; border-radius: 8px;
     padding: 11px 20px;
     font: inherit; font-weight: 600; font-size: 13px;
     cursor: pointer;
     transition: background .15s;
-    margin-top: auto;
-    align-self: flex-start;
+    margin-top: auto; align-self: flex-start;
   }
   .ho-credit-cta:hover { background: var(--bp-green-dk); }
-  .ho-credit-cta:disabled { opacity: 0.6; cursor: not-allowed; }
+  .ho-credit-cta:disabled { background: var(--bp-text); opacity: 0.6; cursor: not-allowed; }
 
-  /* ── Resources card ─────────────────────────────────────────── */
   .ho-res-card {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -294,10 +255,7 @@
     color: var(--bp-text);
     transition: border-color .15s, background .15s;
   }
-  .ho-res-link:hover {
-    border-color: var(--bp-green);
-    background: var(--bp-cream);
-  }
+  .ho-res-link:hover { border-color: var(--bp-green); background: var(--bp-cream); }
   .ho-res-icon {
     flex-shrink: 0;
     width: 36px; height: 36px;
@@ -308,14 +266,8 @@
     font-size: 18px;
   }
   .ho-res-text { flex: 1; min-width: 0; }
-  .ho-res-title {
-    font-size: 14px; font-weight: 600;
-    margin-bottom: 2px;
-    color: var(--bp-text);
-  }
-  .ho-res-sub {
-    font-size: 12px; color: var(--bp-muted); line-height: 1.4;
-  }
+  .ho-res-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; color: var(--bp-text); }
+  .ho-res-sub { font-size: 12px; color: var(--bp-muted); line-height: 1.4; }
   .ho-res-coming {
     padding: 12px 14px;
     border: 1px dashed var(--bp-border);
@@ -326,7 +278,6 @@
     line-height: 1.5;
   }
 
-  /* ── Loading / error shells ─────────────────────────────────── */
   .ho-loading {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -344,6 +295,129 @@
     padding: 12px 16px;
     font-size: 13px;
     margin-bottom: 18px;
+  }
+
+  /* ─── Refer modal ─────────────────────────────────────────────── */
+  .ho-modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(31, 33, 37, 0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+  }
+  .ho-modal-backdrop[hidden] { display: none; }
+  .ho-modal {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    max-width: 480px; width: 100%;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .ho-modal-head {
+    background: linear-gradient(135deg, var(--bp-green) 0%, var(--bp-green-dk) 100%);
+    color: #fff;
+    padding: 22px 26px 18px;
+    border-radius: 14px 14px 0 0;
+    position: relative;
+  }
+  .ho-modal-head h2 {
+    font-size: 18px; font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .ho-modal-head p {
+    font-size: 13px; line-height: 1.5;
+    color: rgba(255, 255, 255, 0.85);
+  }
+  .ho-modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(255, 255, 255, 0.18);
+    border: none; color: #fff;
+    width: 28px; height: 28px;
+    border-radius: 999px;
+    font: inherit; font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .ho-modal-close:hover { background: rgba(255, 255, 255, 0.3); }
+  .ho-modal-body { padding: 24px 26px 26px; }
+  .ho-modal-form { display: flex; flex-direction: column; gap: 14px; }
+  .ho-modal-field { display: flex; flex-direction: column; gap: 5px; }
+  .ho-modal-field label {
+    font-size: 12px; font-weight: 600;
+    color: var(--bp-charcoal);
+  }
+  .ho-modal-field label em { color: var(--bp-err); font-style: normal; margin-left: 2px; }
+  .ho-modal-field input {
+    font-family: inherit; font-size: 14px;
+    padding: 11px 13px;
+    border: 1px solid var(--bp-border);
+    border-radius: 8px; background: #fff;
+    color: var(--bp-text);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .ho-modal-field input:focus {
+    outline: none;
+    border-color: var(--bp-green);
+    box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.16);
+  }
+  .ho-modal-perk {
+    background: var(--bp-cream);
+    border-left: 3px solid var(--bp-green);
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 12px; line-height: 1.55;
+    color: var(--bp-charcoal);
+    margin-bottom: 4px;
+  }
+  .ho-modal-actions {
+    display: flex; gap: 10px;
+    margin-top: 6px;
+  }
+  .ho-modal-btn {
+    flex: 1;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+    border: 1px solid transparent;
+    transition: background .15s, opacity .15s;
+  }
+  .ho-modal-btn-primary {
+    background: var(--bp-green); color: #fff;
+  }
+  .ho-modal-btn-primary:hover { background: var(--bp-green-dk); }
+  .ho-modal-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+  .ho-modal-btn-ghost {
+    background: transparent;
+    color: var(--bp-charcoal);
+    border-color: var(--bp-border);
+  }
+  .ho-modal-btn-ghost:hover { background: var(--bp-cream); }
+  .ho-modal-error {
+    background: #fef2f2; color: var(--bp-err);
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12px; line-height: 1.5;
+  }
+  .ho-modal-error[hidden] { display: none; }
+  .ho-modal-success {
+    text-align: center;
+    padding: 14px 0;
+  }
+  .ho-modal-success-icon {
+    font-size: 36px; color: var(--bp-green); margin-bottom: 10px;
+  }
+  .ho-modal-success h3 {
+    font-size: 16px; font-weight: 600;
+    color: var(--bp-text);
+    margin-bottom: 6px;
+  }
+  .ho-modal-success p {
+    font-size: 13px; line-height: 1.6;
+    color: var(--bp-muted);
   }
 
   @media (max-width: 540px) {
@@ -398,7 +472,7 @@
         <p class="ho-credit-desc">
           Refer a neighbor to Bayside Pavers. When they complete a design appointment, you both earn $500 off your next project.
         </p>
-        <button type="button" class="ho-credit-cta" id="ho-credit-cta" disabled>Refer a neighbor (coming soon)</button>
+        <button type="button" class="ho-credit-cta" id="ho-credit-cta">Refer a neighbor →</button>
       </div>
 
       <div class="ho-res-card">
@@ -427,6 +501,52 @@
   </section>
 </main>
 
+<!-- Refer a neighbor modal -->
+<div class="ho-modal-backdrop" id="ho-refer-backdrop" hidden>
+  <div class="ho-modal" role="dialog" aria-modal="true" aria-labelledby="ho-refer-title">
+    <div class="ho-modal-head">
+      <button type="button" class="ho-modal-close" id="ho-refer-close" aria-label="Close">×</button>
+      <h2 id="ho-refer-title">Refer a neighbor</h2>
+      <p>Send a personal $500-off invitation. They get the perk, you earn $500 toward your next project when they complete a design appointment.</p>
+    </div>
+    <div class="ho-modal-body">
+      <div id="ho-refer-form-wrap">
+        <p class="ho-modal-perk">
+          We'll send the invite from <strong>tim@mcmullen.properties</strong> with your name on it. Replies go straight to your email.
+        </p>
+        <form class="ho-modal-form" id="ho-refer-form" novalidate>
+          <div class="ho-modal-field">
+            <label>Their name <em>*</em></label>
+            <input type="text" id="ho-refer-name" required maxlength="120" placeholder="Sarah Chen">
+          </div>
+          <div class="ho-modal-field">
+            <label>Their email <em>*</em></label>
+            <input type="email" id="ho-refer-email" required placeholder="sarah@example.com" autocapitalize="off" autocorrect="off" spellcheck="false">
+          </div>
+          <div class="ho-modal-field">
+            <label>Their phone (optional)</label>
+            <input type="tel" id="ho-refer-phone" placeholder="(415) 555-0182">
+          </div>
+          <div class="ho-modal-error" id="ho-refer-error" hidden></div>
+          <div class="ho-modal-actions">
+            <button type="button" class="ho-modal-btn ho-modal-btn-ghost" id="ho-refer-cancel">Cancel</button>
+            <button type="submit" class="ho-modal-btn ho-modal-btn-primary" id="ho-refer-submit">Send invite</button>
+          </div>
+        </form>
+      </div>
+      <div class="ho-modal-success" id="ho-refer-success" hidden>
+        <div class="ho-modal-success-icon">✓</div>
+        <h3>Invite sent!</h3>
+        <p id="ho-refer-success-msg">We sent the invite. You'll see this referral show up in your dashboard once they accept and complete a design appointment.</p>
+        <div class="ho-modal-actions" style="margin-top:18px;">
+          <button type="button" class="ho-modal-btn ho-modal-btn-ghost" id="ho-refer-another">Refer someone else</button>
+          <button type="button" class="ho-modal-btn ho-modal-btn-primary" id="ho-refer-done">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -436,9 +556,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
 
-const REFERRAL_CAP_CENTS = 250000; // $2,500
+const REFERRAL_CAP_CENTS = 250000;
 
-// ─── Element refs ───────────────────────────────────────────────────────
 const navName       = document.getElementById('ho-nav-name');
 const navOut        = document.getElementById('ho-nav-out');
 const heroTitle     = document.getElementById('ho-hero-title');
@@ -450,9 +569,93 @@ const creditCap     = document.getElementById('ho-credit-cap');
 const creditFill    = document.getElementById('ho-credit-fill');
 const errorBanner   = document.getElementById('ho-error-banner');
 
+// Refer modal refs
+const referBackdrop = document.getElementById('ho-refer-backdrop');
+const referFormWrap = document.getElementById('ho-refer-form-wrap');
+const referSuccess  = document.getElementById('ho-refer-success');
+const referForm     = document.getElementById('ho-refer-form');
+const referError    = document.getElementById('ho-refer-error');
+const referSubmit   = document.getElementById('ho-refer-submit');
+
 navOut.addEventListener('click', async () => {
   try { await supabase.auth.signOut(); } catch (_) {}
   window.location.replace('/account/signin.html');
+});
+
+document.getElementById('ho-credit-cta').addEventListener('click', () => openReferModal());
+document.getElementById('ho-refer-close').addEventListener('click', () => closeReferModal());
+document.getElementById('ho-refer-cancel').addEventListener('click', () => closeReferModal());
+document.getElementById('ho-refer-done').addEventListener('click', () => closeReferModal());
+document.getElementById('ho-refer-another').addEventListener('click', () => resetReferForm());
+referBackdrop.addEventListener('click', (e) => { if (e.target === referBackdrop) closeReferModal(); });
+
+function openReferModal() {
+  resetReferForm();
+  referBackdrop.hidden = false;
+  setTimeout(() => document.getElementById('ho-refer-name').focus(), 50);
+}
+function closeReferModal() { referBackdrop.hidden = true; }
+function resetReferForm() {
+  referForm.reset();
+  referError.hidden = true;
+  referError.textContent = '';
+  referFormWrap.hidden = false;
+  referSuccess.hidden = true;
+  referSubmit.disabled = false;
+  referSubmit.textContent = 'Send invite';
+}
+
+referForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  referError.hidden = true;
+
+  const payload = {
+    referred_name:  document.getElementById('ho-refer-name').value.trim(),
+    referred_email: document.getElementById('ho-refer-email').value.trim(),
+  };
+  const phone = document.getElementById('ho-refer-phone').value.trim();
+  if (phone) payload.referred_phone = phone;
+
+  if (!payload.referred_name || !payload.referred_email) {
+    referError.textContent = 'Name and email are both required.';
+    referError.hidden = false;
+    return;
+  }
+
+  referSubmit.disabled = true;
+  referSubmit.textContent = 'Sending…';
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Your session expired. Refresh and sign in again.');
+
+    const resp = await fetch('/api/send-referral-invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.ok) {
+      throw new Error(data.error || ('Server returned ' + resp.status));
+    }
+
+    document.getElementById('ho-refer-success-msg').textContent =
+      data.email_sent
+        ? `We sent the invite to ${payload.referred_email}. You'll see this referral progress in your dashboard.`
+        : `Referral created, but the email didn't send. Reach out to ${payload.referred_email} directly with this link: ${data.landing_url}`;
+
+    referFormWrap.hidden = true;
+    referSuccess.hidden = false;
+
+  } catch (err) {
+    referSubmit.disabled = false;
+    referSubmit.textContent = 'Send invite';
+    referError.textContent = (err && err.message) || 'Could not send invite.';
+    referError.hidden = false;
+  }
 });
 
 function showError(msg) {
@@ -460,7 +663,6 @@ function showError(msg) {
   errorBanner.style.display = 'block';
 }
 
-// ─── Auth gate ──────────────────────────────────────────────────────────
 const { data: { session } } = await supabase.auth.getSession();
 if (!session) {
   window.location.replace('/account/signin.html');
@@ -468,11 +670,9 @@ if (!session) {
   await loadAccount();
 }
 
-// ─── Main load ──────────────────────────────────────────────────────────
 async function loadAccount() {
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Load clients row.
   const { data: client, error: clientErr } = await supabase
     .from('clients')
     .select('id, name, email, must_change_password, referral_credit_cents, referral_credit_used_cents')
@@ -486,7 +686,6 @@ async function loadAccount() {
     return;
   }
   if (!client) {
-    // Authenticated but no clients row — internal user landed here.
     showError('This dashboard is for homeowner accounts. Sign in to your team account at /login.html.');
     heroTitle.textContent = 'Wrong account type';
     heroLede.textContent = '';
@@ -498,30 +697,24 @@ async function loadAccount() {
     return;
   }
 
-  // Hero + nav
   const firstName = (client.name || '').split(/[\s,&]+/)[0] || 'there';
   navName.textContent = client.name || client.email;
   heroTitle.textContent = `Welcome, ${firstName}`;
   heroLede.textContent =
     'Your project lives here. Review your proposal, explore design resources, and refer neighbors to earn credit toward your next project.';
 
-  // Referral credit
   const totalEarned    = Number(client.referral_credit_cents || 0);
   const totalUsed      = Number(client.referral_credit_used_cents || 0);
   const availableCents = Math.max(0, totalEarned - totalUsed);
   creditAmount.textContent = formatUSD(availableCents);
   creditCap.textContent = `of ${formatUSD(REFERRAL_CAP_CENTS)} max`;
   const pct = Math.min(100, Math.round((totalEarned / REFERRAL_CAP_CENTS) * 100));
-  // Defer the width animation until next frame so the bar slides in.
   requestAnimationFrame(() => { creditFill.style.width = pct + '%'; });
 
-  // Proposals
   await loadProposals(client.id);
 }
 
-// ─── Proposals ──────────────────────────────────────────────────────────
 async function loadProposals(clientId) {
-  // 1. client_proposals → proposal_id, status, sent_at, first_viewed_at, signed_at
   const { data: links, error: linksErr } = await supabase
     .from('client_proposals')
     .select('proposal_id, status, sent_at, first_viewed_at, signed_at')
@@ -544,7 +737,6 @@ async function loadProposals(clientId) {
     return;
   }
 
-  // 2. Fetch the matching proposals (for hero image + project address).
   const proposalIds = links.map(l => l.proposal_id);
   const { data: proposals, error: propsErr } = await supabase
     .from('proposals')
@@ -557,17 +749,13 @@ async function loadProposals(clientId) {
   }
   const propMap = new Map((proposals || []).map(p => [p.id, p]));
 
-  // 3. Fetch published_proposals snapshots for the slug (so View Proposal works).
   const { data: pubs, error: pubsErr } = await supabase
     .from('published_proposals')
     .select('proposal_id, slug, title, project_address, total_amount, published_at')
     .in('proposal_id', proposalIds);
 
-  if (pubsErr) {
-    // Non-fatal; we'll fall back to the proposals row data.
-    console.warn('published_proposals load failed:', pubsErr);
-  }
-  // For each proposal_id, keep the most recently published row.
+  if (pubsErr) console.warn('published_proposals load failed:', pubsErr);
+
   const pubMap = new Map();
   (pubs || []).forEach(pub => {
     const existing = pubMap.get(pub.proposal_id);
@@ -576,7 +764,6 @@ async function loadProposals(clientId) {
     }
   });
 
-  // 4. Build cards.
   propCount.textContent = `${links.length} ${links.length === 1 ? 'proposal' : 'proposals'}`;
 
   const html = links.map(link => {
@@ -622,7 +809,6 @@ async function loadProposals(clientId) {
   propArea.innerHTML = `<div class="ho-grid">${html}</div>`;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────
 function formatUSD(cents) {
   const dollars = (Number(cents) || 0) / 100;
   return dollars.toLocaleString('en-US', {
@@ -634,12 +820,8 @@ function formatUSD(cents) {
 
 function formatStatus(s) {
   const map = {
-    draft:       'Draft',
-    sent:        'Sent',
-    viewed:      'Viewed',
-    signed:      'Signed',
-    in_progress: 'In progress',
-    complete:    'Complete',
+    draft: 'Draft', sent: 'Sent', viewed: 'Viewed',
+    signed: 'Signed', in_progress: 'In progress', complete: 'Complete',
   };
   return map[s] || s;
 }
