@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Materials we install · Bayside Pavers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bp-green:    #5d7e69;
+    --bp-green-dk: #4a6554;
+    --bp-green-soft: #e8eee9;
+    --bp-charcoal: #353535;
+    --bp-tan:      #dad7c5;
+    --bp-cream:    #faf8f3;
+    --bp-bg:       #f4f4ef;
+    --bp-card:     #ffffff;
+    --bp-border:   #e4e4df;
+    --bp-text:     #1f2125;
+    --bp-muted:    #70726f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--bp-text);
+    background: var(--bp-bg);
+    line-height: 1.5; font-size: 15px;
+  }
+
+  .ho-nav {
+    background: #fff;
+    border-bottom: 1px solid var(--bp-border);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .ho-nav-brand { display: flex; align-items: center; gap: 14px; }
+  .ho-nav-brand img { height: 32px; width: auto; }
+  .ho-nav-brand-divider { width: 1px; height: 22px; background: var(--bp-border); }
+  .ho-nav-brand-tag {
+    font-size: 11px; letter-spacing: 0.18em;
+    color: var(--bp-muted); text-transform: uppercase; font-weight: 600;
+  }
+  .ho-nav-back {
+    background: transparent;
+    border: 1px solid var(--bp-border);
+    color: var(--bp-charcoal);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .ho-nav-back:hover { background: var(--bp-text); color: #fff; border-color: var(--bp-text); }
+
+  .ho-page { max-width: 1200px; margin: 0 auto; padding: 36px 24px 80px; }
+
+  .ho-page-head { margin-bottom: 32px; }
+  .ho-eyebrow {
+    display: inline-block;
+    font-size: 11px; letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--bp-green-dk);
+    background: var(--bp-green-soft);
+    padding: 6px 14px; border-radius: 999px;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .ho-page-title {
+    font-size: 32px; font-weight: 600;
+    letter-spacing: -0.018em;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+  .ho-page-lede {
+    font-size: 15px; line-height: 1.65;
+    color: var(--bp-muted);
+    max-width: 640px;
+  }
+
+  /* Featured section */
+  .ho-section { margin-bottom: 40px; }
+  .ho-section-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px; gap: 12px; flex-wrap: wrap;
+  }
+  .ho-section h2 {
+    font-size: 18px; font-weight: 600;
+    color: var(--bp-text); letter-spacing: -0.005em;
+  }
+  .ho-section-sub {
+    font-size: 13px; color: var(--bp-muted); margin-bottom: 14px;
+  }
+  .ho-section-meta {
+    font-size: 12px; color: var(--bp-muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* Search + filter bar */
+  .ho-tools {
+    display: flex; flex-direction: column; gap: 12px;
+    margin-bottom: 18px;
+  }
+  .ho-search {
+    width: 100%;
+    font-family: inherit; font-size: 15px;
+    padding: 12px 16px;
+    border: 1px solid var(--bp-border);
+    border-radius: 10px; background: #fff;
+    color: var(--bp-text);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .ho-search:focus {
+    outline: none;
+    border-color: var(--bp-green);
+    box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.18);
+  }
+  .ho-cats {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .ho-cat-pill {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    color: var(--bp-charcoal);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .ho-cat-pill:hover {
+    border-color: var(--bp-green);
+    color: var(--bp-green-dk);
+  }
+  .ho-cat-pill.active {
+    background: var(--bp-green); color: #fff;
+    border-color: var(--bp-green);
+  }
+
+  /* Card grid */
+  .ho-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .ho-mat-card {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s, border-color .15s;
+    display: flex; flex-direction: column;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    padding: 0;
+  }
+  .ho-mat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(31, 33, 37, 0.08);
+    border-color: var(--bp-green);
+  }
+  .ho-mat-img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: var(--bp-cream) center/cover no-repeat;
+    border-bottom: 1px solid var(--bp-border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bp-muted); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; font-weight: 600;
+  }
+  .ho-mat-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .ho-mat-name {
+    font-size: 14px; font-weight: 600;
+    color: var(--bp-text);
+    line-height: 1.3;
+  }
+  .ho-mat-meta {
+    font-size: 11px; color: var(--bp-muted);
+    letter-spacing: 0.02em;
+  }
+  .ho-mat-tag {
+    display: inline-block;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--bp-green-dk);
+    background: var(--bp-green-soft);
+    padding: 2px 8px; border-radius: 999px;
+    margin-top: 4px;
+    align-self: flex-start;
+  }
+
+  /* Empty / loading states */
+  .ho-empty, .ho-loading {
+    background: #fff;
+    border: 1px dashed var(--bp-border);
+    border-radius: 12px;
+    padding: 38px 28px;
+    text-align: center;
+    color: var(--bp-muted);
+    font-size: 14px;
+  }
+
+  /* Modal */
+  .ho-modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(31, 33, 37, 0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+  }
+  .ho-modal-backdrop[hidden] { display: none; }
+  .ho-modal {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+    max-width: 640px; width: 100%;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .ho-modal-img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: var(--bp-cream) center/cover no-repeat;
+    border-radius: 14px 14px 0 0;
+  }
+  .ho-modal-body { padding: 28px 32px 30px; position: relative; }
+  .ho-modal-close {
+    position: absolute; top: 14px; right: 14px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid var(--bp-border);
+    color: var(--bp-charcoal);
+    width: 32px; height: 32px;
+    border-radius: 999px;
+    font: inherit; font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+    z-index: 1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  .ho-modal-close:hover { background: var(--bp-text); color: #fff; border-color: var(--bp-text); }
+  .ho-modal-eyebrow {
+    font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bp-muted); font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .ho-modal-title {
+    font-size: 24px; font-weight: 600;
+    letter-spacing: -0.014em;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .ho-modal-sub {
+    font-size: 14px; color: var(--bp-muted);
+    margin-bottom: 18px;
+  }
+  .ho-modal-desc {
+    font-size: 14px; line-height: 1.6;
+    color: var(--bp-charcoal);
+    margin-bottom: 20px;
+  }
+  .ho-modal-specs {
+    background: var(--bp-cream);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+  }
+  .ho-modal-specs dl {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 6px 16px;
+    font-size: 13px;
+  }
+  .ho-modal-specs dt {
+    color: var(--bp-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    align-self: center;
+  }
+  .ho-modal-specs dd { color: var(--bp-text); }
+  .ho-modal-actions {
+    display: flex; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .ho-modal-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .ho-modal-btn-primary {
+    background: var(--bp-green); color: #fff;
+  }
+  .ho-modal-btn-primary:hover { background: var(--bp-green-dk); }
+  .ho-modal-btn-ghost {
+    background: transparent; color: var(--bp-charcoal);
+    border-color: var(--bp-border);
+  }
+  .ho-modal-btn-ghost:hover { background: var(--bp-cream); border-color: var(--bp-green); }
+  .ho-modal-applications {
+    margin-top: 16px; font-size: 13px; color: var(--bp-muted);
+  }
+  .ho-modal-applications strong {
+    color: var(--bp-charcoal); font-weight: 600;
+    text-transform: uppercase; font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  .ho-modal-applications-list {
+    margin-top: 6px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .ho-modal-app-chip {
+    background: var(--bp-green-soft);
+    color: var(--bp-green-dk);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 540px) {
+    .ho-page { padding: 24px 16px 60px; }
+    .ho-page-title { font-size: 24px; }
+    .ho-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .ho-mat-body { padding: 12px 14px 14px; }
+    .ho-modal-body { padding: 22px 22px 24px; }
+    .ho-modal-title { font-size: 20px; }
+    .ho-modal-specs dl { grid-template-columns: 1fr; gap: 8px 0; }
+    .ho-modal-specs dt { margin-top: 6px; }
+    .ho-nav-brand-divider, .ho-nav-brand-tag { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="ho-nav">
+  <div class="ho-nav-brand">
+    <img src="https://baysidepavers.com/wp-content/uploads/2023/03/baysidepavers-logo-light-scaled.png" alt="Bayside Pavers">
+    <span class="ho-nav-brand-divider"></span>
+    <span class="ho-nav-brand-tag">Materials Catalog</span>
+  </div>
+  <a class="ho-nav-back" href="/account/">← Back to your account</a>
+</nav>
+
+<main class="ho-page">
+  <div class="ho-page-head">
+    <span class="ho-eyebrow">Browse the catalog</span>
+    <h1 class="ho-page-title">Materials we install</h1>
+    <p class="ho-page-lede">
+      Every product we work with — pavers, porcelain, walls, fire features, and more — sourced from
+      Belgard's Pacific/Stockton catalog. Click any material to see its cut-sheet, specs, and a richer
+      visual.
+    </p>
+  </div>
+
+  <!-- Featured: your project's materials -->
+  <section class="ho-section" id="ho-featured-section" hidden>
+    <div class="ho-section-head">
+      <h2>In your project</h2>
+      <span class="ho-section-meta" id="ho-featured-count"></span>
+    </div>
+    <p class="ho-section-sub">These are the materials your designer specified for your build.</p>
+    <div class="ho-grid" id="ho-featured-grid"></div>
+  </section>
+
+  <!-- Full catalog -->
+  <section class="ho-section">
+    <div class="ho-section-head">
+      <h2>Full catalog</h2>
+      <span class="ho-section-meta" id="ho-catalog-count">Loading…</span>
+    </div>
+
+    <div class="ho-tools">
+      <input type="search" class="ho-search" id="ho-search" placeholder="Search by product, color, or size…" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div class="ho-cats" id="ho-cats">
+        <button type="button" class="ho-cat-pill active" data-cat="all">All</button>
+      </div>
+    </div>
+
+    <div id="ho-catalog-area">
+      <div class="ho-loading">Loading materials…</div>
+    </div>
+  </section>
+</main>
+
+<!-- Material detail modal -->
+<div class="ho-modal-backdrop" id="ho-modal-backdrop" hidden>
+  <div class="ho-modal" role="dialog" aria-modal="true" aria-labelledby="ho-modal-title">
+    <div class="ho-modal-img" id="ho-modal-img"></div>
+    <div class="ho-modal-body">
+      <button type="button" class="ho-modal-close" id="ho-modal-close" aria-label="Close">×</button>
+      <div class="ho-modal-eyebrow" id="ho-modal-eyebrow">Material</div>
+      <h2 class="ho-modal-title" id="ho-modal-title"></h2>
+      <p class="ho-modal-sub" id="ho-modal-sub"></p>
+      <p class="ho-modal-desc" id="ho-modal-desc"></p>
+
+      <div class="ho-modal-specs" id="ho-modal-specs-wrap">
+        <dl id="ho-modal-specs"></dl>
+      </div>
+
+      <div class="ho-modal-applications" id="ho-modal-applications-wrap" hidden>
+        <strong>Applications</strong>
+        <div class="ho-modal-applications-list" id="ho-modal-applications-list"></div>
+      </div>
+
+      <div class="ho-modal-actions" id="ho-modal-actions"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+
+const SUPABASE_URL  = 'https://gfgbypcnxkschnfsitfb.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZ2J5cGNueGtzY2huZnNpdGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MTkzMTUsImV4cCI6MjA5MjI5NTMxNX0.EAwmiNR5OWcaI8Sr36MVn7FuMhYoZvfngse7y0ZOgvA';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+});
+
+const featuredSection = document.getElementById('ho-featured-section');
+const featuredCount   = document.getElementById('ho-featured-count');
+const featuredGrid    = document.getElementById('ho-featured-grid');
+const catalogCount    = document.getElementById('ho-catalog-count');
+const catalogArea     = document.getElementById('ho-catalog-area');
+const searchInp       = document.getElementById('ho-search');
+const catsWrap        = document.getElementById('ho-cats');
+
+let allMaterials = [];
+let currentCategory = 'all';
+
+// ─── Auth gate ─────────────────────────────────────────────────────────
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) {
+  window.location.replace('/account/signin.html');
+} else {
+  await loadFeatured();
+  await loadCatalog();
+}
+
+async function loadFeatured() {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Find this user's clients row, then their proposals, then their materials.
+  const { data: client } = await supabase
+    .from('clients').select('id').eq('user_id', user.id).maybeSingle();
+  if (!client) return;
+
+  const { data: links } = await supabase
+    .from('client_proposals').select('proposal_id').eq('client_id', client.id);
+  const proposalIds = (links || []).map(l => l.proposal_id);
+  if (proposalIds.length === 0) return;
+
+  const { data: pmRows } = await supabase
+    .from('proposal_materials')
+    .select('material_id, application_area, override_product_name, override_color')
+    .in('proposal_id', proposalIds)
+    .not('material_id', 'is', null);
+
+  const materialIds = [...new Set((pmRows || []).map(r => r.material_id).filter(Boolean))];
+  if (materialIds.length === 0) return;
+
+  const { data: mats } = await supabase
+    .from('materials')
+    .select('*')
+    .in('id', materialIds);
+
+  if (!mats || mats.length === 0) return;
+
+  // Build application_area lookup so we can show context per featured card.
+  const appByMatId = new Map();
+  (pmRows || []).forEach(r => {
+    if (r.material_id && r.application_area && !appByMatId.has(r.material_id)) {
+      appByMatId.set(r.material_id, r.application_area);
+    }
+  });
+
+  featuredSection.hidden = false;
+  featuredCount.textContent = mats.length + ' ' + (mats.length === 1 ? 'material' : 'materials');
+  featuredGrid.innerHTML = mats.map(m => renderCard(m, { applicationArea: appByMatId.get(m.id), featured: true })).join('');
+  attachCardClickHandlers(featuredGrid);
+}
+
+async function loadCatalog() {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, manufacturer, product_name, collection, color, pattern, size_spec, description, category, primary_image_url, swatch_url, spec_pdf_url, cut_sheet_url, applications, features, thickness_mm')
+    .order('category', { ascending: true })
+    .order('product_name', { ascending: true });
+
+  if (error) {
+    catalogArea.innerHTML = '<div class="ho-empty">Could not load catalog: ' + escapeHtml(error.message) + '</div>';
+    catalogCount.textContent = '';
+    return;
+  }
+
+  allMaterials = data || [];
+  catalogCount.textContent = allMaterials.length + ' products';
+  buildCategoryPills();
+  renderCatalog();
+}
+
+function buildCategoryPills() {
+  const cats = [...new Set(allMaterials.map(m => m.category).filter(Boolean))].sort();
+  const labels = {
+    pavers: 'Pavers',
+    porcelain: 'Porcelain',
+    walls: 'Walls',
+    accessories: 'Accessories',
+    'fire-features': 'Fire features',
+    decking: 'Decking',
+    lighting: 'Lighting',
+    other: 'Other',
+  };
+  cats.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ho-cat-pill';
+    btn.dataset.cat = cat;
+    btn.textContent = labels[cat] || cat;
+    catsWrap.appendChild(btn);
+  });
+
+  catsWrap.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ho-cat-pill');
+    if (!btn) return;
+    catsWrap.querySelectorAll('.ho-cat-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCategory = btn.dataset.cat;
+    renderCatalog();
+  });
+}
+
+function renderCatalog() {
+  const q = searchInp.value.trim().toLowerCase();
+  const filtered = allMaterials.filter(m => {
+    if (currentCategory !== 'all' && m.category !== currentCategory) return false;
+    if (!q) return true;
+    const hay = [m.product_name, m.color, m.collection, m.size_spec, m.pattern, m.manufacturer]
+      .filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+
+  catalogCount.textContent = filtered.length + (filtered.length === 1 ? ' product' : ' products') +
+                             (currentCategory !== 'all' ? ' in this category' : '');
+
+  if (filtered.length === 0) {
+    catalogArea.innerHTML = '<div class="ho-empty">No materials match your search. Try a different term or category.</div>';
+    return;
+  }
+
+  catalogArea.innerHTML = '<div class="ho-grid">' +
+    filtered.map(m => renderCard(m, {})).join('') +
+    '</div>';
+  attachCardClickHandlers(catalogArea);
+}
+
+let searchDebounce = null;
+searchInp.addEventListener('input', () => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(renderCatalog, 120);
+});
+
+function renderCard(m, opts) {
+  const img = m.primary_image_url || m.swatch_url;
+  const imgStyle = img ? 'background-image:url(' + escapeAttr(img) + ');' : '';
+  const fallback = img ? '' : '<div class="ho-mat-img" style="' + imgStyle + '">' + escapeHtml((m.product_name || '?').slice(0, 2).toUpperCase()) + '</div>';
+  const variantBits = [m.color, m.size_spec].filter(Boolean).join(' · ');
+  const tag = opts.featured && opts.applicationArea
+    ? '<span class="ho-mat-tag">' + escapeHtml(opts.applicationArea) + '</span>'
+    : '';
+  return '<button type="button" class="ho-mat-card" data-mat-id="' + escapeAttr(m.id) + '">' +
+    (img
+      ? '<div class="ho-mat-img" style="' + imgStyle + '"></div>'
+      : fallback) +
+    '<div class="ho-mat-body">' +
+      '<div class="ho-mat-name">' + escapeHtml(m.product_name || 'Unnamed') + '</div>' +
+      (variantBits ? '<div class="ho-mat-meta">' + escapeHtml(variantBits) + '</div>' : '') +
+      tag +
+    '</div>' +
+  '</button>';
+}
+
+function attachCardClickHandlers(container) {
+  container.querySelectorAll('.ho-mat-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.dataset.matId;
+      const mat = allMaterials.find(m => m.id === id) ||
+                  // fallback for featured cards if not in catalog query (shouldn't happen since we filter materials table both times)
+                  { id, product_name: 'Material' };
+      openModal(mat);
+    });
+  });
+}
+
+// ─── Modal ─────────────────────────────────────────────────────────────
+const modalBackdrop = document.getElementById('ho-modal-backdrop');
+const modalImg      = document.getElementById('ho-modal-img');
+const modalEyebrow  = document.getElementById('ho-modal-eyebrow');
+const modalTitle    = document.getElementById('ho-modal-title');
+const modalSub      = document.getElementById('ho-modal-sub');
+const modalDesc     = document.getElementById('ho-modal-desc');
+const modalSpecsWrap = document.getElementById('ho-modal-specs-wrap');
+const modalSpecs    = document.getElementById('ho-modal-specs');
+const modalAppsWrap = document.getElementById('ho-modal-applications-wrap');
+const modalAppsList = document.getElementById('ho-modal-applications-list');
+const modalActions  = document.getElementById('ho-modal-actions');
+
+document.getElementById('ho-modal-close').addEventListener('click', closeModal);
+modalBackdrop.addEventListener('click', (e) => { if (e.target === modalBackdrop) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modalBackdrop.hidden) closeModal(); });
+
+function openModal(m) {
+  const img = m.primary_image_url || m.swatch_url;
+  modalImg.style.backgroundImage = img ? 'url(' + img + ')' : 'none';
+  modalImg.style.background = img ? ('url(' + img + ') center/cover no-repeat') : 'var(--bp-cream)';
+
+  modalEyebrow.textContent = (m.manufacturer || 'Material').toUpperCase();
+  modalTitle.textContent   = m.product_name || 'Material';
+  const subBits = [m.collection, m.color].filter(Boolean).join(' · ');
+  modalSub.textContent = subBits;
+  modalSub.style.display = subBits ? 'block' : 'none';
+
+  modalDesc.textContent = m.description || '';
+  modalDesc.style.display = m.description ? 'block' : 'none';
+
+  // Specs
+  const specs = [];
+  if (m.size_spec)    specs.push(['Size', m.size_spec]);
+  if (m.pattern)      specs.push(['Pattern', m.pattern]);
+  if (m.thickness_mm) specs.push(['Thickness', m.thickness_mm + ' mm']);
+  if (m.category)     specs.push(['Category', titleCase(m.category)]);
+  if (m.collection)   specs.push(['Collection', titleCase(m.collection)]);
+
+  if (specs.length > 0) {
+    modalSpecs.innerHTML = specs.map(([k, v]) =>
+      '<dt>' + escapeHtml(k) + '</dt><dd>' + escapeHtml(String(v)) + '</dd>'
+    ).join('');
+    modalSpecsWrap.hidden = false;
+  } else {
+    modalSpecsWrap.hidden = true;
+  }
+
+  // Applications
+  if (Array.isArray(m.applications) && m.applications.length > 0) {
+    modalAppsList.innerHTML = m.applications
+      .map(a => '<span class="ho-modal-app-chip">' + escapeHtml(String(a)) + '</span>').join('');
+    modalAppsWrap.hidden = false;
+  } else {
+    modalAppsWrap.hidden = true;
+  }
+
+  // Actions: cut sheet + spec PDF if available
+  const acts = [];
+  if (m.cut_sheet_url) {
+    acts.push('<a class="ho-modal-btn ho-modal-btn-primary" href="' + escapeAttr(m.cut_sheet_url) + '" target="_blank" rel="noopener">📄 View cut sheet</a>');
+  }
+  if (m.spec_pdf_url && m.spec_pdf_url !== m.cut_sheet_url) {
+    acts.push('<a class="ho-modal-btn ho-modal-btn-ghost" href="' + escapeAttr(m.spec_pdf_url) + '" target="_blank" rel="noopener">📋 Spec PDF</a>');
+  }
+  if (acts.length === 0) {
+    acts.push('<p style="font-size:13px;color:var(--bp-muted);margin:0;">Detailed cut-sheets coming as we add them to the catalog.</p>');
+  }
+  modalActions.innerHTML = acts.join('');
+
+  modalBackdrop.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  modalBackdrop.hidden = true;
+  document.body.style.overflow = '';
+}
+
+function titleCase(s) {
+  return String(s || '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function escapeAttr(s) { return escapeHtml(s); }
+</script>
+</body>
+</html>
