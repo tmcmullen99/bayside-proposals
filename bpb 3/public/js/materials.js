@@ -22,6 +22,21 @@
 // primary_image_url (or swatch_url) or third_party_materials.primary_image_url
 // (or image_url), depending on Tim's target-field selection. ONLY writes if
 // the selected field is currently NULL.
+//
+// ═══ Phase 3B.1 (2026-04-28) — Unified materials table reads ═══════════════
+// Reads now go to the unified `materials` table instead of the legacy
+// belgard_materials + third_party_materials. Writes dual-write to keep the
+// two source tables in sync (legacy code paths + the editor picker stay
+// consistent until the future cleanup phase drops the source tables).
+//   • loadCatalog: materials WHERE manufacturer='Belgard'
+//   • loadThirdParty: materials WHERE manufacturer != 'Belgard'
+//   • loadSelected: embed via the new material_id FK, shim into s.belgard /
+//     s.third_party so render code is byte-identical
+//   • addBelgardMaterial / addThirdPartyMaterial: dual-write material_id
+//     alongside the legacy FK column
+//   • tpSaveCustom (custom material insert): dual-write to both tables with
+//     the same client-generated UUID
+//   • approveMatch (image backfill): mirror the URL update into materials
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase-client.js';
@@ -87,11 +102,18 @@ export async function initMaterials({ proposalId, container, onSave }) {
 // Data loading
 // ───────────────────────────────────────────────────────────────────────────
 async function loadCatalog() {
+  // Phase 3B.1 — read from the unified materials table filtered to Belgard.
+  // Replaces the prior direct read from belgard_materials. The materials
+  // table is a strict superset (UUIDs preserved), so every field the
+  // grouping/rendering code uses (product_name, collection, category_id,
+  // swatch_url, primary_image_url, color, size_spec, cut_sheet_url,
+  // spec_pdf_url) is present on each row.
   const { data, error } = await supabase
-    .from('belgard_materials')
+    .from('materials')
     .select('*')
+    .eq('manufacturer', 'Belgard')
     .order('product_name', { ascending: true });
-  if (error) throw new Error(`belgard_materials: ${error.message}`);
+  if (error) throw new Error(`materials (Belgard): ${error.message}`);
   ctx.catalog = data || [];
 }
 
@@ -105,25 +127,55 @@ async function loadCategories() {
 }
 
 async function loadSelected() {
+  // Phase 3B.1 — embed via the unified materials table (FK material_id),
+  // not the legacy belgard_material_id / third_party_material_id FKs.
+  // shimSelectedRow() turns the unified material into the prior
+  // s.belgard / s.third_party shape so render code below is byte-identical.
   const { data, error } = await supabase
     .from('proposal_materials')
     .select(`
       *,
-      belgard:belgard_material_id (id, product_name, color, size_spec, primary_image_url, swatch_url, cut_sheet_url, spec_pdf_url),
-      third_party:third_party_material_id (id, manufacturer, product_name, category, primary_image_url, image_url, catalog_url)
+      material:material_id (id, manufacturer, product_name, color, size_spec,
+        primary_image_url, swatch_url, cut_sheet_url, spec_pdf_url,
+        category, catalog_url)
     `)
     .eq('proposal_id', ctx.proposalId)
     .order('display_order', { ascending: true, nullsFirst: false });
   if (error) throw new Error(`proposal_materials: ${error.message}`);
-  ctx.selected = data || [];
+
+  ctx.selected = (data || []).map(s => shimSelectedRow(s));
+}
+
+// Shim — turn { material: {...} } from the unified-table embed into the
+// prior { belgard: {...} } or { third_party: {...} } shape based on
+// material_source. All render code keeps using s.belgard / s.third_party.
+function shimSelectedRow(s) {
+  if (!s) return s;
+  const m = s.material || null;
+  if (s.material_source === 'belgard') {
+    s.belgard = m;
+    s.third_party = null;
+  } else {
+    s.third_party = m;
+    s.belgard = null;
+  }
+  delete s.material;
+  return s;
 }
 
 async function loadThirdParty() {
+  // Phase 3B.1 — read from the unified materials table excluding Belgard.
+  // Replaces the prior direct read from third_party_materials. Note: the
+  // unified schema doesn't have the legacy image_url column — that data
+  // was COALESCEd into primary_image_url during migration. Render code
+  // checks `tp.primary_image_url || tp.image_url`, so missing image_url
+  // is harmless (falls through to null).
   const { data, error } = await supabase
-    .from('third_party_materials')
+    .from('materials')
     .select('*')
+    .neq('manufacturer', 'Belgard')
     .order('manufacturer', { ascending: true });
-  if (error) throw new Error(`third_party_materials: ${error.message}`);
+  if (error) throw new Error(`materials (third-party): ${error.message}`);
   ctx.thirdParty = data || [];
 }
 
@@ -856,20 +908,43 @@ function openThirdPartyModal() {
       return;
     }
 
-    const { data: newTp, error } = await supabase
-      .from('third_party_materials')
-      .insert({ manufacturer: mfr, product_name: name, category: cat, description: desc, catalog_url: catalog, image_url: image })
-      .select('*')
-      .single();
+    // Phase 3B.1 — dual-write the new custom material to BOTH the legacy
+    // third_party_materials table (so any code path still reading from it
+    // sees the row) AND the unified materials table (the new picker source
+    // of truth). Same UUID stamped client-side so both rows reference the
+    // same material; subsequent addThirdPartyMaterial() then writes
+    // proposal_materials with that UUID in both FK columns.
+    const newId = (crypto.randomUUID && crypto.randomUUID()) ||
+                  ('id-' + Math.random().toString(36).slice(2));
 
-    if (error) {
-      errBox.textContent = 'Could not save: ' + error.message;
+    const [legacyRes, unifiedRes] = await Promise.all([
+      supabase.from('third_party_materials').insert({
+        id: newId, manufacturer: mfr, product_name: name, category: cat,
+        description: desc, catalog_url: catalog, image_url: image
+      }),
+      supabase.from('materials').insert({
+        id: newId, manufacturer: mfr, product_name: name, category: cat,
+        description: desc, catalog_url: catalog, primary_image_url: image
+      })
+    ]);
+
+    if (legacyRes.error || unifiedRes.error) {
+      const msg = (legacyRes.error && legacyRes.error.message) ||
+                  (unifiedRes.error && unifiedRes.error.message) ||
+                  'Unknown error';
+      errBox.textContent = 'Could not save: ' + msg;
       errBox.style.display = 'block';
       return;
     }
 
-    ctx.thirdParty.push(newTp);
-    const ok = await addThirdPartyMaterial(newTp.id);
+    // Push the unified-shape row into ctx.thirdParty so the picker grid
+    // sees the new entry without a full reload. (loadThirdParty reads
+    // from materials, so this row mirrors what the next reload would show.)
+    ctx.thirdParty.push({
+      id: newId, manufacturer: mfr, product_name: name, category: cat,
+      description: desc, catalog_url: catalog, primary_image_url: image
+    });
+    const ok = await addThirdPartyMaterial(newId);
     if (ok) openThirdPartyModal();
   });
 }
@@ -1328,6 +1403,25 @@ async function approveMatch(imageId) {
 
     if (writeErr) throw new Error(`Write failed: ${writeErr.message}`);
 
+    // Phase 3B.1 — also mirror the change into the unified materials
+    // table so the picker reflects the new image immediately on next
+    // load. Map the legacy third_party_materials.image_url field onto
+    // materials.primary_image_url since the unified schema doesn't have
+    // a separate image_url column. Failure here is non-fatal — the
+    // source-table write already succeeded, so the picker will catch up
+    // on the next page load via the materials read.
+    let materialsField = targetField;
+    if (mat.source === 'third_party' && targetField === 'image_url') {
+      materialsField = 'primary_image_url';
+    }
+    const { error: matWriteErr } = await supabase
+      .from('materials')
+      .update({ [materialsField]: img.url })
+      .eq('id', mat.catalog_id);
+    if (matWriteErr) {
+      console.warn('Could not mirror to materials:', matWriteErr.message);
+    }
+
     applyCatalogUpdate(mat.source, mat.catalog_id, targetField, img.url);
 
     bf.decisions[imageId] = { status: 'approved', targetField };
@@ -1398,44 +1492,56 @@ function applyCatalogUpdate(source, catalogId, targetField, url) {
 // Write actions (Supabase mutations) — selecting/removing materials
 // ───────────────────────────────────────────────────────────────────────────
 async function addBelgardMaterial(belgardMaterialId) {
+  // Phase 3B.1 — dual-write material_id alongside the legacy
+  // belgard_material_id so reads from either FK resolve cleanly. Read
+  // back via the unified materials embed and shim into s.belgard so
+  // the rest of the render code is byte-identical.
   const { data, error } = await supabase
     .from('proposal_materials')
     .insert({
       proposal_id: ctx.proposalId,
       material_source: 'belgard',
       belgard_material_id: belgardMaterialId,
+      material_id: belgardMaterialId,
       display_order: ctx.selected.length
     })
     .select(`
       *,
-      belgard:belgard_material_id (id, product_name, color, size_spec, primary_image_url, swatch_url, cut_sheet_url, spec_pdf_url)
+      material:material_id (id, manufacturer, product_name, color, size_spec,
+        primary_image_url, swatch_url, cut_sheet_url, spec_pdf_url,
+        category, catalog_url)
     `)
     .single();
 
   if (error) { alert('Failed to add material: ' + error.message); return false; }
-  ctx.selected.push(data);
+  ctx.selected.push(shimSelectedRow(data));
   render();
   ctx.onSave?.();
   return true;
 }
 
 async function addThirdPartyMaterial(thirdPartyId) {
+  // Phase 3B.1 — same dual-write pattern as addBelgardMaterial: write
+  // both legacy third_party_material_id and the unified material_id.
   const { data, error } = await supabase
     .from('proposal_materials')
     .insert({
       proposal_id: ctx.proposalId,
       material_source: 'third_party',
       third_party_material_id: thirdPartyId,
+      material_id: thirdPartyId,
       display_order: ctx.selected.length
     })
     .select(`
       *,
-      third_party:third_party_material_id (id, manufacturer, product_name, category, primary_image_url, image_url, catalog_url)
+      material:material_id (id, manufacturer, product_name, color, size_spec,
+        primary_image_url, swatch_url, cut_sheet_url, spec_pdf_url,
+        category, catalog_url)
     `)
     .single();
 
   if (error) { alert('Failed to add third-party material: ' + error.message); return false; }
-  ctx.selected.push(data);
+  ctx.selected.push(shimSelectedRow(data));
   render();
   ctx.onSave?.();
   return true;
