@@ -113,7 +113,6 @@
     box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.18);
   }
 
-  /* Pill rows */
   .ho-pill-row {
     display: flex; flex-wrap: wrap; gap: 8px;
   }
@@ -128,16 +127,11 @@
     cursor: pointer;
     transition: background .15s, color .15s, border-color .15s;
   }
-  .ho-pill:hover {
-    border-color: var(--bp-green);
-    color: var(--bp-green-dk);
-  }
+  .ho-pill:hover { border-color: var(--bp-green); color: var(--bp-green-dk); }
   .ho-pill.active {
     background: var(--bp-green); color: #fff;
     border-color: var(--bp-green);
   }
-
-  /* Manufacturer sub-row gets a subtler look */
   .ho-pill-mfr {
     background: var(--bp-cream);
     border-color: transparent;
@@ -154,7 +148,6 @@
     letter-spacing: 0.04em;
   }
 
-  /* Card grid */
   .ho-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -168,10 +161,7 @@
     cursor: pointer;
     transition: transform .15s, box-shadow .15s, border-color .15s;
     display: flex; flex-direction: column;
-    text-align: left;
-    font: inherit;
-    color: inherit;
-    padding: 0;
+    text-align: left; font: inherit; color: inherit; padding: 0;
   }
   .ho-mat-card:hover {
     transform: translateY(-2px);
@@ -188,6 +178,12 @@
     text-transform: uppercase; font-weight: 600;
   }
   .ho-mat-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .ho-mat-mfr {
+    font-size: 10px; font-weight: 600;
+    color: var(--bp-muted);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 2px;
+  }
   .ho-mat-name {
     font-size: 14px; font-weight: 600;
     color: var(--bp-text);
@@ -207,13 +203,6 @@
     margin-top: 4px;
     align-self: flex-start;
   }
-  .ho-mat-mfr {
-    font-size: 10px; font-weight: 600;
-    color: var(--bp-muted);
-    letter-spacing: 0.08em; text-transform: uppercase;
-    margin-bottom: 2px;
-  }
-  /* Mini swatch row on cards (visual richness without overloading) */
   .ho-mat-dots {
     display: flex; gap: 3px; margin-top: 8px;
   }
@@ -253,17 +242,51 @@
     background: #fff;
     border-radius: 14px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
-    max-width: 720px; width: 100%;
-    max-height: 90vh; overflow-y: auto;
+    max-width: 760px; width: 100%;
+    max-height: 92vh; overflow-y: auto;
     position: relative;
   }
-  .ho-modal-img {
+
+  /* Gallery: main image + thumbnail row */
+  .ho-gallery {
+    background: var(--bp-cream);
+    border-radius: 14px 14px 0 0;
+    padding: 0;
+  }
+  .ho-gallery-main {
     width: 100%;
     aspect-ratio: 16 / 9;
     background: var(--bp-cream) center/cover no-repeat;
     border-radius: 14px 14px 0 0;
     transition: background-image .25s ease;
   }
+  .ho-gallery-thumbs {
+    display: flex; gap: 8px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #fff;
+    border-bottom: 1px solid var(--bp-border);
+  }
+  .ho-gallery-thumbs[hidden] { display: none; }
+  .ho-gallery-thumbs::-webkit-scrollbar { height: 6px; }
+  .ho-gallery-thumbs::-webkit-scrollbar-thumb { background: var(--bp-border); border-radius: 3px; }
+  .ho-gallery-thumb {
+    flex-shrink: 0;
+    width: 70px; height: 50px;
+    border-radius: 6px;
+    background: var(--bp-cream) center/cover no-repeat;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color .15s, transform .12s;
+    padding: 0;
+  }
+  .ho-gallery-thumb:hover { transform: translateY(-1px); }
+  .ho-gallery-thumb.active {
+    border-color: var(--bp-green);
+    box-shadow: 0 0 0 2px var(--bp-green-soft);
+  }
+
   .ho-modal-body { padding: 24px 30px 28px; }
   .ho-modal-close {
     position: absolute; top: 14px; right: 14px;
@@ -295,19 +318,19 @@
   .ho-modal-desc {
     font-size: 14px; line-height: 1.6;
     color: var(--bp-charcoal);
-    margin: 14px 0 18px;
+    margin: 14px 0 0;
   }
 
-  /* Color picker strip */
+  /* Color picker — Belgard pattern: separate from main gallery */
   .ho-color-block {
     background: var(--bp-cream);
     border-radius: 10px;
-    padding: 16px 18px;
-    margin: 18px 0 22px;
+    padding: 18px 20px;
+    margin: 20px 0 22px;
   }
   .ho-color-label-row {
     display: flex; align-items: baseline; justify-content: space-between;
-    gap: 10px; margin-bottom: 12px;
+    gap: 10px; margin-bottom: 14px;
   }
   .ho-color-label {
     font-size: 11px; font-weight: 600;
@@ -319,28 +342,26 @@
     color: var(--bp-text);
   }
   .ho-color-swatches {
-    display: flex; flex-wrap: wrap; gap: 8px;
+    display: flex; flex-wrap: wrap; gap: 10px;
   }
   .ho-swatch-btn {
     background: transparent; border: none;
     padding: 0;
     cursor: pointer;
     display: flex; flex-direction: column; align-items: center;
-    gap: 4px;
-    width: 56px;
+    gap: 6px;
+    width: 60px;
     transition: transform .12s;
   }
   .ho-swatch-btn:hover { transform: translateY(-2px); }
   .ho-swatch-img {
-    width: 44px; height: 44px;
-    border-radius: 8px;
+    width: 48px; height: 48px;
+    border-radius: 50%;
     background: var(--bp-cream) center/cover no-repeat;
     border: 2px solid transparent;
     transition: border-color .15s, box-shadow .15s;
   }
-  .ho-swatch-btn:hover .ho-swatch-img {
-    border-color: var(--bp-green-dk);
-  }
+  .ho-swatch-btn:hover .ho-swatch-img { border-color: var(--bp-green-dk); }
   .ho-swatch-btn.active .ho-swatch-img {
     border-color: var(--bp-green-dk);
     box-shadow: 0 0 0 2px var(--bp-green-soft);
@@ -351,7 +372,7 @@
     text-align: center;
     line-height: 1.25;
     word-break: break-word;
-    max-width: 56px;
+    max-width: 60px;
   }
   .ho-swatch-btn.active .ho-swatch-name {
     color: var(--bp-text);
@@ -426,11 +447,12 @@
     .ho-page-title { font-size: 24px; }
     .ho-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .ho-mat-body { padding: 12px 14px 14px; }
-    .ho-modal-body { padding: 22px 22px 24px; }
+    .ho-modal-body { padding: 20px 20px 24px; }
     .ho-modal-title { font-size: 20px; }
     .ho-modal-specs dl { grid-template-columns: 1fr; gap: 8px 0; }
     .ho-modal-specs dt { margin-top: 6px; }
     .ho-nav-brand-divider, .ho-nav-brand-tag { display: none; }
+    .ho-gallery-thumb { width: 60px; height: 44px; }
   }
 </style>
 </head>
@@ -451,11 +473,10 @@
     <h1 class="ho-page-title">Materials we install</h1>
     <p class="ho-page-lede">
       Every product we work with — pavers, porcelain, walls, fire features, and more. Click any
-      material to see all available colors, cut-sheets, and specs.
+      material to view its lifestyle gallery, available colors, and cut-sheets.
     </p>
   </div>
 
-  <!-- Featured: your project's materials -->
   <section class="ho-section" id="ho-featured-section" hidden>
     <div class="ho-section-head">
       <h2>In your project</h2>
@@ -465,7 +486,6 @@
     <div class="ho-grid" id="ho-featured-grid"></div>
   </section>
 
-  <!-- Full catalog -->
   <section class="ho-section">
     <div class="ho-section-head">
       <h2>Full catalog</h2>
@@ -494,7 +514,13 @@
 <div class="ho-modal-backdrop" id="ho-modal-backdrop" hidden>
   <div class="ho-modal" role="dialog" aria-modal="true" aria-labelledby="ho-modal-title">
     <button type="button" class="ho-modal-close" id="ho-modal-close" aria-label="Close">×</button>
-    <div class="ho-modal-img" id="ho-modal-img"></div>
+
+    <!-- Product gallery: main image + thumbnail rail (Belgard pattern) -->
+    <div class="ho-gallery">
+      <div class="ho-gallery-main" id="ho-gallery-main"></div>
+      <div class="ho-gallery-thumbs" id="ho-gallery-thumbs"></div>
+    </div>
+
     <div class="ho-modal-body">
       <div class="ho-modal-eyebrow" id="ho-modal-eyebrow">Material</div>
       <h2 class="ho-modal-title" id="ho-modal-title"></h2>
@@ -502,7 +528,7 @@
 
       <div class="ho-color-block" id="ho-color-block" hidden>
         <div class="ho-color-label-row">
-          <span class="ho-color-label" id="ho-color-label-text">Available colors</span>
+          <span class="ho-color-label">Available colors</span>
           <span class="ho-color-current" id="ho-color-current"></span>
         </div>
         <div class="ho-color-swatches" id="ho-color-swatches"></div>
@@ -540,26 +566,34 @@ const searchInp       = document.getElementById('ho-search');
 const catsWrap        = document.getElementById('ho-cats');
 const mfrsWrap        = document.getElementById('ho-mfrs');
 
-// ─── State ──────────────────────────────────────────────────────────────
-let allMaterials   = [];     // raw rows
-let groupedMaterials = [];   // [{ key, name, manufacturer, category, variants: [...rows], firstImage }]
+// State
+let allMaterials     = [];
+let groupedProducts  = []; // [{ key, name, manufacturer, category, variants, gallery }]
 let featuredKeys     = new Map(); // product_name → preferred color from proposal
-let currentCategory  = 'pavers';   // DEFAULT to pavers per Tim
+let currentCategory  = 'pavers';
 let currentMfr       = 'all';
 
-// ─── Auth gate ──────────────────────────────────────────────────────────
+// Auth gate
 const { data: { session } } = await supabase.auth.getSession();
 if (!session) {
   window.location.replace('/account/signin.html');
 } else {
-  await loadCatalog();   // load full materials first so featured can reference grouped data
+  await loadCatalog();
   await loadFeatured();
 }
 
-// ─── Helpers: group by product_name ─────────────────────────────────────
-function groupByProductName(rows) {
+// ─── Group materials + product images ───────────────────────────────────
+function groupCatalog(materials, productImages) {
+  // Build product_images lookup keyed by mfr|product
+  const imgsByKey = new Map();
+  (productImages || []).forEach(img => {
+    const key = (img.manufacturer || '?') + '|' + (img.product_name || '?');
+    if (!imgsByKey.has(key)) imgsByKey.set(key, []);
+    imgsByKey.get(key).push(img);
+  });
+
   const map = new Map();
-  rows.forEach(r => {
+  materials.forEach(r => {
     const key = (r.manufacturer || '?') + '|' + (r.product_name || '?');
     if (!map.has(key)) {
       map.set(key, {
@@ -568,35 +602,56 @@ function groupByProductName(rows) {
         manufacturer: r.manufacturer || '',
         category: r.category || '',
         variants: [],
-        firstImage: null,
+        gallery: [],
       });
     }
-    const g = map.get(key);
-    g.variants.push(r);
-    const img = r.primary_image_url || r.swatch_url;
-    if (!g.firstImage && img) g.firstImage = img;
+    map.get(key).variants.push(r);
   });
-  // Stable per-product variant order for the swatch picker
+
+  // For each product, build its gallery: product_images first; if empty,
+  // dedupe variants' primary_image_url as fallback.
   for (const g of map.values()) {
     g.variants.sort((a, b) => (a.color || '').localeCompare(b.color || ''));
+    const customImgs = imgsByKey.get(g.key) || [];
+    if (customImgs.length > 0) {
+      g.gallery = customImgs.map(i => i.image_url);
+    } else {
+      const seen = new Set();
+      g.gallery = [];
+      g.variants.forEach(v => {
+        const url = v.primary_image_url;
+        if (url && !seen.has(url)) { seen.add(url); g.gallery.push(url); }
+      });
+      // No primary images at all? Try swatch_url last so card still shows something.
+      if (g.gallery.length === 0) {
+        g.variants.forEach(v => {
+          const url = v.swatch_url;
+          if (url && !seen.has(url)) { seen.add(url); g.gallery.push(url); }
+        });
+      }
+    }
   }
+
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// ─── Catalog load ───────────────────────────────────────────────────────
 async function loadCatalog() {
-  const { data, error } = await supabase
-    .from('materials')
-    .select('id, manufacturer, product_name, collection, color, pattern, size_spec, description, category, primary_image_url, swatch_url, spec_pdf_url, cut_sheet_url, applications, features, thickness_mm');
+  const [matsResp, imgsResp] = await Promise.all([
+    supabase.from('materials')
+      .select('id, manufacturer, product_name, collection, color, pattern, size_spec, description, category, primary_image_url, swatch_url, spec_pdf_url, cut_sheet_url, applications, features, thickness_mm'),
+    supabase.from('product_images')
+      .select('manufacturer, product_name, image_url, display_order')
+      .order('display_order', { ascending: true }),
+  ]);
 
-  if (error) {
-    catalogArea.innerHTML = '<div class="ho-empty">Could not load catalog: ' + escapeHtml(error.message) + '</div>';
+  if (matsResp.error) {
+    catalogArea.innerHTML = '<div class="ho-empty">Could not load catalog: ' + escapeHtml(matsResp.error.message) + '</div>';
     catalogCount.textContent = '';
     return;
   }
 
-  allMaterials = data || [];
-  groupedMaterials = groupByProductName(allMaterials);
+  allMaterials = matsResp.data || [];
+  groupedProducts = groupCatalog(allMaterials, imgsResp.data || []);
 
   buildCategoryPills();
   renderCatalog();
@@ -609,7 +664,6 @@ function buildCategoryPills() {
     accessories: 'Accessories', 'fire-features': 'Fire features',
     decking: 'Decking', lighting: 'Lighting', other: 'Other',
   };
-  // Mark default selection
   catsWrap.querySelector('[data-cat="all"]').classList.toggle('active', currentCategory === 'all');
   cats.forEach(cat => {
     const btn = document.createElement('button');
@@ -627,25 +681,22 @@ function buildCategoryPills() {
     catsWrap.querySelectorAll('.ho-pill').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentCategory = btn.dataset.cat;
-    currentMfr = 'all';   // reset mfr filter when category changes
+    currentMfr = 'all';
     renderCatalog();
   });
 }
 
 function buildManufacturerPills() {
-  // Find manufacturers within current category filter
   const inCat = currentCategory === 'all'
-    ? groupedMaterials
-    : groupedMaterials.filter(g => g.category === currentCategory);
+    ? groupedProducts
+    : groupedProducts.filter(g => g.category === currentCategory);
   const mfrs = [...new Set(inCat.map(g => g.manufacturer).filter(Boolean))].sort();
 
-  // Hide entire row if 0 or 1 manufacturer
   if (mfrs.length <= 1) {
     mfrsWrap.hidden = true;
     return;
   }
   mfrsWrap.hidden = false;
-  // Reset pills (keep label)
   mfrsWrap.querySelectorAll('.ho-pill-mfr').forEach(b => b.remove());
 
   const allBtn = document.createElement('button');
@@ -681,14 +732,13 @@ searchInp.addEventListener('input', () => {
 });
 
 function renderCatalog() {
-  buildManufacturerPills(); // reflows whenever category changes
+  buildManufacturerPills();
 
   const q = searchInp.value.trim().toLowerCase();
-  const filtered = groupedMaterials.filter(g => {
+  const filtered = groupedProducts.filter(g => {
     if (currentCategory !== 'all' && g.category !== currentCategory) return false;
     if (currentMfr !== 'all' && g.manufacturer !== currentMfr) return false;
     if (!q) return true;
-    // Search across product name, manufacturer, and any variant's color/size/collection
     const hay = [
       g.name, g.manufacturer,
       ...g.variants.map(v => [v.color, v.collection, v.size_spec, v.pattern].filter(Boolean).join(' '))
@@ -710,12 +760,12 @@ function renderCatalog() {
 }
 
 function renderCard(g, opts) {
-  const img = g.firstImage;
-  const imgStyle = img ? 'background-image:url(' + escapeAttr(img) + ');' : '';
+  const cardImg = g.gallery[0];
+  const imgStyle = cardImg ? 'background-image:url(' + escapeAttr(cardImg) + ');' : '';
   const variantCount = g.variants.length;
   const variantLabel = variantCount === 1 ? '1 color' : variantCount + ' colors';
 
-  // Mini swatch dots row (max 5 visible + "+N" if more)
+  // Mini swatch dots row
   const dotMax = 5;
   const dotsHtml = g.variants.slice(0, dotMax).map(v => {
     const dotImg = v.swatch_url || v.primary_image_url;
@@ -735,7 +785,7 @@ function renderCard(g, opts) {
     : '';
 
   return '<button type="button" class="ho-mat-card" data-key="' + escapeAttr(g.key) + '">' +
-    '<div class="ho-mat-img" style="' + imgStyle + '">' + (img ? '' : escapeHtml((g.name || '?').slice(0, 2).toUpperCase())) + '</div>' +
+    '<div class="ho-mat-img" style="' + imgStyle + '">' + (cardImg ? '' : escapeHtml((g.name || '?').slice(0, 2).toUpperCase())) + '</div>' +
     '<div class="ho-mat-body">' +
       (g.manufacturer ? '<div class="ho-mat-mfr">' + escapeHtml(g.manufacturer) + '</div>' : '') +
       '<div class="ho-mat-name">' + escapeHtml(g.name) + '</div>' +
@@ -750,9 +800,8 @@ function attachCardClickHandlers(container) {
   container.querySelectorAll('.ho-mat-card').forEach(card => {
     card.addEventListener('click', () => {
       const key = card.dataset.key;
-      const group = groupedMaterials.find(g => g.key === key);
+      const group = groupedProducts.find(g => g.key === key);
       if (group) {
-        // Pre-select the variant the homeowner has in their proposal, if any
         const preferredColor = featuredKeys.get(group.name);
         const startIdx = preferredColor
           ? Math.max(0, group.variants.findIndex(v => v.color === preferredColor))
@@ -763,7 +812,7 @@ function attachCardClickHandlers(container) {
   });
 }
 
-// ─── Featured load (uses already-grouped catalog) ──────────────────────
+// ─── Featured ──────────────────────────────────────────────────────────
 async function loadFeatured() {
   const { data: { user } } = await supabase.auth.getUser();
   const { data: client } = await supabase
@@ -783,7 +832,6 @@ async function loadFeatured() {
 
   if (!pmRows || pmRows.length === 0) return;
 
-  // Map material_id → application_area + remember the color from the proposal
   const appByMatId = new Map();
   pmRows.forEach(r => {
     if (r.material_id && !appByMatId.has(r.material_id) && r.application_area) {
@@ -792,9 +840,8 @@ async function loadFeatured() {
   });
 
   const matIdSet = new Set(pmRows.map(r => r.material_id).filter(Boolean));
-  // Find which groups contain at least one of the homeowner's variants
   const featuredGroups = [];
-  groupedMaterials.forEach(g => {
+  groupedProducts.forEach(g => {
     const hit = g.variants.find(v => matIdSet.has(v.id));
     if (hit) {
       featuredGroups.push({
@@ -802,7 +849,6 @@ async function loadFeatured() {
         applicationArea: appByMatId.get(hit.id) || null,
         preferredColor: hit.color || null,
       });
-      // Remember preferred color for when user clicks this product anywhere
       if (hit.color) featuredKeys.set(g.name, hit.color);
     }
   });
@@ -819,7 +865,8 @@ async function loadFeatured() {
 
 // ─── Modal ─────────────────────────────────────────────────────────────
 const modalBackdrop = document.getElementById('ho-modal-backdrop');
-const modalImg      = document.getElementById('ho-modal-img');
+const galleryMain   = document.getElementById('ho-gallery-main');
+const galleryThumbs = document.getElementById('ho-gallery-thumbs');
 const modalEyebrow  = document.getElementById('ho-modal-eyebrow');
 const modalTitle    = document.getElementById('ho-modal-title');
 const modalDesc     = document.getElementById('ho-modal-desc');
@@ -838,22 +885,27 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modalBa
 
 let activeGroup = null;
 let activeIdx = 0;
+let activeGalleryIdx = 0;
 
 function openModal(group, startIdx) {
   activeGroup = group;
   activeIdx = Math.max(0, Math.min(startIdx || 0, group.variants.length - 1));
+  activeGalleryIdx = 0;
 
   modalEyebrow.textContent = (group.manufacturer || 'Material').toUpperCase();
   modalTitle.textContent   = group.name;
 
-  // Description: pull from currently-selected variant, fall back to first non-empty
+  // Description: from the active variant; fall back to any variant with one
   const variantsWithDesc = group.variants.filter(v => v.description);
   modalDesc.textContent = (group.variants[activeIdx].description) ||
                           (variantsWithDesc[0] && variantsWithDesc[0].description) ||
                           '';
   modalDesc.style.display = modalDesc.textContent ? 'block' : 'none';
 
-  // Build color picker (only show if >1 variant)
+  // Build product gallery (main + thumbs)
+  renderGallery();
+
+  // Build color swatches
   if (group.variants.length > 1) {
     colorSwatches.innerHTML = group.variants.map((v, i) => {
       const sw = v.swatch_url || v.primary_image_url;
@@ -874,13 +926,40 @@ function openModal(group, startIdx) {
   document.body.style.overflow = 'hidden';
 }
 
+function renderGallery() {
+  if (!activeGroup) return;
+  const gallery = activeGroup.gallery;
+  if (!gallery || gallery.length === 0) {
+    galleryMain.style.background = 'var(--bp-cream)';
+    galleryThumbs.hidden = true;
+    galleryThumbs.innerHTML = '';
+    return;
+  }
+  galleryMain.style.background = 'url(' + gallery[activeGalleryIdx] + ') center/cover no-repeat';
+
+  if (gallery.length > 1) {
+    galleryThumbs.hidden = false;
+    galleryThumbs.innerHTML = gallery.map((url, i) =>
+      '<button type="button" class="ho-gallery-thumb' + (i === activeGalleryIdx ? ' active' : '') + '" data-gi="' + i + '" style="background-image:url(' + escapeAttr(url) + ');" aria-label="Image ' + (i + 1) + '"></button>'
+    ).join('');
+  } else {
+    galleryThumbs.hidden = true;
+    galleryThumbs.innerHTML = '';
+  }
+}
+
+galleryThumbs.addEventListener('click', (e) => {
+  const btn = e.target.closest('.ho-gallery-thumb');
+  if (!btn) return;
+  const i = Number(btn.dataset.gi);
+  if (Number.isNaN(i)) return;
+  activeGalleryIdx = i;
+  renderGallery();
+});
+
 function renderActiveVariant() {
   if (!activeGroup) return;
   const v = activeGroup.variants[activeIdx];
-  const img = v.primary_image_url || v.swatch_url || activeGroup.firstImage;
-  modalImg.style.background = img
-    ? ('url(' + img + ') center/cover no-repeat')
-    : 'var(--bp-cream)';
 
   colorCurrent.textContent = v.color || '';
 
@@ -933,6 +1012,8 @@ colorSwatches.addEventListener('click', (e) => {
   activeIdx = idx;
   colorSwatches.querySelectorAll('.ho-swatch-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  // NOTE: deliberately do NOT change activeGalleryIdx — gallery is product-level,
+  // selecting a color only updates the color name, specs, and per-variant actions.
   renderActiveVariant();
 });
 
