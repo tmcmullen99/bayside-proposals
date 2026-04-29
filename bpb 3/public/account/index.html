@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your account · Bayside Pavers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bp-green:    #5d7e69;
+    --bp-green-dk: #4a6554;
+    --bp-green-soft: #e8eee9;
+    --bp-charcoal: #353535;
+    --bp-tan:      #dad7c5;
+    --bp-cream:    #faf8f3;
+    --bp-bg:       #f4f4ef;
+    --bp-card:     #ffffff;
+    --bp-border:   #e4e4df;
+    --bp-text:     #1f2125;
+    --bp-muted:    #70726f;
+    --bp-err:      #b91c1c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--bp-text);
+    background: var(--bp-bg);
+    line-height: 1.5; font-size: 15px;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  .ho-nav {
+    background: #fff;
+    border-bottom: 1px solid var(--bp-border);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .ho-nav-brand { display: flex; align-items: center; gap: 14px; }
+  .ho-nav-brand img { height: 30px; width: auto; }
+  .ho-nav-brand-divider {
+    width: 1px; height: 22px; background: var(--bp-border);
+  }
+  .ho-nav-brand-tag {
+    font-size: 11px; letter-spacing: 0.18em;
+    color: var(--bp-muted); text-transform: uppercase;
+    font-weight: 600;
+  }
+  .ho-nav-user {
+    display: flex; align-items: center; gap: 14px;
+    font-size: 13px;
+  }
+  .ho-nav-name { font-weight: 600; color: var(--bp-text); }
+  .ho-nav-out {
+    background: transparent;
+    border: 1px solid var(--bp-border);
+    color: var(--bp-charcoal);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .ho-nav-out:hover {
+    background: var(--bp-text); color: #fff; border-color: var(--bp-text);
+  }
+
+  /* ── Page wrap ──────────────────────────────────────────────── */
+  .ho-page { max-width: 1080px; margin: 0 auto; padding: 36px 24px 80px; }
+
+  /* ── Hero / welcome banner ──────────────────────────────────── */
+  .ho-hero {
+    background: linear-gradient(135deg, var(--bp-green) 0%, var(--bp-green-dk) 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 36px 36px 32px;
+    margin-bottom: 28px;
+    box-shadow: 0 12px 32px rgba(93, 126, 105, 0.18);
+  }
+  .ho-hero-eyebrow {
+    font-size: 11px; letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.72);
+    font-weight: 600; margin-bottom: 8px;
+  }
+  .ho-hero-title {
+    font-size: 28px; font-weight: 600;
+    letter-spacing: -0.014em;
+    margin-bottom: 10px;
+    line-height: 1.2;
+  }
+  .ho-hero-lede {
+    font-size: 15px; line-height: 1.6;
+    color: rgba(255, 255, 255, 0.86);
+    max-width: 680px;
+  }
+
+  /* ── Section ────────────────────────────────────────────────── */
+  .ho-section { margin-bottom: 32px; }
+  .ho-section-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px; gap: 12px; flex-wrap: wrap;
+  }
+  .ho-section h2 {
+    font-size: 17px; font-weight: 600;
+    color: var(--bp-text); letter-spacing: -0.005em;
+  }
+  .ho-section-meta {
+    font-size: 12px; color: var(--bp-muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Proposal cards ─────────────────────────────────────────── */
+  .ho-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .ho-prop-card {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform .15s, box-shadow .15s, border-color .15s;
+    display: flex; flex-direction: column;
+  }
+  .ho-prop-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(31, 33, 37, 0.08);
+    border-color: var(--bp-green);
+  }
+  .ho-prop-cover {
+    height: 168px;
+    background: var(--bp-cream) center/cover no-repeat;
+    border-bottom: 1px solid var(--bp-border);
+    position: relative;
+  }
+  .ho-prop-cover-fallback {
+    height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--bp-green-soft) 0%, var(--bp-cream) 100%);
+    color: var(--bp-green-dk); font-weight: 600;
+    font-size: 13px; letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .ho-prop-status {
+    position: absolute; top: 12px; left: 12px;
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--bp-charcoal);
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 999px;
+  }
+  .ho-prop-status-signed { background: var(--bp-green); color: #fff; }
+  .ho-prop-status-sent  { background: #fff; color: var(--bp-green-dk); }
+
+  .ho-prop-body { padding: 20px; flex: 1; display: flex; flex-direction: column; }
+  .ho-prop-addr {
+    font-size: 16px; font-weight: 600;
+    color: var(--bp-text);
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+  .ho-prop-meta {
+    font-size: 12px; color: var(--bp-muted);
+    margin-bottom: 12px;
+  }
+  .ho-prop-total {
+    font-size: 22px; font-weight: 600;
+    color: var(--bp-green-dk);
+    margin-bottom: 18px;
+    letter-spacing: -0.012em;
+  }
+  .ho-prop-cta {
+    display: inline-block;
+    background: var(--bp-green); color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    transition: background .15s;
+    margin-top: auto;
+  }
+  .ho-prop-cta:hover { background: var(--bp-green-dk); }
+
+  /* ── Empty state ────────────────────────────────────────────── */
+  .ho-empty {
+    background: #fff;
+    border: 1px dashed var(--bp-border);
+    border-radius: 12px;
+    padding: 38px 28px;
+    text-align: center;
+    color: var(--bp-muted);
+  }
+  .ho-empty-icon {
+    font-size: 36px; margin-bottom: 12px;
+    color: var(--bp-green); opacity: 0.6;
+  }
+  .ho-empty h3 {
+    font-size: 16px; font-weight: 600;
+    color: var(--bp-text); margin-bottom: 6px;
+  }
+  .ho-empty p { font-size: 13px; line-height: 1.6; max-width: 420px; margin: 0 auto; }
+
+  /* ── Two-column layout for credit + resources ──────────────── */
+  .ho-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 760px) {
+    .ho-two-col { grid-template-columns: 1fr; }
+  }
+
+  /* ── Credit card ────────────────────────────────────────────── */
+  .ho-credit-card {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 12px;
+    padding: 26px 24px;
+    display: flex; flex-direction: column;
+  }
+  .ho-credit-eyebrow {
+    font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bp-muted); font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .ho-credit-amount {
+    font-size: 32px; font-weight: 600;
+    color: var(--bp-green-dk);
+    letter-spacing: -0.018em;
+    margin-bottom: 4px;
+  }
+  .ho-credit-cap {
+    font-size: 13px; color: var(--bp-muted);
+    margin-bottom: 16px;
+  }
+  .ho-credit-bar {
+    background: var(--bp-cream);
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .ho-credit-bar-fill {
+    background: linear-gradient(90deg, var(--bp-green) 0%, var(--bp-green-dk) 100%);
+    height: 100%;
+    border-radius: 999px;
+    transition: width .4s ease;
+  }
+  .ho-credit-desc {
+    font-size: 13px; line-height: 1.55;
+    color: var(--bp-charcoal);
+    margin-bottom: 18px;
+  }
+  .ho-credit-cta {
+    background: var(--bp-text); color: #fff;
+    border: none; border-radius: 8px;
+    padding: 11px 20px;
+    font: inherit; font-weight: 600; font-size: 13px;
+    cursor: pointer;
+    transition: background .15s;
+    margin-top: auto;
+    align-self: flex-start;
+  }
+  .ho-credit-cta:hover { background: var(--bp-green-dk); }
+  .ho-credit-cta:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Resources card ─────────────────────────────────────────── */
+  .ho-res-card {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 12px;
+    padding: 26px 24px;
+  }
+  .ho-res-eyebrow {
+    font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bp-muted); font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .ho-res-list { display: flex; flex-direction: column; gap: 10px; }
+  .ho-res-link {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--bp-border);
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--bp-text);
+    transition: border-color .15s, background .15s;
+  }
+  .ho-res-link:hover {
+    border-color: var(--bp-green);
+    background: var(--bp-cream);
+  }
+  .ho-res-icon {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    background: var(--bp-green-soft);
+    color: var(--bp-green-dk);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .ho-res-text { flex: 1; min-width: 0; }
+  .ho-res-title {
+    font-size: 14px; font-weight: 600;
+    margin-bottom: 2px;
+    color: var(--bp-text);
+  }
+  .ho-res-sub {
+    font-size: 12px; color: var(--bp-muted); line-height: 1.4;
+  }
+  .ho-res-coming {
+    padding: 12px 14px;
+    border: 1px dashed var(--bp-border);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--bp-muted);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* ── Loading / error shells ─────────────────────────────────── */
+  .ho-loading {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 12px;
+    padding: 28px;
+    text-align: center;
+    color: var(--bp-muted);
+    font-size: 13px;
+  }
+  .ho-error-msg {
+    background: #fef2f2;
+    color: var(--bp-err);
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+
+  @media (max-width: 540px) {
+    .ho-page { padding: 24px 16px 60px; }
+    .ho-hero { padding: 28px 22px 26px; }
+    .ho-hero-title { font-size: 22px; }
+    .ho-hero-lede { font-size: 14px; }
+    .ho-nav-brand-divider, .ho-nav-brand-tag { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="ho-nav">
+  <div class="ho-nav-brand">
+    <img src="https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69a04f4369bc9cc20b8d2155_BaysidePavers_original%20(2)%20(1).png" alt="Bayside Pavers">
+    <span class="ho-nav-brand-divider"></span>
+    <span class="ho-nav-brand-tag">Your Account</span>
+  </div>
+  <div class="ho-nav-user">
+    <span class="ho-nav-name" id="ho-nav-name">…</span>
+    <button type="button" class="ho-nav-out" id="ho-nav-out">Sign out</button>
+  </div>
+</nav>
+
+<main class="ho-page">
+  <div id="ho-error-banner" class="ho-error-msg" style="display:none;"></div>
+
+  <section class="ho-hero">
+    <div class="ho-hero-eyebrow">Welcome</div>
+    <h1 class="ho-hero-title" id="ho-hero-title">…</h1>
+    <p class="ho-hero-lede" id="ho-hero-lede">Loading your account…</p>
+  </section>
+
+  <section class="ho-section">
+    <div class="ho-section-head">
+      <h2>Your proposals</h2>
+      <span class="ho-section-meta" id="ho-prop-count"></span>
+    </div>
+    <div id="ho-prop-area">
+      <div class="ho-loading">Loading your proposals…</div>
+    </div>
+  </section>
+
+  <section class="ho-section">
+    <div class="ho-two-col">
+      <div class="ho-credit-card">
+        <div class="ho-credit-eyebrow">Referral credit</div>
+        <div class="ho-credit-amount" id="ho-credit-amount">$0</div>
+        <div class="ho-credit-cap" id="ho-credit-cap">of $2,500 max</div>
+        <div class="ho-credit-bar"><div class="ho-credit-bar-fill" id="ho-credit-fill" style="width: 0%;"></div></div>
+        <p class="ho-credit-desc">
+          Refer a neighbor to Bayside Pavers. When they complete a design appointment, you both earn $500 off your next project.
+        </p>
+        <button type="button" class="ho-credit-cta" id="ho-credit-cta" disabled>Refer a neighbor (coming soon)</button>
+      </div>
+
+      <div class="ho-res-card">
+        <div class="ho-res-eyebrow">Resources</div>
+        <div class="ho-res-list">
+          <a class="ho-res-link" href="https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf3c6e47/68d2db027d1d1b4ad1543f05_Bayside%20Pavers%20Presentation%20(1)_compressed%20(1).pdf" target="_blank" rel="noopener">
+            <div class="ho-res-icon">📘</div>
+            <div class="ho-res-text">
+              <div class="ho-res-title">Bayside Installation Guide</div>
+              <div class="ho-res-sub">PDF · Site prep, base, paver installation, and warranty info</div>
+            </div>
+          </a>
+          <a class="ho-res-link" href="https://www.baysidepavers.com" target="_blank" rel="noopener">
+            <div class="ho-res-icon">🌐</div>
+            <div class="ho-res-text">
+              <div class="ho-res-title">Bayside Pavers Website</div>
+              <div class="ho-res-sub">Browse projects, materials, and design inspiration</div>
+            </div>
+          </a>
+          <div class="ho-res-coming">
+            More material-specific guides will appear here as your designer adds them to your project.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+
+const SUPABASE_URL  = 'https://gfgbypcnxkschnfsitfb.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZ2J5cGNueGtzY2huZnNpdGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MTkzMTUsImV4cCI6MjA5MjI5NTMxNX0.EAwmiNR5OWcaI8Sr36MVn7FuMhYoZvfngse7y0ZOgvA';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+});
+
+const REFERRAL_CAP_CENTS = 250000; // $2,500
+
+// ─── Element refs ───────────────────────────────────────────────────────
+const navName       = document.getElementById('ho-nav-name');
+const navOut        = document.getElementById('ho-nav-out');
+const heroTitle     = document.getElementById('ho-hero-title');
+const heroLede      = document.getElementById('ho-hero-lede');
+const propCount     = document.getElementById('ho-prop-count');
+const propArea      = document.getElementById('ho-prop-area');
+const creditAmount  = document.getElementById('ho-credit-amount');
+const creditCap     = document.getElementById('ho-credit-cap');
+const creditFill    = document.getElementById('ho-credit-fill');
+const errorBanner   = document.getElementById('ho-error-banner');
+
+navOut.addEventListener('click', async () => {
+  try { await supabase.auth.signOut(); } catch (_) {}
+  window.location.replace('/account/signin.html');
+});
+
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.style.display = 'block';
+}
+
+// ─── Auth gate ──────────────────────────────────────────────────────────
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) {
+  window.location.replace('/account/signin.html');
+} else {
+  await loadAccount();
+}
+
+// ─── Main load ──────────────────────────────────────────────────────────
+async function loadAccount() {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Load clients row.
+  const { data: client, error: clientErr } = await supabase
+    .from('clients')
+    .select('id, name, email, must_change_password, referral_credit_cents, referral_credit_used_cents')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (clientErr) {
+    showError('Could not load your account: ' + clientErr.message);
+    heroTitle.textContent = 'Welcome';
+    heroLede.textContent = '';
+    return;
+  }
+  if (!client) {
+    // Authenticated but no clients row — internal user landed here.
+    showError('This dashboard is for homeowner accounts. Sign in to your team account at /login.html.');
+    heroTitle.textContent = 'Wrong account type';
+    heroLede.textContent = '';
+    propArea.innerHTML = '';
+    return;
+  }
+  if (client.must_change_password) {
+    window.location.replace('/account/set-password.html');
+    return;
+  }
+
+  // Hero + nav
+  const firstName = (client.name || '').split(/[\s,&]+/)[0] || 'there';
+  navName.textContent = client.name || client.email;
+  heroTitle.textContent = `Welcome, ${firstName}`;
+  heroLede.textContent =
+    'Your project lives here. Review your proposal, explore design resources, and refer neighbors to earn credit toward your next project.';
+
+  // Referral credit
+  const totalEarned    = Number(client.referral_credit_cents || 0);
+  const totalUsed      = Number(client.referral_credit_used_cents || 0);
+  const availableCents = Math.max(0, totalEarned - totalUsed);
+  creditAmount.textContent = formatUSD(availableCents);
+  creditCap.textContent = `of ${formatUSD(REFERRAL_CAP_CENTS)} max`;
+  const pct = Math.min(100, Math.round((totalEarned / REFERRAL_CAP_CENTS) * 100));
+  // Defer the width animation until next frame so the bar slides in.
+  requestAnimationFrame(() => { creditFill.style.width = pct + '%'; });
+
+  // Proposals
+  await loadProposals(client.id);
+}
+
+// ─── Proposals ──────────────────────────────────────────────────────────
+async function loadProposals(clientId) {
+  // 1. client_proposals → proposal_id, status, sent_at, first_viewed_at, signed_at
+  const { data: links, error: linksErr } = await supabase
+    .from('client_proposals')
+    .select('proposal_id, status, sent_at, first_viewed_at, signed_at')
+    .eq('client_id', clientId)
+    .order('sent_at', { ascending: false });
+
+  if (linksErr) {
+    propArea.innerHTML = `<div class="ho-error-msg">Could not load proposals: ${escapeHtml(linksErr.message)}</div>`;
+    return;
+  }
+
+  if (!links || links.length === 0) {
+    propArea.innerHTML = `
+      <div class="ho-empty">
+        <div class="ho-empty-icon">📐</div>
+        <h3>No proposals yet</h3>
+        <p>Your designer will publish your custom project proposal here when it's ready. In the meantime, check out the resources below.</p>
+      </div>`;
+    propCount.textContent = '';
+    return;
+  }
+
+  // 2. Fetch the matching proposals (for hero image + project address).
+  const proposalIds = links.map(l => l.proposal_id);
+  const { data: proposals, error: propsErr } = await supabase
+    .from('proposals')
+    .select('id, project_address, project_city, project_state, bid_total_amount, generated_html_slug')
+    .in('id', proposalIds);
+
+  if (propsErr) {
+    propArea.innerHTML = `<div class="ho-error-msg">Could not load proposal details: ${escapeHtml(propsErr.message)}</div>`;
+    return;
+  }
+  const propMap = new Map((proposals || []).map(p => [p.id, p]));
+
+  // 3. Fetch published_proposals snapshots for the slug (so View Proposal works).
+  const { data: pubs, error: pubsErr } = await supabase
+    .from('published_proposals')
+    .select('proposal_id, slug, title, project_address, total_amount, published_at')
+    .in('proposal_id', proposalIds);
+
+  if (pubsErr) {
+    // Non-fatal; we'll fall back to the proposals row data.
+    console.warn('published_proposals load failed:', pubsErr);
+  }
+  // For each proposal_id, keep the most recently published row.
+  const pubMap = new Map();
+  (pubs || []).forEach(pub => {
+    const existing = pubMap.get(pub.proposal_id);
+    if (!existing || new Date(pub.published_at) > new Date(existing.published_at)) {
+      pubMap.set(pub.proposal_id, pub);
+    }
+  });
+
+  // 4. Build cards.
+  propCount.textContent = `${links.length} ${links.length === 1 ? 'proposal' : 'proposals'}`;
+
+  const html = links.map(link => {
+    const prop = propMap.get(link.proposal_id);
+    const pub  = pubMap.get(link.proposal_id);
+    const address = (pub && pub.project_address) ||
+                    (prop && prop.project_address) ||
+                    'Your project';
+    const cityState = prop && prop.project_city
+      ? `${prop.project_city}${prop.project_state ? ', ' + prop.project_state : ''}`
+      : '';
+    const totalCents = pub && pub.total_amount != null
+      ? Math.round(Number(pub.total_amount) * 100)
+      : (prop && prop.bid_total_amount != null
+        ? Math.round(Number(prop.bid_total_amount) * 100)
+        : null);
+    const totalDisplay = totalCents != null ? formatUSD(totalCents) : '—';
+    const slug = (pub && pub.slug) || (prop && prop.generated_html_slug) || null;
+    const viewUrl = slug ? `/p/${slug}` : null;
+    const status = link.status || 'sent';
+    const statusLabel = formatStatus(status);
+    const statusClass = status === 'signed' ? 'ho-prop-status-signed'
+                       : status === 'sent' || status === 'viewed' ? 'ho-prop-status-sent'
+                       : '';
+
+    return `
+      <div class="ho-prop-card">
+        <div class="ho-prop-cover">
+          <div class="ho-prop-cover-fallback">Bayside Pavers</div>
+          <span class="ho-prop-status ${statusClass}">${escapeHtml(statusLabel)}</span>
+        </div>
+        <div class="ho-prop-body">
+          <div class="ho-prop-addr">${escapeHtml(address)}</div>
+          ${cityState ? `<div class="ho-prop-meta">${escapeHtml(cityState)}</div>` : ''}
+          <div class="ho-prop-total">${totalDisplay}</div>
+          ${viewUrl
+            ? `<a class="ho-prop-cta" href="${viewUrl}" target="_blank" rel="noopener">View proposal</a>`
+            : `<button class="ho-prop-cta" disabled style="background:#a8b5ac;cursor:not-allowed;">Not published yet</button>`}
+        </div>
+      </div>`;
+  }).join('');
+
+  propArea.innerHTML = `<div class="ho-grid">${html}</div>`;
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────
+function formatUSD(cents) {
+  const dollars = (Number(cents) || 0) / 100;
+  return dollars.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: dollars % 1 === 0 ? 0 : 2,
+  });
+}
+
+function formatStatus(s) {
+  const map = {
+    draft:       'Draft',
+    sent:        'Sent',
+    viewed:      'Viewed',
+    signed:      'Signed',
+    in_progress: 'In progress',
+    complete:    'Complete',
+  };
+  return map[s] || s;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+</script>
+</body>
+</html>
