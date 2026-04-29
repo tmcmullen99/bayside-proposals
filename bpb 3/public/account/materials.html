@@ -82,7 +82,6 @@
     max-width: 640px;
   }
 
-  /* Featured section */
   .ho-section { margin-bottom: 40px; }
   .ho-section-head {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -92,15 +91,9 @@
     font-size: 18px; font-weight: 600;
     color: var(--bp-text); letter-spacing: -0.005em;
   }
-  .ho-section-sub {
-    font-size: 13px; color: var(--bp-muted); margin-bottom: 14px;
-  }
-  .ho-section-meta {
-    font-size: 12px; color: var(--bp-muted);
-    letter-spacing: 0.04em;
-  }
+  .ho-section-sub { font-size: 13px; color: var(--bp-muted); margin-bottom: 14px; }
+  .ho-section-meta { font-size: 12px; color: var(--bp-muted); letter-spacing: 0.04em; }
 
-  /* Search + filter bar */
   .ho-tools {
     display: flex; flex-direction: column; gap: 12px;
     margin-bottom: 18px;
@@ -119,10 +112,13 @@
     border-color: var(--bp-green);
     box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.18);
   }
-  .ho-cats {
+
+  /* Pill rows */
+  .ho-pill-row {
     display: flex; flex-wrap: wrap; gap: 8px;
   }
-  .ho-cat-pill {
+  .ho-pill-row[hidden] { display: none; }
+  .ho-pill {
     background: #fff;
     border: 1px solid var(--bp-border);
     color: var(--bp-charcoal);
@@ -132,13 +128,30 @@
     cursor: pointer;
     transition: background .15s, color .15s, border-color .15s;
   }
-  .ho-cat-pill:hover {
+  .ho-pill:hover {
     border-color: var(--bp-green);
     color: var(--bp-green-dk);
   }
-  .ho-cat-pill.active {
+  .ho-pill.active {
     background: var(--bp-green); color: #fff;
     border-color: var(--bp-green);
+  }
+
+  /* Manufacturer sub-row gets a subtler look */
+  .ho-pill-mfr {
+    background: var(--bp-cream);
+    border-color: transparent;
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+  .ho-pill-mfr:hover { background: #fff; border-color: var(--bp-green); }
+  .ho-pill-mfr.active {
+    background: var(--bp-charcoal); color: #fff; border-color: var(--bp-charcoal);
+  }
+  .ho-pill-mfr-label {
+    font-size: 11px; color: var(--bp-muted);
+    align-self: center; margin-right: 4px;
+    letter-spacing: 0.04em;
   }
 
   /* Card grid */
@@ -194,8 +207,29 @@
     margin-top: 4px;
     align-self: flex-start;
   }
+  .ho-mat-mfr {
+    font-size: 10px; font-weight: 600;
+    color: var(--bp-muted);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  /* Mini swatch row on cards (visual richness without overloading) */
+  .ho-mat-dots {
+    display: flex; gap: 3px; margin-top: 8px;
+  }
+  .ho-mat-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--bp-cream) center/cover no-repeat;
+    border: 1px solid var(--bp-border);
+    flex-shrink: 0;
+  }
+  .ho-mat-dots-extra {
+    font-size: 10px; color: var(--bp-muted);
+    margin-left: 2px; align-self: center;
+    font-weight: 600;
+  }
 
-  /* Empty / loading states */
   .ho-empty, .ho-loading {
     background: #fff;
     border: 1px dashed var(--bp-border);
@@ -219,16 +253,18 @@
     background: #fff;
     border-radius: 14px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
-    max-width: 640px; width: 100%;
+    max-width: 720px; width: 100%;
     max-height: 90vh; overflow-y: auto;
+    position: relative;
   }
   .ho-modal-img {
     width: 100%;
     aspect-ratio: 16 / 9;
     background: var(--bp-cream) center/cover no-repeat;
     border-radius: 14px 14px 0 0;
+    transition: background-image .25s ease;
   }
-  .ho-modal-body { padding: 28px 32px 30px; position: relative; }
+  .ho-modal-body { padding: 24px 30px 28px; }
   .ho-modal-close {
     position: absolute; top: 14px; right: 14px;
     background: rgba(255, 255, 255, 0.95);
@@ -251,20 +287,77 @@
     margin-bottom: 6px;
   }
   .ho-modal-title {
-    font-size: 24px; font-weight: 600;
+    font-size: 26px; font-weight: 600;
     letter-spacing: -0.014em;
     line-height: 1.2;
-    margin-bottom: 8px;
-  }
-  .ho-modal-sub {
-    font-size: 14px; color: var(--bp-muted);
-    margin-bottom: 18px;
+    margin-bottom: 4px;
   }
   .ho-modal-desc {
     font-size: 14px; line-height: 1.6;
     color: var(--bp-charcoal);
-    margin-bottom: 20px;
+    margin: 14px 0 18px;
   }
+
+  /* Color picker strip */
+  .ho-color-block {
+    background: var(--bp-cream);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 18px 0 22px;
+  }
+  .ho-color-label-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 10px; margin-bottom: 12px;
+  }
+  .ho-color-label {
+    font-size: 11px; font-weight: 600;
+    color: var(--bp-muted);
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .ho-color-current {
+    font-size: 14px; font-weight: 600;
+    color: var(--bp-text);
+  }
+  .ho-color-swatches {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .ho-swatch-btn {
+    background: transparent; border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px;
+    width: 56px;
+    transition: transform .12s;
+  }
+  .ho-swatch-btn:hover { transform: translateY(-2px); }
+  .ho-swatch-img {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    background: var(--bp-cream) center/cover no-repeat;
+    border: 2px solid transparent;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .ho-swatch-btn:hover .ho-swatch-img {
+    border-color: var(--bp-green-dk);
+  }
+  .ho-swatch-btn.active .ho-swatch-img {
+    border-color: var(--bp-green-dk);
+    box-shadow: 0 0 0 2px var(--bp-green-soft);
+  }
+  .ho-swatch-name {
+    font-size: 10px;
+    color: var(--bp-muted);
+    text-align: center;
+    line-height: 1.25;
+    word-break: break-word;
+    max-width: 56px;
+  }
+  .ho-swatch-btn.active .ho-swatch-name {
+    color: var(--bp-text);
+    font-weight: 600;
+  }
+
   .ho-modal-specs {
     background: var(--bp-cream);
     border-radius: 8px;
@@ -273,8 +366,8 @@
   }
   .ho-modal-specs dl {
     display: grid;
-    grid-template-columns: 100px 1fr;
-    gap: 6px 16px;
+    grid-template-columns: 110px 1fr;
+    gap: 8px 16px;
     font-size: 13px;
   }
   .ho-modal-specs dt {
@@ -300,9 +393,7 @@
     cursor: pointer;
     transition: background .15s, border-color .15s;
   }
-  .ho-modal-btn-primary {
-    background: var(--bp-green); color: #fff;
-  }
+  .ho-modal-btn-primary { background: var(--bp-green); color: #fff; }
   .ho-modal-btn-primary:hover { background: var(--bp-green-dk); }
   .ho-modal-btn-ghost {
     background: transparent; color: var(--bp-charcoal);
@@ -359,9 +450,8 @@
     <span class="ho-eyebrow">Browse the catalog</span>
     <h1 class="ho-page-title">Materials we install</h1>
     <p class="ho-page-lede">
-      Every product we work with — pavers, porcelain, walls, fire features, and more — sourced from
-      Belgard's Pacific/Stockton catalog. Click any material to see its cut-sheet, specs, and a richer
-      visual.
+      Every product we work with — pavers, porcelain, walls, fire features, and more. Click any
+      material to see all available colors, cut-sheets, and specs.
     </p>
   </div>
 
@@ -384,8 +474,13 @@
 
     <div class="ho-tools">
       <input type="search" class="ho-search" id="ho-search" placeholder="Search by product, color, or size…" autocapitalize="off" autocorrect="off" spellcheck="false">
-      <div class="ho-cats" id="ho-cats">
-        <button type="button" class="ho-cat-pill active" data-cat="all">All</button>
+
+      <div class="ho-pill-row" id="ho-cats">
+        <button type="button" class="ho-pill" data-cat="all">All</button>
+      </div>
+
+      <div class="ho-pill-row" id="ho-mfrs" hidden>
+        <span class="ho-pill-mfr-label">Manufacturer:</span>
       </div>
     </div>
 
@@ -398,13 +493,20 @@
 <!-- Material detail modal -->
 <div class="ho-modal-backdrop" id="ho-modal-backdrop" hidden>
   <div class="ho-modal" role="dialog" aria-modal="true" aria-labelledby="ho-modal-title">
+    <button type="button" class="ho-modal-close" id="ho-modal-close" aria-label="Close">×</button>
     <div class="ho-modal-img" id="ho-modal-img"></div>
     <div class="ho-modal-body">
-      <button type="button" class="ho-modal-close" id="ho-modal-close" aria-label="Close">×</button>
       <div class="ho-modal-eyebrow" id="ho-modal-eyebrow">Material</div>
       <h2 class="ho-modal-title" id="ho-modal-title"></h2>
-      <p class="ho-modal-sub" id="ho-modal-sub"></p>
       <p class="ho-modal-desc" id="ho-modal-desc"></p>
+
+      <div class="ho-color-block" id="ho-color-block" hidden>
+        <div class="ho-color-label-row">
+          <span class="ho-color-label" id="ho-color-label-text">Available colors</span>
+          <span class="ho-color-current" id="ho-color-current"></span>
+        </div>
+        <div class="ho-color-swatches" id="ho-color-swatches"></div>
+      </div>
 
       <div class="ho-modal-specs" id="ho-modal-specs-wrap">
         <dl id="ho-modal-specs"></dl>
@@ -436,23 +538,234 @@ const catalogCount    = document.getElementById('ho-catalog-count');
 const catalogArea     = document.getElementById('ho-catalog-area');
 const searchInp       = document.getElementById('ho-search');
 const catsWrap        = document.getElementById('ho-cats');
+const mfrsWrap        = document.getElementById('ho-mfrs');
 
-let allMaterials = [];
-let currentCategory = 'all';
+// ─── State ──────────────────────────────────────────────────────────────
+let allMaterials   = [];     // raw rows
+let groupedMaterials = [];   // [{ key, name, manufacturer, category, variants: [...rows], firstImage }]
+let featuredKeys     = new Map(); // product_name → preferred color from proposal
+let currentCategory  = 'pavers';   // DEFAULT to pavers per Tim
+let currentMfr       = 'all';
 
-// ─── Auth gate ─────────────────────────────────────────────────────────
+// ─── Auth gate ──────────────────────────────────────────────────────────
 const { data: { session } } = await supabase.auth.getSession();
 if (!session) {
   window.location.replace('/account/signin.html');
 } else {
+  await loadCatalog();   // load full materials first so featured can reference grouped data
   await loadFeatured();
-  await loadCatalog();
 }
 
+// ─── Helpers: group by product_name ─────────────────────────────────────
+function groupByProductName(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const key = (r.manufacturer || '?') + '|' + (r.product_name || '?');
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        name: r.product_name || 'Unnamed',
+        manufacturer: r.manufacturer || '',
+        category: r.category || '',
+        variants: [],
+        firstImage: null,
+      });
+    }
+    const g = map.get(key);
+    g.variants.push(r);
+    const img = r.primary_image_url || r.swatch_url;
+    if (!g.firstImage && img) g.firstImage = img;
+  });
+  // Stable per-product variant order for the swatch picker
+  for (const g of map.values()) {
+    g.variants.sort((a, b) => (a.color || '').localeCompare(b.color || ''));
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// ─── Catalog load ───────────────────────────────────────────────────────
+async function loadCatalog() {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, manufacturer, product_name, collection, color, pattern, size_spec, description, category, primary_image_url, swatch_url, spec_pdf_url, cut_sheet_url, applications, features, thickness_mm');
+
+  if (error) {
+    catalogArea.innerHTML = '<div class="ho-empty">Could not load catalog: ' + escapeHtml(error.message) + '</div>';
+    catalogCount.textContent = '';
+    return;
+  }
+
+  allMaterials = data || [];
+  groupedMaterials = groupByProductName(allMaterials);
+
+  buildCategoryPills();
+  renderCatalog();
+}
+
+function buildCategoryPills() {
+  const cats = [...new Set(allMaterials.map(m => m.category).filter(Boolean))].sort();
+  const labels = {
+    pavers: 'Pavers', porcelain: 'Porcelain', walls: 'Walls',
+    accessories: 'Accessories', 'fire-features': 'Fire features',
+    decking: 'Decking', lighting: 'Lighting', other: 'Other',
+  };
+  // Mark default selection
+  catsWrap.querySelector('[data-cat="all"]').classList.toggle('active', currentCategory === 'all');
+  cats.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ho-pill';
+    if (cat === currentCategory) btn.classList.add('active');
+    btn.dataset.cat = cat;
+    btn.textContent = labels[cat] || cat;
+    catsWrap.appendChild(btn);
+  });
+
+  catsWrap.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ho-pill');
+    if (!btn) return;
+    catsWrap.querySelectorAll('.ho-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCategory = btn.dataset.cat;
+    currentMfr = 'all';   // reset mfr filter when category changes
+    renderCatalog();
+  });
+}
+
+function buildManufacturerPills() {
+  // Find manufacturers within current category filter
+  const inCat = currentCategory === 'all'
+    ? groupedMaterials
+    : groupedMaterials.filter(g => g.category === currentCategory);
+  const mfrs = [...new Set(inCat.map(g => g.manufacturer).filter(Boolean))].sort();
+
+  // Hide entire row if 0 or 1 manufacturer
+  if (mfrs.length <= 1) {
+    mfrsWrap.hidden = true;
+    return;
+  }
+  mfrsWrap.hidden = false;
+  // Reset pills (keep label)
+  mfrsWrap.querySelectorAll('.ho-pill-mfr').forEach(b => b.remove());
+
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = 'ho-pill ho-pill-mfr' + (currentMfr === 'all' ? ' active' : '');
+  allBtn.dataset.mfr = 'all';
+  allBtn.textContent = 'All';
+  mfrsWrap.appendChild(allBtn);
+
+  mfrs.forEach(mfr => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ho-pill ho-pill-mfr' + (currentMfr === mfr ? ' active' : '');
+    btn.dataset.mfr = mfr;
+    btn.textContent = mfr;
+    mfrsWrap.appendChild(btn);
+  });
+}
+
+mfrsWrap.addEventListener('click', (e) => {
+  const btn = e.target.closest('.ho-pill-mfr');
+  if (!btn) return;
+  mfrsWrap.querySelectorAll('.ho-pill-mfr').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentMfr = btn.dataset.mfr;
+  renderCatalog();
+});
+
+let searchDebounce = null;
+searchInp.addEventListener('input', () => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(renderCatalog, 120);
+});
+
+function renderCatalog() {
+  buildManufacturerPills(); // reflows whenever category changes
+
+  const q = searchInp.value.trim().toLowerCase();
+  const filtered = groupedMaterials.filter(g => {
+    if (currentCategory !== 'all' && g.category !== currentCategory) return false;
+    if (currentMfr !== 'all' && g.manufacturer !== currentMfr) return false;
+    if (!q) return true;
+    // Search across product name, manufacturer, and any variant's color/size/collection
+    const hay = [
+      g.name, g.manufacturer,
+      ...g.variants.map(v => [v.color, v.collection, v.size_spec, v.pattern].filter(Boolean).join(' '))
+    ].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+
+  catalogCount.textContent = filtered.length + (filtered.length === 1 ? ' product' : ' products');
+
+  if (filtered.length === 0) {
+    catalogArea.innerHTML = '<div class="ho-empty">No materials match your search. Try a different term, manufacturer, or category.</div>';
+    return;
+  }
+
+  catalogArea.innerHTML = '<div class="ho-grid">' +
+    filtered.map(g => renderCard(g, {})).join('') +
+    '</div>';
+  attachCardClickHandlers(catalogArea);
+}
+
+function renderCard(g, opts) {
+  const img = g.firstImage;
+  const imgStyle = img ? 'background-image:url(' + escapeAttr(img) + ');' : '';
+  const variantCount = g.variants.length;
+  const variantLabel = variantCount === 1 ? '1 color' : variantCount + ' colors';
+
+  // Mini swatch dots row (max 5 visible + "+N" if more)
+  const dotMax = 5;
+  const dotsHtml = g.variants.slice(0, dotMax).map(v => {
+    const dotImg = v.swatch_url || v.primary_image_url;
+    const ds = dotImg ? 'background-image:url(' + escapeAttr(dotImg) + ');' : '';
+    return '<span class="ho-mat-dot" style="' + ds + '"></span>';
+  }).join('');
+  const extraDots = variantCount > dotMax
+    ? '<span class="ho-mat-dots-extra">+' + (variantCount - dotMax) + '</span>'
+    : '';
+
+  const tag = opts.featured && opts.applicationArea
+    ? '<span class="ho-mat-tag">' + escapeHtml(opts.applicationArea) + '</span>'
+    : '';
+
+  const sizeBit = g.variants[0] && g.variants[0].size_spec
+    ? ' · ' + escapeHtml(g.variants[0].size_spec)
+    : '';
+
+  return '<button type="button" class="ho-mat-card" data-key="' + escapeAttr(g.key) + '">' +
+    '<div class="ho-mat-img" style="' + imgStyle + '">' + (img ? '' : escapeHtml((g.name || '?').slice(0, 2).toUpperCase())) + '</div>' +
+    '<div class="ho-mat-body">' +
+      (g.manufacturer ? '<div class="ho-mat-mfr">' + escapeHtml(g.manufacturer) + '</div>' : '') +
+      '<div class="ho-mat-name">' + escapeHtml(g.name) + '</div>' +
+      '<div class="ho-mat-meta">' + escapeHtml(variantLabel) + sizeBit + '</div>' +
+      tag +
+      (variantCount > 1 ? '<div class="ho-mat-dots">' + dotsHtml + extraDots + '</div>' : '') +
+    '</div>' +
+  '</button>';
+}
+
+function attachCardClickHandlers(container) {
+  container.querySelectorAll('.ho-mat-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const key = card.dataset.key;
+      const group = groupedMaterials.find(g => g.key === key);
+      if (group) {
+        // Pre-select the variant the homeowner has in their proposal, if any
+        const preferredColor = featuredKeys.get(group.name);
+        const startIdx = preferredColor
+          ? Math.max(0, group.variants.findIndex(v => v.color === preferredColor))
+          : 0;
+        openModal(group, startIdx);
+      }
+    });
+  });
+}
+
+// ─── Featured load (uses already-grouped catalog) ──────────────────────
 async function loadFeatured() {
   const { data: { user } } = await supabase.auth.getUser();
-
-  // Find this user's clients row, then their proposals, then their materials.
   const { data: client } = await supabase
     .from('clients').select('id').eq('user_id', user.id).maybeSingle();
   if (!client) return;
@@ -464,144 +777,44 @@ async function loadFeatured() {
 
   const { data: pmRows } = await supabase
     .from('proposal_materials')
-    .select('material_id, application_area, override_product_name, override_color')
+    .select('material_id, application_area')
     .in('proposal_id', proposalIds)
     .not('material_id', 'is', null);
 
-  const materialIds = [...new Set((pmRows || []).map(r => r.material_id).filter(Boolean))];
-  if (materialIds.length === 0) return;
+  if (!pmRows || pmRows.length === 0) return;
 
-  const { data: mats } = await supabase
-    .from('materials')
-    .select('*')
-    .in('id', materialIds);
-
-  if (!mats || mats.length === 0) return;
-
-  // Build application_area lookup so we can show context per featured card.
+  // Map material_id → application_area + remember the color from the proposal
   const appByMatId = new Map();
-  (pmRows || []).forEach(r => {
-    if (r.material_id && r.application_area && !appByMatId.has(r.material_id)) {
+  pmRows.forEach(r => {
+    if (r.material_id && !appByMatId.has(r.material_id) && r.application_area) {
       appByMatId.set(r.material_id, r.application_area);
     }
   });
 
+  const matIdSet = new Set(pmRows.map(r => r.material_id).filter(Boolean));
+  // Find which groups contain at least one of the homeowner's variants
+  const featuredGroups = [];
+  groupedMaterials.forEach(g => {
+    const hit = g.variants.find(v => matIdSet.has(v.id));
+    if (hit) {
+      featuredGroups.push({
+        group: g,
+        applicationArea: appByMatId.get(hit.id) || null,
+        preferredColor: hit.color || null,
+      });
+      // Remember preferred color for when user clicks this product anywhere
+      if (hit.color) featuredKeys.set(g.name, hit.color);
+    }
+  });
+
+  if (featuredGroups.length === 0) return;
+
   featuredSection.hidden = false;
-  featuredCount.textContent = mats.length + ' ' + (mats.length === 1 ? 'material' : 'materials');
-  featuredGrid.innerHTML = mats.map(m => renderCard(m, { applicationArea: appByMatId.get(m.id), featured: true })).join('');
+  featuredCount.textContent = featuredGroups.length + ' ' + (featuredGroups.length === 1 ? 'material' : 'materials');
+  featuredGrid.innerHTML = featuredGroups.map(({ group, applicationArea }) =>
+    renderCard(group, { featured: true, applicationArea })
+  ).join('');
   attachCardClickHandlers(featuredGrid);
-}
-
-async function loadCatalog() {
-  const { data, error } = await supabase
-    .from('materials')
-    .select('id, manufacturer, product_name, collection, color, pattern, size_spec, description, category, primary_image_url, swatch_url, spec_pdf_url, cut_sheet_url, applications, features, thickness_mm')
-    .order('category', { ascending: true })
-    .order('product_name', { ascending: true });
-
-  if (error) {
-    catalogArea.innerHTML = '<div class="ho-empty">Could not load catalog: ' + escapeHtml(error.message) + '</div>';
-    catalogCount.textContent = '';
-    return;
-  }
-
-  allMaterials = data || [];
-  catalogCount.textContent = allMaterials.length + ' products';
-  buildCategoryPills();
-  renderCatalog();
-}
-
-function buildCategoryPills() {
-  const cats = [...new Set(allMaterials.map(m => m.category).filter(Boolean))].sort();
-  const labels = {
-    pavers: 'Pavers',
-    porcelain: 'Porcelain',
-    walls: 'Walls',
-    accessories: 'Accessories',
-    'fire-features': 'Fire features',
-    decking: 'Decking',
-    lighting: 'Lighting',
-    other: 'Other',
-  };
-  cats.forEach(cat => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'ho-cat-pill';
-    btn.dataset.cat = cat;
-    btn.textContent = labels[cat] || cat;
-    catsWrap.appendChild(btn);
-  });
-
-  catsWrap.addEventListener('click', (e) => {
-    const btn = e.target.closest('.ho-cat-pill');
-    if (!btn) return;
-    catsWrap.querySelectorAll('.ho-cat-pill').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentCategory = btn.dataset.cat;
-    renderCatalog();
-  });
-}
-
-function renderCatalog() {
-  const q = searchInp.value.trim().toLowerCase();
-  const filtered = allMaterials.filter(m => {
-    if (currentCategory !== 'all' && m.category !== currentCategory) return false;
-    if (!q) return true;
-    const hay = [m.product_name, m.color, m.collection, m.size_spec, m.pattern, m.manufacturer]
-      .filter(Boolean).join(' ').toLowerCase();
-    return hay.includes(q);
-  });
-
-  catalogCount.textContent = filtered.length + (filtered.length === 1 ? ' product' : ' products') +
-                             (currentCategory !== 'all' ? ' in this category' : '');
-
-  if (filtered.length === 0) {
-    catalogArea.innerHTML = '<div class="ho-empty">No materials match your search. Try a different term or category.</div>';
-    return;
-  }
-
-  catalogArea.innerHTML = '<div class="ho-grid">' +
-    filtered.map(m => renderCard(m, {})).join('') +
-    '</div>';
-  attachCardClickHandlers(catalogArea);
-}
-
-let searchDebounce = null;
-searchInp.addEventListener('input', () => {
-  clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(renderCatalog, 120);
-});
-
-function renderCard(m, opts) {
-  const img = m.primary_image_url || m.swatch_url;
-  const imgStyle = img ? 'background-image:url(' + escapeAttr(img) + ');' : '';
-  const fallback = img ? '' : '<div class="ho-mat-img" style="' + imgStyle + '">' + escapeHtml((m.product_name || '?').slice(0, 2).toUpperCase()) + '</div>';
-  const variantBits = [m.color, m.size_spec].filter(Boolean).join(' · ');
-  const tag = opts.featured && opts.applicationArea
-    ? '<span class="ho-mat-tag">' + escapeHtml(opts.applicationArea) + '</span>'
-    : '';
-  return '<button type="button" class="ho-mat-card" data-mat-id="' + escapeAttr(m.id) + '">' +
-    (img
-      ? '<div class="ho-mat-img" style="' + imgStyle + '"></div>'
-      : fallback) +
-    '<div class="ho-mat-body">' +
-      '<div class="ho-mat-name">' + escapeHtml(m.product_name || 'Unnamed') + '</div>' +
-      (variantBits ? '<div class="ho-mat-meta">' + escapeHtml(variantBits) + '</div>' : '') +
-      tag +
-    '</div>' +
-  '</button>';
-}
-
-function attachCardClickHandlers(container) {
-  container.querySelectorAll('.ho-mat-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const id = card.dataset.matId;
-      const mat = allMaterials.find(m => m.id === id) ||
-                  // fallback for featured cards if not in catalog query (shouldn't happen since we filter materials table both times)
-                  { id, product_name: 'Material' };
-      openModal(mat);
-    });
-  });
 }
 
 // ─── Modal ─────────────────────────────────────────────────────────────
@@ -609,78 +822,124 @@ const modalBackdrop = document.getElementById('ho-modal-backdrop');
 const modalImg      = document.getElementById('ho-modal-img');
 const modalEyebrow  = document.getElementById('ho-modal-eyebrow');
 const modalTitle    = document.getElementById('ho-modal-title');
-const modalSub      = document.getElementById('ho-modal-sub');
 const modalDesc     = document.getElementById('ho-modal-desc');
 const modalSpecsWrap = document.getElementById('ho-modal-specs-wrap');
 const modalSpecs    = document.getElementById('ho-modal-specs');
 const modalAppsWrap = document.getElementById('ho-modal-applications-wrap');
 const modalAppsList = document.getElementById('ho-modal-applications-list');
 const modalActions  = document.getElementById('ho-modal-actions');
+const colorBlock    = document.getElementById('ho-color-block');
+const colorSwatches = document.getElementById('ho-color-swatches');
+const colorCurrent  = document.getElementById('ho-color-current');
 
 document.getElementById('ho-modal-close').addEventListener('click', closeModal);
 modalBackdrop.addEventListener('click', (e) => { if (e.target === modalBackdrop) closeModal(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modalBackdrop.hidden) closeModal(); });
 
-function openModal(m) {
-  const img = m.primary_image_url || m.swatch_url;
-  modalImg.style.backgroundImage = img ? 'url(' + img + ')' : 'none';
-  modalImg.style.background = img ? ('url(' + img + ') center/cover no-repeat') : 'var(--bp-cream)';
+let activeGroup = null;
+let activeIdx = 0;
 
-  modalEyebrow.textContent = (m.manufacturer || 'Material').toUpperCase();
-  modalTitle.textContent   = m.product_name || 'Material';
-  const subBits = [m.collection, m.color].filter(Boolean).join(' · ');
-  modalSub.textContent = subBits;
-  modalSub.style.display = subBits ? 'block' : 'none';
+function openModal(group, startIdx) {
+  activeGroup = group;
+  activeIdx = Math.max(0, Math.min(startIdx || 0, group.variants.length - 1));
 
-  modalDesc.textContent = m.description || '';
-  modalDesc.style.display = m.description ? 'block' : 'none';
+  modalEyebrow.textContent = (group.manufacturer || 'Material').toUpperCase();
+  modalTitle.textContent   = group.name;
 
-  // Specs
+  // Description: pull from currently-selected variant, fall back to first non-empty
+  const variantsWithDesc = group.variants.filter(v => v.description);
+  modalDesc.textContent = (group.variants[activeIdx].description) ||
+                          (variantsWithDesc[0] && variantsWithDesc[0].description) ||
+                          '';
+  modalDesc.style.display = modalDesc.textContent ? 'block' : 'none';
+
+  // Build color picker (only show if >1 variant)
+  if (group.variants.length > 1) {
+    colorSwatches.innerHTML = group.variants.map((v, i) => {
+      const sw = v.swatch_url || v.primary_image_url;
+      const bg = sw ? 'background-image:url(' + escapeAttr(sw) + ');' : '';
+      return '<button type="button" class="ho-swatch-btn' + (i === activeIdx ? ' active' : '') + '" data-idx="' + i + '" title="' + escapeAttr(v.color || 'Variant') + '">' +
+        '<span class="ho-swatch-img" style="' + bg + '"></span>' +
+        '<span class="ho-swatch-name">' + escapeHtml(v.color || '—') + '</span>' +
+      '</button>';
+    }).join('');
+    colorBlock.hidden = false;
+  } else {
+    colorBlock.hidden = true;
+  }
+
+  renderActiveVariant();
+
+  modalBackdrop.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function renderActiveVariant() {
+  if (!activeGroup) return;
+  const v = activeGroup.variants[activeIdx];
+  const img = v.primary_image_url || v.swatch_url || activeGroup.firstImage;
+  modalImg.style.background = img
+    ? ('url(' + img + ') center/cover no-repeat')
+    : 'var(--bp-cream)';
+
+  colorCurrent.textContent = v.color || '';
+
+  // Specs (per-variant)
   const specs = [];
-  if (m.size_spec)    specs.push(['Size', m.size_spec]);
-  if (m.pattern)      specs.push(['Pattern', m.pattern]);
-  if (m.thickness_mm) specs.push(['Thickness', m.thickness_mm + ' mm']);
-  if (m.category)     specs.push(['Category', titleCase(m.category)]);
-  if (m.collection)   specs.push(['Collection', titleCase(m.collection)]);
+  if (v.color)        specs.push(['Color',      v.color]);
+  if (v.size_spec)    specs.push(['Size',       v.size_spec]);
+  if (v.pattern)      specs.push(['Pattern',    v.pattern]);
+  if (v.thickness_mm) specs.push(['Thickness',  v.thickness_mm + ' mm']);
+  if (v.collection)   specs.push(['Collection', titleCase(v.collection)]);
+  if (activeGroup.category) specs.push(['Category', titleCase(activeGroup.category)]);
 
   if (specs.length > 0) {
-    modalSpecs.innerHTML = specs.map(([k, v]) =>
-      '<dt>' + escapeHtml(k) + '</dt><dd>' + escapeHtml(String(v)) + '</dd>'
+    modalSpecs.innerHTML = specs.map(([k, val]) =>
+      '<dt>' + escapeHtml(k) + '</dt><dd>' + escapeHtml(String(val)) + '</dd>'
     ).join('');
     modalSpecsWrap.hidden = false;
   } else {
     modalSpecsWrap.hidden = true;
   }
 
-  // Applications
-  if (Array.isArray(m.applications) && m.applications.length > 0) {
-    modalAppsList.innerHTML = m.applications
+  // Applications (per-variant)
+  if (Array.isArray(v.applications) && v.applications.length > 0) {
+    modalAppsList.innerHTML = v.applications
       .map(a => '<span class="ho-modal-app-chip">' + escapeHtml(String(a)) + '</span>').join('');
     modalAppsWrap.hidden = false;
   } else {
     modalAppsWrap.hidden = true;
   }
 
-  // Actions: cut sheet + spec PDF if available
+  // Actions: cut sheet + spec PDF (per-variant)
   const acts = [];
-  if (m.cut_sheet_url) {
-    acts.push('<a class="ho-modal-btn ho-modal-btn-primary" href="' + escapeAttr(m.cut_sheet_url) + '" target="_blank" rel="noopener">📄 View cut sheet</a>');
+  if (v.cut_sheet_url) {
+    acts.push('<a class="ho-modal-btn ho-modal-btn-primary" href="' + escapeAttr(v.cut_sheet_url) + '" target="_blank" rel="noopener">📄 View cut sheet</a>');
   }
-  if (m.spec_pdf_url && m.spec_pdf_url !== m.cut_sheet_url) {
-    acts.push('<a class="ho-modal-btn ho-modal-btn-ghost" href="' + escapeAttr(m.spec_pdf_url) + '" target="_blank" rel="noopener">📋 Spec PDF</a>');
+  if (v.spec_pdf_url && v.spec_pdf_url !== v.cut_sheet_url) {
+    acts.push('<a class="ho-modal-btn ho-modal-btn-ghost" href="' + escapeAttr(v.spec_pdf_url) + '" target="_blank" rel="noopener">📋 Spec PDF</a>');
   }
   if (acts.length === 0) {
     acts.push('<p style="font-size:13px;color:var(--bp-muted);margin:0;">Detailed cut-sheets coming as we add them to the catalog.</p>');
   }
   modalActions.innerHTML = acts.join('');
-
-  modalBackdrop.hidden = false;
-  document.body.style.overflow = 'hidden';
 }
+
+colorSwatches.addEventListener('click', (e) => {
+  const btn = e.target.closest('.ho-swatch-btn');
+  if (!btn) return;
+  const idx = Number(btn.dataset.idx);
+  if (Number.isNaN(idx)) return;
+  activeIdx = idx;
+  colorSwatches.querySelectorAll('.ho-swatch-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderActiveVariant();
+});
 
 function closeModal() {
   modalBackdrop.hidden = true;
   document.body.style.overflow = '';
+  activeGroup = null;
 }
 
 function titleCase(s) {
