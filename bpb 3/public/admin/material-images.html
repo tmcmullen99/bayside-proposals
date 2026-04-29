@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Material Images · Bayside Proposal Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #5d7e69;
+      --green-dark: #4a6654;
+      --green-soft: #e8eee9;
+      --charcoal: #353535;
+      --tan: #dad7c5;
+      --cream: #faf8f3;
+      --navy: #1a1f2e;
+      --border: #e5e5e5;
+      --muted: #666;
+      --danger: #b04040;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--charcoal);
+      background: #fafafa;
+      line-height: 1.6;
+      font-size: 15px;
+      min-height: 100vh;
+    }
+    a { color: var(--green-dark); }
+
+    .admin-header {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .admin-header h1 {
+      font-size: 18px; font-weight: 600; color: var(--navy);
+    }
+    .admin-header nav a {
+      font-size: 13px; text-decoration: none;
+      color: var(--muted); margin-right: 18px;
+    }
+    .admin-header nav a:hover { color: var(--green-dark); }
+
+    .shell { max-width: 1200px; margin: 0 auto; padding: 32px; }
+
+    .intro { margin-bottom: 28px; }
+    .eyebrow {
+      font-size: 11px; letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--green); font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .intro h2 {
+      font-size: 28px; font-weight: 600;
+      color: var(--navy); margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .intro p {
+      color: var(--muted);
+      max-width: 680px;
+      font-size: 15px;
+    }
+    .intro-help {
+      margin-top: 14px;
+      padding: 14px 18px;
+      background: var(--green-soft);
+      border-left: 3px solid var(--green);
+      border-radius: 4px;
+      font-size: 13px;
+      color: var(--charcoal);
+      line-height: 1.6;
+    }
+    .intro-help strong { color: var(--navy); }
+
+    .controls {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      display: flex; flex-wrap: wrap;
+      gap: 12px; align-items: center;
+      margin-bottom: 24px;
+    }
+    .controls input[type="search"],
+    .controls select {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit; font-size: 14px;
+      background: #fff; color: var(--charcoal);
+    }
+    .controls input[type="search"] { flex: 1; min-width: 220px; }
+    .controls input[type="search"]:focus,
+    .controls select:focus {
+      outline: none; border-color: var(--green);
+    }
+    .controls .counter {
+      font-size: 13px; color: var(--muted);
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status {
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      display: none;
+      line-height: 1.5;
+    }
+    .status.visible { display: block; }
+    .status.success { background: var(--green-soft); color: var(--green-dark); }
+    .status.error   { background: #fbe6e6; color: var(--danger); }
+    .status.info    { background: #fef9e7; color: #8a6d00; }
+
+    .product-group {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      margin-bottom: 18px;
+    }
+    .product-group-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 18px; padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      gap: 16px; flex-wrap: wrap;
+    }
+    .product-group-title {
+      font-size: 18px; font-weight: 600;
+      color: var(--navy); letter-spacing: -0.01em;
+    }
+    .product-group-title small {
+      font-size: 12px; font-weight: 400;
+      color: var(--muted); margin-left: 10px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .product-group-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; font-weight: 600;
+      color: var(--muted);
+    }
+    .product-group-count.complete { color: var(--green-dark); }
+
+    .variant-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .variant-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      display: flex; flex-direction: column;
+      transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+    .variant-card:hover {
+      border-color: var(--green);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .variant-card.uploading {
+      opacity: 0.6; pointer-events: none;
+    }
+    .variant-card.dragover {
+      border-color: var(--green);
+      background: var(--green-soft);
+      box-shadow: 0 0 0 3px var(--green-soft);
+    }
+    .variant-card.has-custom { border-color: var(--green); }
+    .image-preview {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: var(--cream);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .image-preview img {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+    }
+    .no-image {
+      color: var(--muted);
+      font-size: 12px; font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .image-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      display: none;
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 6px;
+      font-size: 13px; font-weight: 600;
+      padding: 16px; text-align: center;
+      pointer-events: none;
+    }
+    .variant-card.dragover .image-overlay { display: flex; }
+    .custom-badge {
+      position: absolute; top: 8px; right: 8px;
+      background: var(--green); color: #fff;
+      font-size: 9px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 999px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    .variant-info {
+      padding: 12px 14px 8px;
+      flex: 1;
+    }
+    .color-name {
+      font-size: 14px; font-weight: 600;
+      color: var(--navy); margin-bottom: 2px;
+    }
+    .sizes {
+      font-size: 12px; color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .variant-actions {
+      padding: 0 14px 14px;
+      display: flex; gap: 6px;
+    }
+    .upload-btn {
+      flex: 1; display: inline-block; text-align: center;
+      padding: 9px 10px;
+      font-size: 12px; font-weight: 600;
+      cursor: pointer; border-radius: 5px;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+      letter-spacing: 0.02em;
+    }
+    .upload-btn-primary { background: var(--green); color: #fff; }
+    .upload-btn-primary:hover { background: var(--green-dark); }
+    .upload-btn-secondary {
+      background: #fff; color: var(--charcoal);
+      border-color: var(--border);
+    }
+    .upload-btn-secondary:hover {
+      border-color: var(--green); color: var(--green-dark);
+    }
+    .upload-spinner {
+      position: absolute; inset: 0;
+      background: rgba(255, 255, 255, 0.85);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 8px;
+      font-size: 12px; color: var(--charcoal);
+      font-weight: 600;
+    }
+    .upload-spinner .spinner {
+      width: 22px; height: 22px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .empty, .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      background: #fff;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+    }
+    .loading .spinner-large {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px; vertical-align: -4px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+      .admin-header { padding: 14px 18px; }
+      .shell { padding: 20px 16px; }
+      .product-group { padding: 16px 16px; }
+      .variant-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="admin-header">
+    <h1>Material Images</h1>
+    <nav>
+      <a href="/admin/">← Admin home</a>
+      <a href="/admin/materials.html">Materials</a>
+      <a href="/admin/material-swatches.html">Swatches</a>
+    </nav>
+  </header>
+
+  <div class="shell">
+    <div class="intro">
+      <div class="eyebrow">Catalog management</div>
+      <h2>Replace material hero images</h2>
+      <p>Update the lifestyle photo shown on each material card across the homeowner catalog, designer editor, and future proposal pages. Drag a new image onto any card to replace it instantly.</p>
+
+      <div class="intro-help">
+        <strong>How it works:</strong> Uploaded images are stored at a deterministic URL — replacing the same material's image overwrites the existing file. The catalog, homeowner accounts, and any newly-built proposals will pick up the new image automatically. Existing published proposal pages keep the image they were built with (this is intentional — they're frozen snapshots).
+      </div>
+    </div>
+
+    <div class="controls">
+      <input type="search" id="searchInput" placeholder="Search products… (e.g. Catalina, Belair, Dimension)" autofocus>
+      <select id="filterCat">
+        <option value="all">All categories</option>
+      </select>
+      <select id="filterState">
+        <option value="all">All variants</option>
+        <option value="custom">Custom-uploaded only</option>
+        <option value="default">Default images only</option>
+      </select>
+      <span class="counter" id="counter">loading…</span>
+    </div>
+
+    <div id="statusBanner" class="status"></div>
+
+    <div id="results">
+      <div class="loading"><span class="spinner-large"></span>Loading catalog…</div>
+    </div>
+  </div>
+
+  <script type="module">
+    // The /js/supabase-client.js side-effect import handles the auth gate +
+    // injects the user pill. Identical pattern to the other /admin/ pages.
+    import { supabase } from '/js/supabase-client.js';
+
+    const STORAGE_BUCKET = 'material-images';
+    const STORAGE_PUBLIC_BASE = 'https://gfgbypcnxkschnfsitfb.supabase.co/storage/v1/object/public/' + STORAGE_BUCKET + '/';
+
+    const searchInput = document.getElementById('searchInput');
+    const filterCat   = document.getElementById('filterCat');
+    const filterState = document.getElementById('filterState');
+    const counter     = document.getElementById('counter');
+    const results     = document.getElementById('results');
+    const statusBanner = document.getElementById('statusBanner');
+
+    let allMaterials = [];
+    let groupedProducts = []; // [{ name, manufacturer, category, variants: [...] }]
+
+    function showStatus(msg, kind) {
+      statusBanner.textContent = msg;
+      statusBanner.className = 'status visible ' + (kind || 'info');
+      if (kind === 'success') {
+        setTimeout(() => { statusBanner.className = 'status'; }, 3500);
+      }
+    }
+
+    function isCustomImage(material) {
+      return material.primary_image_url
+          && material.primary_image_url.startsWith(STORAGE_PUBLIC_BASE);
+    }
+
+    async function loadCatalog() {
+      const { data, error } = await supabase
+        .from('materials')
+        .select('id, manufacturer, product_name, collection, color, size_spec, category, primary_image_url, swatch_url')
+        .order('product_name', { ascending: true })
+        .order('color',        { ascending: true });
+
+      if (error) {
+        results.innerHTML = '<div class="empty">Could not load catalog: ' + escapeHtml(error.message) + '</div>';
+        counter.textContent = 'error';
+        return;
+      }
+
+      allMaterials = data || [];
+      // Group by manufacturer + product_name (matches the homeowner catalog grouping)
+      const map = new Map();
+      allMaterials.forEach(m => {
+        const key = (m.manufacturer || '?') + '|' + (m.product_name || '?');
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            name: m.product_name || 'Unnamed',
+            manufacturer: m.manufacturer || '',
+            category: m.category || '',
+            variants: [],
+          });
+        }
+        map.get(key).variants.push(m);
+      });
+      groupedProducts = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+      buildCategoryFilter();
+      render();
+    }
+
+    function buildCategoryFilter() {
+      const cats = [...new Set(allMaterials.map(m => m.category).filter(Boolean))].sort();
+      const labels = {
+        pavers: 'Pavers', porcelain: 'Porcelain', walls: 'Walls',
+        accessories: 'Accessories', 'fire-features': 'Fire features',
+        decking: 'Decking', lighting: 'Lighting', other: 'Other',
+      };
+      cats.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = labels[cat] || cat;
+        filterCat.appendChild(opt);
+      });
+    }
+
+    function render() {
+      const q = searchInput.value.trim().toLowerCase();
+      const cat = filterCat.value;
+      const state = filterState.value;
+
+      const filtered = groupedProducts
+        .map(group => {
+          const variants = group.variants.filter(v => {
+            if (state === 'custom'  && !isCustomImage(v)) return false;
+            if (state === 'default' && isCustomImage(v))  return false;
+            return true;
+          });
+          return { ...group, variants };
+        })
+        .filter(group => {
+          if (group.variants.length === 0) return false;
+          if (cat !== 'all' && group.category !== cat) return false;
+          if (!q) return true;
+          const hay = [
+            group.name, group.manufacturer,
+            ...group.variants.map(v => [v.color, v.collection, v.size_spec].filter(Boolean).join(' '))
+          ].filter(Boolean).join(' ').toLowerCase();
+          return hay.includes(q);
+        });
+
+      const totalVariants = filtered.reduce((s, g) => s + g.variants.length, 0);
+      counter.textContent = filtered.length + ' products · ' + totalVariants + ' variants';
+
+      if (filtered.length === 0) {
+        results.innerHTML = '<div class="empty">No materials match your filters.</div>';
+        return;
+      }
+
+      results.innerHTML = filtered.map(group => {
+        const customCount = group.variants.filter(isCustomImage).length;
+        const totalCount  = group.variants.length;
+        const countClass  = customCount === totalCount ? 'product-group-count complete' : 'product-group-count';
+        return '<div class="product-group">' +
+          '<div class="product-group-header">' +
+            '<div class="product-group-title">' + escapeHtml(group.name) +
+              (group.manufacturer ? '<small>' + escapeHtml(group.manufacturer) + '</small>' : '') +
+            '</div>' +
+            '<div class="' + countClass + '">' + customCount + ' / ' + totalCount + ' customized</div>' +
+          '</div>' +
+          '<div class="variant-grid">' +
+            group.variants.map(renderCard).join('') +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      attachCardHandlers();
+    }
+
+    function renderCard(m) {
+      const img = m.primary_image_url || m.swatch_url;
+      const custom = isCustomImage(m);
+      return '<div class="variant-card' + (custom ? ' has-custom' : '') + '" data-id="' + escapeAttr(m.id) + '">' +
+        '<div class="image-preview">' +
+          (img
+            ? '<img src="' + escapeAttr(img) + '" alt="' + escapeAttr(m.product_name + ' · ' + (m.color || '')) + '" loading="lazy">'
+            : '<span class="no-image">No image</span>') +
+          (custom ? '<span class="custom-badge">Custom</span>' : '') +
+          '<div class="image-overlay">Drop to replace</div>' +
+        '</div>' +
+        '<div class="variant-info">' +
+          '<div class="color-name">' + escapeHtml(m.color || '—') + '</div>' +
+          (m.size_spec ? '<div class="sizes">' + escapeHtml(m.size_spec) + '</div>' : '') +
+        '</div>' +
+        '<div class="variant-actions">' +
+          '<label class="upload-btn upload-btn-primary">' +
+            'Replace image' +
+            '<input type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" data-id="' + escapeAttr(m.id) + '">' +
+          '</label>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function attachCardHandlers() {
+      // File input listeners (one per card)
+      results.querySelectorAll('input[type="file"]').forEach(input => {
+        input.addEventListener('change', async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          const id = input.dataset.id;
+          await handleUpload(id, file);
+          input.value = ''; // reset so user can re-pick same file
+        });
+      });
+
+      // Drag-and-drop on each card
+      results.querySelectorAll('.variant-card').forEach(card => {
+        card.addEventListener('dragenter', (e) => { e.preventDefault(); card.classList.add('dragover'); });
+        card.addEventListener('dragover',  (e) => { e.preventDefault(); });
+        card.addEventListener('dragleave', (e) => {
+          // Only remove if we're leaving the card itself (not entering a child)
+          if (!card.contains(e.relatedTarget)) card.classList.remove('dragover');
+        });
+        card.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          card.classList.remove('dragover');
+          const file = e.dataTransfer.files && e.dataTransfer.files[0];
+          if (!file) return;
+          if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+            showStatus('That file type isn\'t supported. Use JPG, PNG, or WebP.', 'error');
+            return;
+          }
+          const id = card.dataset.id;
+          await handleUpload(id, file);
+        });
+      });
+    }
+
+    async function handleUpload(materialId, file) {
+      if (file.size > 10 * 1024 * 1024) {
+        showStatus('Image is too large (' + Math.round(file.size / 1024 / 1024) + 'MB). Max 10MB.', 'error');
+        return;
+      }
+
+      const card = results.querySelector('.variant-card[data-id="' + materialId + '"]');
+      if (!card) return;
+
+      // Add a spinner overlay
+      card.classList.add('uploading');
+      const spinner = document.createElement('div');
+      spinner.className = 'upload-spinner';
+      spinner.innerHTML = '<div class="spinner"></div><span>Uploading…</span>';
+      card.querySelector('.image-preview').appendChild(spinner);
+
+      try {
+        // Determine extension from the file's mime type — use .jpg for jpeg
+        const ext = file.type === 'image/png' ? 'png' :
+                    file.type === 'image/webp' ? 'webp' : 'jpg';
+        const path = materialId + '.' + ext;
+
+        // Upload (upsert) to bucket — overwrites if exists
+        const { error: upErr } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, file, { upsert: true, contentType: file.type, cacheControl: '60' });
+        if (upErr) throw upErr;
+
+        // Build the canonical URL with cache-busting query param so browsers
+        // re-fetch the new bytes immediately.
+        const ts = Date.now();
+        const newUrl = STORAGE_PUBLIC_BASE + path + '?v=' + ts;
+
+        // Update materials row
+        const { error: updErr } = await supabase
+          .from('materials')
+          .update({ primary_image_url: newUrl })
+          .eq('id', materialId);
+        if (updErr) throw updErr;
+
+        // Update local state + re-render the affected card
+        const matInState = allMaterials.find(m => m.id === materialId);
+        if (matInState) matInState.primary_image_url = newUrl;
+        // Refresh just this card's image in place (avoid re-rendering the whole grid)
+        const imgEl = card.querySelector('.image-preview img');
+        if (imgEl) {
+          imgEl.src = newUrl;
+        } else {
+          const placeholder = card.querySelector('.no-image');
+          if (placeholder) placeholder.replaceWith(Object.assign(document.createElement('img'), {
+            src: newUrl, alt: '', loading: 'lazy',
+          }));
+        }
+        // Toggle custom badge
+        if (!card.querySelector('.custom-badge')) {
+          const badge = document.createElement('span');
+          badge.className = 'custom-badge';
+          badge.textContent = 'Custom';
+          card.querySelector('.image-preview').appendChild(badge);
+        }
+        card.classList.add('has-custom');
+
+        showStatus('Image updated. The new version will appear in homeowner accounts and new proposals immediately.', 'success');
+
+      } catch (err) {
+        console.error(err);
+        showStatus('Upload failed: ' + ((err && err.message) || 'unknown error'), 'error');
+      } finally {
+        card.classList.remove('uploading');
+        const sp = card.querySelector('.upload-spinner');
+        if (sp) sp.remove();
+      }
+    }
+
+    let searchDebounce = null;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(render, 120);
+    });
+    filterCat.addEventListener('change', render);
+    filterState.addEventListener('change', render);
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function escapeAttr(s) { return escapeHtml(s); }
+
+    // Boot
+    loadCatalog();
+  </script>
+</body>
+</html>
