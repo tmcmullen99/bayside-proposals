@@ -45,7 +45,7 @@ export async function onRequestPost({ request, env }) {
     const SUPABASE_URL    = env.SUPABASE_URL;
     const SERVICE_ROLE    = env.SUPABASE_SERVICE_ROLE_KEY;
     const RESEND_API_KEY  = env.RESEND_API_KEY;
-    const RESEND_FROM     = env.RESEND_FROM || 'Bayside Pavers <hello@baysidepavers.com>';
+    const RESEND_FROM     = env.RESEND_FROM || 'Tim McMullen <tim@mcmullen.properties>';
 
     if (!SUPABASE_URL || !SERVICE_ROLE) {
       return json(500, { error: 'Server not configured (missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)' });
