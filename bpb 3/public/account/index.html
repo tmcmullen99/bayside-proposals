@@ -38,7 +38,7 @@
     flex-wrap: wrap; gap: 12px;
   }
   .ho-nav-brand { display: flex; align-items: center; gap: 14px; }
-  .ho-nav-brand img { height: 30px; width: auto; }
+  .ho-nav-brand img { height: 32px; width: auto; }
   .ho-nav-brand-divider { width: 1px; height: 22px; background: var(--bp-border); }
   .ho-nav-brand-tag {
     font-size: 11px; letter-spacing: 0.18em;
@@ -83,6 +83,20 @@
     font-size: 15px; line-height: 1.6;
     color: rgba(255, 255, 255, 0.86);
     max-width: 680px;
+    margin-bottom: 18px;
+  }
+  .ho-hero-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #fff; color: var(--bp-green-dk);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .ho-hero-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
   }
 
   .ho-section { margin-bottom: 32px; }
@@ -98,7 +112,14 @@
     font-size: 12px; color: var(--bp-muted);
     letter-spacing: 0.04em;
   }
+  .ho-section-sub {
+    font-size: 13px; color: var(--bp-muted);
+    margin-bottom: 14px;
+    max-width: 640px;
+    line-height: 1.6;
+  }
 
+  /* Proposal cards */
   .ho-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -141,20 +162,10 @@
   }
   .ho-prop-status-signed { background: var(--bp-green); color: #fff; }
   .ho-prop-status-sent  { background: #fff; color: var(--bp-green-dk); }
-
   .ho-prop-body { padding: 20px; flex: 1; display: flex; flex-direction: column; }
-  .ho-prop-addr {
-    font-size: 16px; font-weight: 600;
-    color: var(--bp-text);
-    margin-bottom: 6px; line-height: 1.3;
-  }
+  .ho-prop-addr { font-size: 16px; font-weight: 600; color: var(--bp-text); margin-bottom: 6px; line-height: 1.3; }
   .ho-prop-meta { font-size: 12px; color: var(--bp-muted); margin-bottom: 12px; }
-  .ho-prop-total {
-    font-size: 22px; font-weight: 600;
-    color: var(--bp-green-dk);
-    margin-bottom: 18px;
-    letter-spacing: -0.012em;
-  }
+  .ho-prop-total { font-size: 22px; font-weight: 600; color: var(--bp-green-dk); margin-bottom: 18px; letter-spacing: -0.012em; }
   .ho-prop-cta {
     display: inline-block;
     background: var(--bp-green); color: #fff;
@@ -178,8 +189,73 @@
   }
   .ho-empty-icon { font-size: 36px; margin-bottom: 12px; color: var(--bp-green); opacity: 0.6; }
   .ho-empty h3 { font-size: 16px; font-weight: 600; color: var(--bp-text); margin-bottom: 6px; }
-  .ho-empty p { font-size: 13px; line-height: 1.6; max-width: 420px; margin: 0 auto; }
+  .ho-empty p { font-size: 13px; line-height: 1.6; max-width: 420px; margin: 0 auto 18px; }
+  .ho-empty-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--bp-green); color: #fff;
+    padding: 10px 22px;
+    border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    transition: background .15s;
+  }
+  .ho-empty-cta:hover { background: var(--bp-green-dk); }
 
+  /* Quality Standards section */
+  .ho-qs-card {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    transition: border-color .15s;
+  }
+  .ho-qs-card:hover { border-color: var(--bp-green); }
+  .ho-qs-card[open] { border-color: var(--bp-green); }
+  .ho-qs-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 18px 22px;
+    display: flex; align-items: center; gap: 14px;
+    user-select: none;
+  }
+  .ho-qs-summary::-webkit-details-marker { display: none; }
+  .ho-qs-num {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--bp-green-soft);
+    color: var(--bp-green-dk);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .ho-qs-card[open] .ho-qs-num { background: var(--bp-green); color: #fff; }
+  .ho-qs-title-wrap { flex: 1; min-width: 0; }
+  .ho-qs-title {
+    font-size: 15px; font-weight: 600;
+    color: var(--bp-text); line-height: 1.3;
+  }
+  .ho-qs-tagline {
+    font-size: 12px; color: var(--bp-muted);
+    margin-top: 2px;
+  }
+  .ho-qs-arrow {
+    flex-shrink: 0;
+    color: var(--bp-muted);
+    font-size: 18px;
+    transition: transform .2s;
+  }
+  .ho-qs-card[open] .ho-qs-arrow { transform: rotate(90deg); color: var(--bp-green-dk); }
+  .ho-qs-body {
+    padding: 0 22px 22px;
+    font-size: 14px; line-height: 1.7;
+    color: var(--bp-charcoal);
+  }
+  .ho-qs-body p { margin-bottom: 12px; }
+  .ho-qs-body p:last-child { margin-bottom: 0; }
+
+  /* Two-column for credit + browse-materials cards */
   .ho-two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -216,11 +292,7 @@
     height: 100%; border-radius: 999px;
     transition: width .4s ease;
   }
-  .ho-credit-desc {
-    font-size: 13px; line-height: 1.55;
-    color: var(--bp-charcoal);
-    margin-bottom: 18px;
-  }
+  .ho-credit-desc { font-size: 13px; line-height: 1.55; color: var(--bp-charcoal); margin-bottom: 18px; }
   .ho-credit-cta {
     background: var(--bp-green); color: #fff;
     border: none; border-radius: 8px;
@@ -233,50 +305,59 @@
   .ho-credit-cta:hover { background: var(--bp-green-dk); }
   .ho-credit-cta:disabled { background: var(--bp-text); opacity: 0.6; cursor: not-allowed; }
 
-  .ho-res-card {
-    background: #fff;
+  /* Browse materials card (replaces old generic resources) */
+  .ho-browse-card {
+    background: linear-gradient(135deg, #fff 0%, var(--bp-cream) 100%);
     border: 1px solid var(--bp-border);
     border-radius: 12px;
     padding: 26px 24px;
+    display: flex; flex-direction: column;
   }
-  .ho-res-eyebrow {
+  .ho-browse-eyebrow {
     font-size: 11px; letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--bp-muted); font-weight: 600;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
   }
-  .ho-res-list { display: flex; flex-direction: column; gap: 10px; }
-  .ho-res-link {
-    display: flex; align-items: flex-start; gap: 14px;
-    padding: 12px 14px;
-    border: 1px solid var(--bp-border);
-    border-radius: 10px;
-    text-decoration: none;
+  .ho-browse-title {
+    font-size: 20px; font-weight: 600;
     color: var(--bp-text);
-    transition: border-color .15s, background .15s;
+    letter-spacing: -0.012em;
+    line-height: 1.25;
+    margin-bottom: 8px;
   }
-  .ho-res-link:hover { border-color: var(--bp-green); background: var(--bp-cream); }
-  .ho-res-icon {
-    flex-shrink: 0;
-    width: 36px; height: 36px;
-    background: var(--bp-green-soft);
-    color: var(--bp-green-dk);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
+  .ho-browse-desc {
+    font-size: 13px; line-height: 1.55;
+    color: var(--bp-charcoal);
+    margin-bottom: 18px;
   }
-  .ho-res-text { flex: 1; min-width: 0; }
-  .ho-res-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; color: var(--bp-text); }
-  .ho-res-sub { font-size: 12px; color: var(--bp-muted); line-height: 1.4; }
-  .ho-res-coming {
-    padding: 12px 14px;
-    border: 1px dashed var(--bp-border);
-    border-radius: 10px;
+  .ho-browse-list {
+    list-style: none;
+    padding: 0; margin: 0 0 18px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 14px;
     font-size: 12px;
     color: var(--bp-muted);
-    text-align: center;
-    line-height: 1.5;
   }
+  .ho-browse-list li {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .ho-browse-list li::before {
+    content: "•"; color: var(--bp-green-dk); font-weight: 700;
+  }
+  .ho-browse-cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bp-green); color: #fff;
+    padding: 11px 20px;
+    border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    transition: background .15s;
+    margin-top: auto;
+    align-self: flex-start;
+  }
+  .ho-browse-cta:hover { background: var(--bp-green-dk); }
 
   .ho-loading {
     background: #fff;
@@ -297,13 +378,12 @@
     margin-bottom: 18px;
   }
 
-  /* ─── Refer modal ─────────────────────────────────────────────── */
+  /* Refer modal */
   .ho-modal-backdrop {
     position: fixed; inset: 0;
     background: rgba(31, 33, 37, 0.5);
     display: flex; align-items: center; justify-content: center;
-    z-index: 9999;
-    padding: 20px;
+    z-index: 9999; padding: 20px;
   }
   .ho-modal-backdrop[hidden] { display: none; }
   .ho-modal {
@@ -320,15 +400,8 @@
     border-radius: 14px 14px 0 0;
     position: relative;
   }
-  .ho-modal-head h2 {
-    font-size: 18px; font-weight: 600;
-    letter-spacing: -0.01em;
-    margin-bottom: 4px;
-  }
-  .ho-modal-head p {
-    font-size: 13px; line-height: 1.5;
-    color: rgba(255, 255, 255, 0.85);
-  }
+  .ho-modal-head h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 4px; }
+  .ho-modal-head p { font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.85); }
   .ho-modal-close {
     position: absolute; top: 16px; right: 16px;
     background: rgba(255, 255, 255, 0.18);
@@ -344,10 +417,7 @@
   .ho-modal-body { padding: 24px 26px 26px; }
   .ho-modal-form { display: flex; flex-direction: column; gap: 14px; }
   .ho-modal-field { display: flex; flex-direction: column; gap: 5px; }
-  .ho-modal-field label {
-    font-size: 12px; font-weight: 600;
-    color: var(--bp-charcoal);
-  }
+  .ho-modal-field label { font-size: 12px; font-weight: 600; color: var(--bp-charcoal); }
   .ho-modal-field label em { color: var(--bp-err); font-style: normal; margin-left: 2px; }
   .ho-modal-field input {
     font-family: inherit; font-size: 14px;
@@ -371,10 +441,7 @@
     color: var(--bp-charcoal);
     margin-bottom: 4px;
   }
-  .ho-modal-actions {
-    display: flex; gap: 10px;
-    margin-top: 6px;
-  }
+  .ho-modal-actions { display: flex; gap: 10px; margin-top: 6px; }
   .ho-modal-btn {
     flex: 1;
     padding: 12px 18px;
@@ -384,9 +451,7 @@
     border: 1px solid transparent;
     transition: background .15s, opacity .15s;
   }
-  .ho-modal-btn-primary {
-    background: var(--bp-green); color: #fff;
-  }
+  .ho-modal-btn-primary { background: var(--bp-green); color: #fff; }
   .ho-modal-btn-primary:hover { background: var(--bp-green-dk); }
   .ho-modal-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
   .ho-modal-btn-ghost {
@@ -403,22 +468,10 @@
     font-size: 12px; line-height: 1.5;
   }
   .ho-modal-error[hidden] { display: none; }
-  .ho-modal-success {
-    text-align: center;
-    padding: 14px 0;
-  }
-  .ho-modal-success-icon {
-    font-size: 36px; color: var(--bp-green); margin-bottom: 10px;
-  }
-  .ho-modal-success h3 {
-    font-size: 16px; font-weight: 600;
-    color: var(--bp-text);
-    margin-bottom: 6px;
-  }
-  .ho-modal-success p {
-    font-size: 13px; line-height: 1.6;
-    color: var(--bp-muted);
-  }
+  .ho-modal-success { text-align: center; padding: 14px 0; }
+  .ho-modal-success-icon { font-size: 36px; color: var(--bp-green); margin-bottom: 10px; }
+  .ho-modal-success h3 { font-size: 16px; font-weight: 600; color: var(--bp-text); margin-bottom: 6px; }
+  .ho-modal-success p { font-size: 13px; line-height: 1.6; color: var(--bp-muted); }
 
   @media (max-width: 540px) {
     .ho-page { padding: 24px 16px 60px; }
@@ -426,6 +479,7 @@
     .ho-hero-title { font-size: 22px; }
     .ho-hero-lede { font-size: 14px; }
     .ho-nav-brand-divider, .ho-nav-brand-tag { display: none; }
+    .ho-browse-list { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -433,7 +487,7 @@
 
 <nav class="ho-nav">
   <div class="ho-nav-brand">
-    <img src="https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69a04f4369bc9cc20b8d2155_BaysidePavers_original%20(2)%20(1).png" alt="Bayside Pavers">
+    <img src="https://baysidepavers.com/wp-content/uploads/2023/03/baysidepavers-logo-light-scaled.png" alt="Bayside Pavers">
     <span class="ho-nav-brand-divider"></span>
     <span class="ho-nav-brand-tag">Your Account</span>
   </div>
@@ -450,8 +504,10 @@
     <div class="ho-hero-eyebrow">Welcome</div>
     <h1 class="ho-hero-title" id="ho-hero-title">…</h1>
     <p class="ho-hero-lede" id="ho-hero-lede">Loading your account…</p>
+    <a class="ho-hero-cta" id="ho-schedule-cta" href="https://baysidepaversfreeconsultation.as.me/" target="_blank" rel="noopener">📅 Schedule a free design appointment</a>
   </section>
 
+  <!-- Your proposals -->
   <section class="ho-section">
     <div class="ho-section-head">
       <h2>Your proposals</h2>
@@ -462,6 +518,93 @@
     </div>
   </section>
 
+  <!-- Quality Standards (collapsible) -->
+  <section class="ho-section">
+    <div class="ho-section-head">
+      <h2>Our quality standards</h2>
+    </div>
+    <p class="ho-section-sub">
+      Here's what your project actually goes through, from the day we walk your yard to the day we hand
+      you the keys. Tap any phase to see the detail.
+    </p>
+
+    <details class="ho-qs-card">
+      <summary class="ho-qs-summary">
+        <span class="ho-qs-num">01</span>
+        <span class="ho-qs-title-wrap">
+          <span class="ho-qs-title">Site preparation</span>
+          <span class="ho-qs-tagline">Where every long-lasting hardscape begins</span>
+        </span>
+        <span class="ho-qs-arrow">›</span>
+      </summary>
+      <div class="ho-qs-body">
+        <p>Before a single paver lands, we set the stage. Our crew excavates to the right depth for your soil type and project category — patios, driveways, and pool decks each have their own minimum specs. We mark utilities, set up edge lines, and confirm grading so water flows away from your house, not toward it.</p>
+        <p>This is the unglamorous part of the project, but it's the difference between a hardscape that looks great for 5 years and one that looks great for 30. Most failures we get called in to fix come from someone skipping this phase.</p>
+      </div>
+    </details>
+
+    <details class="ho-qs-card">
+      <summary class="ho-qs-summary">
+        <span class="ho-qs-num">02</span>
+        <span class="ho-qs-title-wrap">
+          <span class="ho-qs-title">Base &amp; drainage</span>
+          <span class="ho-qs-tagline">The foundation under your finished surface</span>
+        </span>
+        <span class="ho-qs-arrow">›</span>
+      </summary>
+      <div class="ho-qs-body">
+        <p>The foundation is built in lifts of compacted aggregate — typically 2 to 4 inches at a time — to the standard your project demands. Patios get at least 4 inches; driveways get 8 inches; pool decks and parking get more. Every lift is compacted with the right equipment so the base reaches 98% Standard Proctor density before we move on.</p>
+        <p>Drainage is engineered in at this phase, not bolted on later. Surfaces are sloped a minimum of 2% away from structures, and where the project calls for it, perforated pipe and free-draining backfill carry water out before it can pool, freeze, or heave.</p>
+      </div>
+    </details>
+
+    <details class="ho-qs-card">
+      <summary class="ho-qs-summary">
+        <span class="ho-qs-num">03</span>
+        <span class="ho-qs-title-wrap">
+          <span class="ho-qs-title">Surface installation</span>
+          <span class="ho-qs-tagline">Pavers, porcelain, and finish work</span>
+        </span>
+        <span class="ho-qs-arrow">›</span>
+      </summary>
+      <div class="ho-qs-body">
+        <p>Concrete pavers go down on a precisely screeded one-inch bedding-sand layer, with edge restraints staked into the compacted base. Joints get tight tolerances (1/16 to 3/16 inch) and proper polymeric jointing sand to lock everything together and resist weed and insect intrusion.</p>
+        <p>Porcelain is a different beast — slabs are heavier, more brittle, and require pre-compacted bedding sand and 4mm plastic spacers between every unit. Porcelain is never compacted with a plate compactor after install (a common mistake that breaks slabs); we hand-set, level, and verify alignment instead.</p>
+      </div>
+    </details>
+
+    <details class="ho-qs-card">
+      <summary class="ho-qs-summary">
+        <span class="ho-qs-num">04</span>
+        <span class="ho-qs-title-wrap">
+          <span class="ho-qs-title">Walls &amp; vertical features</span>
+          <span class="ho-qs-tagline">Retaining walls, fire features, seat walls</span>
+        </span>
+        <span class="ho-qs-arrow">›</span>
+      </summary>
+      <div class="ho-qs-body">
+        <p>Retaining walls are engineered, not stacked. We start with a leveling pad of compacted aggregate, lay the first course slightly below grade for stability, and build up using running-bond patterns with proper backfill drainage and (where required) geosynthetic reinforcement layers based on soil type and wall height.</p>
+        <p>Fire features and seat walls get the same care — proper bases, weather-resistant adhesives where they belong, gas lines run by licensed plumbers when applicable, and finish caps mortared in to last.</p>
+      </div>
+    </details>
+
+    <details class="ho-qs-card">
+      <summary class="ho-qs-summary">
+        <span class="ho-qs-num">05</span>
+        <span class="ho-qs-title-wrap">
+          <span class="ho-qs-title">Finishing &amp; warranty</span>
+          <span class="ho-qs-tagline">Polymeric sand, sealing, and what we stand behind</span>
+        </span>
+        <span class="ho-qs-arrow">›</span>
+      </summary>
+      <div class="ho-qs-body">
+        <p>The last day is when most homeowners notice everything coming together. Polymeric jointing sand goes in, gets activated with water, and locks every joint. Where the design calls for sealing, we use the right sealer for the surface — penetrating for natural stone, joint-stabilizing for concrete pavers, none for some porcelain — and apply only after the install has fully cured.</p>
+        <p>Belgard's transferable lifetime limited warranty covers the materials, and we stand behind the workmanship. Adherence to ICPI (Interlocking Concrete Paver Institute) standards isn't optional for us — it's how we keep that warranty intact and how we sleep at night.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- Two-column: Referral credit + Browse materials -->
   <section class="ho-section">
     <div class="ho-two-col">
       <div class="ho-credit-card">
@@ -475,27 +618,19 @@
         <button type="button" class="ho-credit-cta" id="ho-credit-cta">Refer a neighbor →</button>
       </div>
 
-      <div class="ho-res-card">
-        <div class="ho-res-eyebrow">Resources</div>
-        <div class="ho-res-list">
-          <a class="ho-res-link" href="https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf3c6e47/68d2db027d1d1b4ad1543f05_Bayside%20Pavers%20Presentation%20(1)_compressed%20(1).pdf" target="_blank" rel="noopener">
-            <div class="ho-res-icon">📘</div>
-            <div class="ho-res-text">
-              <div class="ho-res-title">Bayside Installation Guide</div>
-              <div class="ho-res-sub">PDF · Site prep, base, paver installation, and warranty info</div>
-            </div>
-          </a>
-          <a class="ho-res-link" href="https://www.baysidepavers.com" target="_blank" rel="noopener">
-            <div class="ho-res-icon">🌐</div>
-            <div class="ho-res-text">
-              <div class="ho-res-title">Bayside Pavers Website</div>
-              <div class="ho-res-sub">Browse projects, materials, and design inspiration</div>
-            </div>
-          </a>
-          <div class="ho-res-coming">
-            More material-specific guides will appear here as your designer adds them to your project.
-          </div>
-        </div>
+      <div class="ho-browse-card">
+        <div class="ho-browse-eyebrow">Materials catalog</div>
+        <h3 class="ho-browse-title">Browse materials we install</h3>
+        <p class="ho-browse-desc">Explore the full library of pavers, porcelain, walls, and accessories. Click any product for cut-sheets and specs.</p>
+        <ul class="ho-browse-list">
+          <li>Pavers</li>
+          <li>Porcelain</li>
+          <li>Walls</li>
+          <li>Fire features</li>
+          <li>Decking</li>
+          <li>Lighting</li>
+        </ul>
+        <a class="ho-browse-cta" href="/account/materials.html">Browse the catalog →</a>
       </div>
     </div>
   </section>
@@ -562,6 +697,7 @@ const navName       = document.getElementById('ho-nav-name');
 const navOut        = document.getElementById('ho-nav-out');
 const heroTitle     = document.getElementById('ho-hero-title');
 const heroLede      = document.getElementById('ho-hero-lede');
+const scheduleCta   = document.getElementById('ho-schedule-cta');
 const propCount     = document.getElementById('ho-prop-count');
 const propArea      = document.getElementById('ho-prop-area');
 const creditAmount  = document.getElementById('ho-credit-amount');
@@ -569,7 +705,6 @@ const creditCap     = document.getElementById('ho-credit-cap');
 const creditFill    = document.getElementById('ho-credit-fill');
 const errorBanner   = document.getElementById('ho-error-banner');
 
-// Refer modal refs
 const referBackdrop = document.getElementById('ho-refer-backdrop');
 const referFormWrap = document.getElementById('ho-refer-form-wrap');
 const referSuccess  = document.getElementById('ho-refer-success');
@@ -675,7 +810,7 @@ async function loadAccount() {
 
   const { data: client, error: clientErr } = await supabase
     .from('clients')
-    .select('id, name, email, must_change_password, referral_credit_cents, referral_credit_used_cents')
+    .select('id, name, email, phone, must_change_password, referral_credit_cents, referral_credit_used_cents')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -701,7 +836,16 @@ async function loadAccount() {
   navName.textContent = client.name || client.email;
   heroTitle.textContent = `Welcome, ${firstName}`;
   heroLede.textContent =
-    'Your project lives here. Review your proposal, explore design resources, and refer neighbors to earn credit toward your next project.';
+    'Your project lives here. Schedule appointments, review your proposal, explore materials, and refer neighbors to earn credit toward your next project.';
+
+  // Build Acuity URL with prefill from the homeowner's account info.
+  const nameParts = (client.name || '').trim().split(/\s+/);
+  const acuityParams = new URLSearchParams();
+  if (nameParts[0]) acuityParams.set('firstName', nameParts[0]);
+  if (nameParts.length > 1) acuityParams.set('lastName', nameParts.slice(1).join(' '));
+  if (client.email) acuityParams.set('email', client.email);
+  if (client.phone) acuityParams.set('phone', client.phone);
+  scheduleCta.href = 'https://baysidepaversfreeconsultation.as.me/?' + acuityParams.toString();
 
   const totalEarned    = Number(client.referral_credit_cents || 0);
   const totalUsed      = Number(client.referral_credit_used_cents || 0);
@@ -731,7 +875,8 @@ async function loadProposals(clientId) {
       <div class="ho-empty">
         <div class="ho-empty-icon">📐</div>
         <h3>No proposals yet</h3>
-        <p>Your designer will publish your custom project proposal here when it's ready. In the meantime, check out the resources below.</p>
+        <p>Your designer will publish your custom project proposal here when it's ready. Want to get started? Schedule a free design appointment.</p>
+        <a class="ho-empty-cta" href="${scheduleCta.href}" target="_blank" rel="noopener">📅 Schedule design appointment →</a>
       </div>`;
     propCount.textContent = '';
     return;
@@ -753,7 +898,6 @@ async function loadProposals(clientId) {
     .from('published_proposals')
     .select('proposal_id, slug, title, project_address, total_amount, published_at')
     .in('proposal_id', proposalIds);
-
   if (pubsErr) console.warn('published_proposals load failed:', pubsErr);
 
   const pubMap = new Map();
@@ -769,9 +913,7 @@ async function loadProposals(clientId) {
   const html = links.map(link => {
     const prop = propMap.get(link.proposal_id);
     const pub  = pubMap.get(link.proposal_id);
-    const address = (pub && pub.project_address) ||
-                    (prop && prop.project_address) ||
-                    'Your project';
+    const address = (pub && pub.project_address) || (prop && prop.project_address) || 'Your project';
     const cityState = prop && prop.project_city
       ? `${prop.project_city}${prop.project_state ? ', ' + prop.project_state : ''}`
       : '';
