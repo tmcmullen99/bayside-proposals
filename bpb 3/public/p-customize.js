@@ -1,18 +1,35 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /p-customize.js — Phase 4.1 Sprint B1
+// /p-customize.js — Phase 4.1 Sprint B1.5
 //
-// Homeowner customization overlay. Loads on /p/{slug} pages via the
-// <script> tag injected by functions/p/[slug].js. Self-deactivates when:
-//   - viewer isn't signed in (no Supabase JWT in localStorage), OR
-//   - viewer doesn't own this proposal (server returns 403)
+// Universal site-plan layout transformer. Runs on every /p/{slug} page
+// regardless of auth state — this is a pure UX improvement, not a
+// customization feature.
 //
-// B1 capabilities (this build):
-//   - Auth detection from Supabase localStorage
-//   - Context fetch from /api/proposal-substitution-context
-//   - Welcome banner across the top of the page
-//   - Polygon click → side panel showing that region's materials (READ-ONLY)
+// Restructures the existing single-column "site map → legend → materials
+// grid" into a Condo-Market-style two-column layout:
 //
-// B2 (next sprint): swap modal, pending changes tray, save & notify designer.
+//   ┌──────────────────────────┬────────────────────┐
+//   │                          │  YOUR PROJECT      │
+//   │   [interactive site      │  3 sections, 4     │
+//   │    plan SVG with         │  materials         │
+//   │    polygons]             │                    │
+//   │                          │  • Pavers …      → │
+//   │                          │  • Front Path …  → │
+//   │                          │  • Pergola …     → │
+//   └──────────────────────────┴────────────────────┘
+//   [legend strip stays below as compact reference]
+//   [original materials grid: hidden, data extracted to right card]
+//
+// Click a polygon (or a row in the right card):
+//   1. Right card swaps to that region's detail (materials in that section)
+//   2. Page scrolls to the matching bid section (existing anchor behavior;
+//      Tim explicitly wanted to keep that pairing)
+//
+// "← Overview" link on region detail returns to the project summary.
+//
+// Replaces the Sprint B1 banner+side-panel approach which was the wrong
+// shape. Sprint B2 will layer swap UI onto the right card for signed-in
+// homeowners.
 //
 // CSS prefix: .bpc-  (Bayside Pavers Customize)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -20,354 +37,407 @@
 (function () {
   'use strict';
 
-  const API_CONTEXT = '/api/proposal-substitution-context';
-
   // ─── Helpers ─────────────────────────────────────────────────────────
-  function getAuthToken() {
-    // Scan localStorage for the Supabase auth token. Key looks like
-    // sb-{project-ref}-auth-token. We don't hardcode the project ref so
-    // this works across project moves.
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) {
-          const v = localStorage.getItem(k);
-          if (!v) continue;
-          const parsed = JSON.parse(v);
-          if (parsed && parsed.access_token) return parsed.access_token;
-        }
-      }
-    } catch (e) {}
-    return null;
-  }
-
-  function getSlugFromPath() {
-    const m = window.location.pathname.match(/^\/p\/([^/?#]+)/);
-    return m ? decodeURIComponent(m[1]) : null;
-  }
-
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     }[c]));
   }
 
-  // ─── Styles (injected once on activate) ─────────────────────────────
+  // ─── Data extraction from existing snapshot DOM ──────────────────────
+  // We don't fetch from API — everything we need is already in the
+  // pub-region-legend rows (region info) and pub-material-card elements
+  // (material→region mapping via data-region-ids). Pure DOM read, no network.
+  function extractRegions() {
+    const regions = [];
+    document.querySelectorAll('.pub-region-legend-row').forEach((row) => {
+      const id = row.getAttribute('data-region-id');
+      if (!id) return;
+      const dot = row.querySelector('.pub-region-legend-dot');
+      const color = (dot && dot.style && dot.style.background) || '#5d7e69';
+      const nameEl = row.querySelector('.pub-region-legend-name');
+      const metaEl = row.querySelector('.pub-region-legend-meta');
+      regions.push({
+        id,
+        name: (nameEl ? nameEl.textContent : '').trim(),
+        meta: (metaEl ? metaEl.textContent : '').trim(),
+        color,
+        sectionHref: row.getAttribute('href') || '',
+      });
+    });
+    return regions;
+  }
+
+  function extractRegionMaterials(materialsGrid) {
+    const map = new Map();  // region_uuid → [material, ...]
+    materialsGrid.querySelectorAll('.pub-material-card').forEach((card) => {
+      const regionIdsAttr = card.getAttribute('data-region-ids') || '';
+      const regionIds = regionIdsAttr.split(',').map(s => s.trim()).filter(Boolean);
+      if (regionIds.length === 0) return;
+
+      const img = card.querySelector('img');
+      const typeEl = card.querySelector('.pub-material-card-type');
+      const nameEl = card.querySelector('.pub-material-card-name');
+      const colorEl = card.querySelector('.pub-material-card-color');
+
+      const material = {
+        type:  ((typeEl  ? typeEl.textContent  : '') || '').trim(),
+        name:  ((nameEl  ? nameEl.textContent  : '') || '').trim(),
+        color: ((colorEl ? colorEl.textContent : '') || '').trim(),
+        imgSrc: img ? img.getAttribute('src') : '',
+      };
+      regionIds.forEach((rid) => {
+        if (!map.has(rid)) map.set(rid, []);
+        map.get(rid).push(material);
+      });
+    });
+    return map;
+  }
+
+  // ─── Styles ──────────────────────────────────────────────────────────
   const STYLES = `
-    .bpc-banner {
-      position: fixed; top: 0; left: 0; right: 0;
-      background: #5d7e69; color: #fff;
-      padding: 12px 24px;
-      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 15px; font-weight: 500;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
-      z-index: 1000;
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      animation: bpcSlideDown 0.32s ease;
+    .bpc-twocol {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(300px, 380px);
+      gap: 28px;
+      align-items: start;
+      margin: 12px 0 24px;
     }
-    .bpc-banner-text { flex: 1; line-height: 1.4; }
-    .bpc-banner-text strong { font-weight: 700; }
-    .bpc-banner-help {
-      display: block;
+    @media (max-width: 900px) {
+      .bpc-twocol { grid-template-columns: 1fr; gap: 20px; }
+      .bpc-detail-card { position: static !important; }
+    }
+    .bpc-twocol-left, .bpc-twocol-right { min-width: 0; }
+
+    .bpc-detail-card {
+      position: sticky;
+      top: 16px;
+      background: #ffffff;
+      border: 1px solid #e7e3d6;
+      border-radius: 10px;
+      padding: 22px 22px 16px;
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+      box-shadow: 0 1px 3px rgba(53, 53, 53, 0.04);
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+    }
+
+    .bpc-card-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #5d7e69;
+      text-transform: uppercase;
+      margin: 0 0 6px;
+    }
+    .bpc-card-title {
+      font-size: 21px;
+      font-weight: 700;
+      color: #353535;
+      line-height: 1.2;
+      margin: 0 0 4px;
+    }
+    .bpc-card-meta {
       font-size: 13px;
-      opacity: 0.92;
-      font-weight: 400;
-      margin-top: 2px;
+      color: #777;
+      margin: 0 0 16px;
     }
-    .bpc-banner-close {
-      background: rgba(255,255,255,0.18);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.32);
-      border-radius: 6px;
-      padding: 6px 14px;
-      font-family: inherit; font-size: 13px; font-weight: 500;
-      cursor: pointer;
-      transition: background 0.15s;
-      flex-shrink: 0;
-    }
-    .bpc-banner-close:hover { background: rgba(255,255,255,0.28); }
-    @keyframes bpcSlideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
-
-    body.bpc-active { padding-top: 64px; }
-
-    @media (max-width: 600px) {
-      .bpc-banner { padding: 10px 16px; font-size: 14px; }
-      body.bpc-active { padding-top: 76px; }
-    }
-
-    /* Side panel */
-    .bpc-panel-backdrop {
-      position: fixed; inset: 0;
-      background: rgba(53, 53, 53, 0.32);
-      z-index: 1100;
-      animation: bpcFadeIn 0.18s ease;
-    }
-    @keyframes bpcFadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .bpc-panel {
-      position: fixed; top: 0; right: 0; bottom: 0;
-      width: 420px; max-width: 92vw;
-      background: #fff;
-      box-shadow: -4px 0 24px rgba(0,0,0,0.16);
-      z-index: 1110;
-      display: flex; flex-direction: column;
-      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
-      animation: bpcSlideInRight 0.28s ease;
-    }
-    @keyframes bpcSlideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
-    .bpc-panel-header {
-      padding: 24px 24px 16px;
-      border-bottom: 1px solid #eee;
-      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-    }
-    .bpc-panel-title { margin: 0; font-size: 22px; font-weight: 700; color: #353535; line-height: 1.15; }
-    .bpc-panel-meta { font-size: 13px; color: #999; margin-top: 4px; }
-    .bpc-panel-close {
-      background: transparent; border: none; cursor: pointer;
-      width: 32px; height: 32px;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 6px; color: #666;
-      font-size: 22px; line-height: 1;
-      transition: background 0.15s, color 0.15s;
-    }
-    .bpc-panel-close:hover { background: #f4f4ef; color: #353535; }
-    .bpc-panel-body {
-      flex: 1; overflow-y: auto;
-      padding: 16px 24px 32px;
-    }
-    .bpc-help-callout {
-      background: #f4f4ef;
-      border-left: 3px solid #5d7e69;
-      padding: 12px 14px;
-      border-radius: 4px;
+    .bpc-card-prompt {
       font-size: 13px;
       color: #58595b;
       line-height: 1.5;
-      margin-bottom: 20px;
-    }
-    .bpc-mat-list {
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    .bpc-mat-card {
-      display: flex; gap: 14px;
-      padding: 12px;
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-    }
-    .bpc-mat-thumb {
-      width: 64px; height: 64px;
-      border-radius: 6px;
-      flex-shrink: 0;
-      background: #f4f4ef;
-      object-fit: cover;
-      border: 1px solid #eee;
-    }
-    .bpc-mat-thumb-empty {
-      width: 64px; height: 64px;
-      border-radius: 6px;
-      flex-shrink: 0;
-      background: linear-gradient(135deg, #f4f4ef, #e5e7eb);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 700; color: #999;
-      letter-spacing: 0.05em;
-    }
-    .bpc-mat-body { flex: 1; min-width: 0; }
-    .bpc-mat-name { font-weight: 600; font-size: 15px; color: #353535; line-height: 1.2; }
-    .bpc-mat-color { font-size: 13px; color: #666; margin-top: 2px; }
-    .bpc-mat-mfg {
-      font-size: 11px; color: #999; margin-top: 4px;
-      text-transform: uppercase; letter-spacing: 0.05em;
-    }
-    .bpc-mat-soon {
-      margin-top: 8px;
-      display: inline-flex; align-items: center;
-      padding: 4px 10px;
-      background: #f4f4ef;
-      color: #58595b;
-      font-size: 11px; font-weight: 500;
-      border-radius: 999px;
-      letter-spacing: 0.03em;
-    }
-    .bpc-empty-state {
-      text-align: center;
-      padding: 24px 0;
-      color: #999;
-      font-size: 14px;
+      margin: 8px 0 14px;
     }
 
-    /* Strengthen polygon hover feedback when overlay is active so the user
-       discovers the "tap a section" affordance naturally. */
-    body.bpc-active .pub-drawing-region {
-      cursor: pointer !important;
-      transition: fill 0.15s ease, stroke-width 0.15s ease;
+    .bpc-card-back {
+      background: transparent;
+      border: none;
+      color: #5d7e69;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      padding: 0;
+      margin: 0 0 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
-    body.bpc-active .pub-drawing-region:hover {
-      fill: rgba(93, 126, 105, 0.5) !important;
-      stroke-width: 8 !important;
+    .bpc-card-back:hover { color: #4a6554; }
+
+    .bpc-overview-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .bpc-overview-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      cursor: pointer;
+      border: 1px solid #efece4;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .bpc-overview-row:hover {
+      background: #faf8f3;
+      border-color: #d8d2bf;
+    }
+    .bpc-overview-dot {
+      width: 12px; height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .bpc-overview-text {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .bpc-overview-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: #353535;
+      line-height: 1.2;
+    }
+    .bpc-overview-meta {
+      font-size: 12px;
+      color: #888;
+      margin-top: 2px;
+    }
+    .bpc-overview-arrow {
+      color: #aaa;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .bpc-detail-mats {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 14px 0;
+    }
+    .bpc-detail-mat {
+      display: flex;
+      gap: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #efece4;
+      background: #fdfcf8;
+    }
+    .bpc-detail-mat-thumb {
+      width: 56px; height: 56px;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+      background: #f4f1e8;
+      border: 1px solid #eae6d6;
+    }
+    .bpc-detail-mat-body { flex: 1; min-width: 0; }
+    .bpc-detail-mat-type {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      font-weight: 700;
+      color: #999;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .bpc-detail-mat-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: #353535;
+      line-height: 1.2;
+    }
+    .bpc-detail-mat-color {
+      font-size: 12px;
+      color: #777;
+      margin-top: 2px;
+    }
+    .bpc-detail-empty {
+      padding: 16px 0;
+      font-size: 13px;
+      color: #999;
+      text-align: center;
+    }
+
+    .bpc-card-section-link {
+      display: block;
+      text-align: center;
+      padding: 12px 0 4px;
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #5d7e69;
+      text-decoration: none;
+      border-top: 1px solid #efece4;
+      letter-spacing: 0.02em;
+    }
+    .bpc-card-section-link:hover { color: #4a6554; }
+
+    /* Hide the original materials grid section — its data is now in the
+       sticky card. Keep the markup in DOM (display:none) so any other code
+       reading it still works. */
+    .pub-site-plan-materials.bpc-hidden { display: none !important; }
+
+    /* Tighten the legend strip's top spacing now that the materials section
+       below it is hidden. */
+    .pub-region-legend.bpc-tight {
+      margin-top: 4px !important;
+      padding-top: 16px !important;
     }
   `;
 
   function injectStyles() {
-    if (document.getElementById('bpc-styles')) return;
+    if (document.getElementById('bpc-twocol-styles')) return;
     const el = document.createElement('style');
-    el.id = 'bpc-styles';
+    el.id = 'bpc-twocol-styles';
     el.textContent = STYLES;
     document.head.appendChild(el);
   }
 
-  // ─── Overlay ─────────────────────────────────────────────────────────
-  class Overlay {
-    constructor(ctx) {
-      this.ctx = ctx;
-      this.bannerEl = null;
-      this.panelEl = null;
-      this.backdropEl = null;
-      this._keyHandler = null;
-    }
+  // ─── Render ──────────────────────────────────────────────────────────
+  function renderOverview(card, regions, regionMap) {
+    const matNames = new Set();
+    regions.forEach(r => (regionMap.get(r.id) || []).forEach(m => matNames.add(m.name)));
 
-    mount() {
-      injectStyles();
-      document.body.classList.add('bpc-active');
-      this.renderBanner();
-      this.attachPolygonClicks();
-    }
-
-    renderBanner() {
-      const fullName = (this.ctx.client && this.ctx.client.name) || '';
-      const firstName = fullName.split(/\s+/)[0] || 'there';
-      const banner = document.createElement('div');
-      banner.className = 'bpc-banner';
-      banner.innerHTML = `
-        <div class="bpc-banner-text">
-          <strong>Hi ${escapeHtml(firstName)}!</strong> You can request material changes on this proposal.
-          <span class="bpc-banner-help">Tap a colored section on the site plan to see what's available.</span>
-        </div>
-        <button class="bpc-banner-close" type="button">Hide</button>
-      `;
-      banner.querySelector('.bpc-banner-close').addEventListener('click', () => {
-        banner.remove();
-        document.body.classList.remove('bpc-active');
+    card.innerHTML = `
+      <div class="bpc-card-eyebrow">Your project</div>
+      <div class="bpc-card-title">${regions.length} section${regions.length === 1 ? '' : 's'}, ${matNames.size} material${matNames.size === 1 ? '' : 's'}</div>
+      <p class="bpc-card-prompt">Tap any highlighted area on the plan to see what's planned for that section, or pick from the list below.</p>
+      <div class="bpc-overview-list">
+        ${regions.map(r => `
+          <a class="bpc-overview-row" data-region-id="${escapeHtml(r.id)}" href="${escapeHtml(r.sectionHref)}">
+            <span class="bpc-overview-dot" style="background:${escapeHtml(r.color)};"></span>
+            <span class="bpc-overview-text">
+              <span class="bpc-overview-name">${escapeHtml(r.name)}</span>
+              ${r.meta ? `<span class="bpc-overview-meta">${escapeHtml(r.meta)}</span>` : ''}
+            </span>
+            <span class="bpc-overview-arrow">→</span>
+          </a>
+        `).join('')}
+      </div>
+    `;
+    card.querySelectorAll('.bpc-overview-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        // Don't preventDefault — let the anchor scroll to the bid section.
+        // Just update the card to show that region's detail.
+        const rid = row.getAttribute('data-region-id');
+        renderRegionDetail(card, rid, regions, regionMap);
       });
-      document.body.insertBefore(banner, document.body.firstChild);
-      this.bannerEl = banner;
-    }
+    });
+  }
 
-    attachPolygonClicks() {
-      // Polygons are <polygon class="pub-drawing-region" data-region-id="...">
-      // wrapped in <a href="#section-..."> anchors that scroll to a section.
-      // Intercept and open the side panel for that region instead.
-      const polygons = document.querySelectorAll('polygon.pub-drawing-region:not(.pub-drawing-region--static)');
-      polygons.forEach((poly) => {
-        const regionId = poly.getAttribute('data-region-id');
-        if (!regionId) return;
-        const target = poly.closest('a') || poly;
-        target.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.openPanelForRegion(regionId);
-        });
-      });
-    }
+  function renderRegionDetail(card, regionId, regions, regionMap) {
+    const region = regions.find(r => r.id === regionId);
+    if (!region) return;
+    const mats = regionMap.get(regionId) || [];
 
-    openPanelForRegion(regionId) {
-      this.closePanel();
-
-      const region = this.ctx.regions.find((r) => r.id === regionId);
-      if (!region) return;
-
-      const materials = this.ctx.region_materials
-        .filter((rm) => rm.region_id === regionId && rm.material)
-        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-
-      const matsHtml = materials.length === 0
-        ? `<div class="bpc-empty-state">This section doesn't have materials assigned for customization yet.</div>`
-        : materials.map((rm) => {
-            const m = rm.material;
-            const thumb = m.swatch_url
-              ? `<img class="bpc-mat-thumb" src="${escapeHtml(m.swatch_url)}" alt="">`
-              : `<div class="bpc-mat-thumb-empty">${escapeHtml((m.product_name || 'M').slice(0, 2).toUpperCase())}</div>`;
-            return `
-              <div class="bpc-mat-card">
-                ${thumb}
-                <div class="bpc-mat-body">
-                  <div class="bpc-mat-name">${escapeHtml(m.product_name || 'Unnamed material')}</div>
-                  ${m.color ? `<div class="bpc-mat-color">${escapeHtml(m.color)}</div>` : ''}
-                  ${m.manufacturer ? `<div class="bpc-mat-mfg">${escapeHtml(m.manufacturer)}</div>` : ''}
-                  <div class="bpc-mat-soon">Swap option coming soon</div>
+    card.innerHTML = `
+      <button type="button" class="bpc-card-back">← Overview</button>
+      <div class="bpc-card-eyebrow" style="color:${escapeHtml(region.color)};">Section</div>
+      <div class="bpc-card-title">${escapeHtml(region.name)}</div>
+      ${region.meta ? `<div class="bpc-card-meta">${escapeHtml(region.meta)}</div>` : ''}
+      <div class="bpc-detail-mats">
+        ${mats.length === 0
+          ? `<div class="bpc-detail-empty">No customizable materials assigned to this section yet.</div>`
+          : mats.map(m => `
+              <div class="bpc-detail-mat">
+                ${m.imgSrc
+                  ? `<img class="bpc-detail-mat-thumb" src="${escapeHtml(m.imgSrc)}" alt="">`
+                  : `<div class="bpc-detail-mat-thumb"></div>`}
+                <div class="bpc-detail-mat-body">
+                  ${m.type  ? `<div class="bpc-detail-mat-type">${escapeHtml(m.type)}</div>`   : ''}
+                  <div class="bpc-detail-mat-name">${escapeHtml(m.name)}</div>
+                  ${m.color ? `<div class="bpc-detail-mat-color">${escapeHtml(m.color)}</div>` : ''}
                 </div>
               </div>
-            `;
-          }).join('');
+            `).join('')}
+      </div>
+      <a class="bpc-card-section-link" href="${escapeHtml(region.sectionHref)}">View scope details →</a>
+    `;
+    card.querySelector('.bpc-card-back').addEventListener('click', () => {
+      renderOverview(card, regions, regionMap);
+    });
+  }
 
-      const sqftStr = region.area_sqft ? `${region.area_sqft} sqft` : '';
-      const lnftStr = region.area_lnft ? `${region.area_lnft} lnft` : '';
-      const meta = [sqftStr, lnftStr].filter(Boolean).join(' · ');
+  // ─── Layout transform ────────────────────────────────────────────────
+  function transformLayout(inner, siteMapEl, legendEl, regions, regionMap) {
+    const twocol = document.createElement('div');
+    twocol.className = 'bpc-twocol';
 
-      const backdrop = document.createElement('div');
-      backdrop.className = 'bpc-panel-backdrop';
-      backdrop.addEventListener('click', () => this.closePanel());
+    const left  = document.createElement('div'); left.className  = 'bpc-twocol-left';
+    const right = document.createElement('div'); right.className = 'bpc-twocol-right';
+    twocol.appendChild(left);
+    twocol.appendChild(right);
 
-      const panel = document.createElement('div');
-      panel.className = 'bpc-panel';
-      panel.innerHTML = `
-        <div class="bpc-panel-header">
-          <div>
-            <h2 class="bpc-panel-title">${escapeHtml(region.name || 'Section')}</h2>
-            ${meta ? `<div class="bpc-panel-meta">${escapeHtml(meta)}</div>` : ''}
-          </div>
-          <button class="bpc-panel-close" type="button" aria-label="Close">✕</button>
-        </div>
-        <div class="bpc-panel-body">
-          <div class="bpc-help-callout">
-            These are the materials currently planned for this section. Soon you'll be able to swap any of them for other options and notify your designer.
-          </div>
-          <div class="bpc-mat-list">${matsHtml}</div>
-        </div>
-      `;
-      panel.querySelector('.bpc-panel-close').addEventListener('click', () => this.closePanel());
+    // Move the site map element into the left column (preserves all its
+    // event listeners and inner structure).
+    left.appendChild(siteMapEl);
 
-      document.body.appendChild(backdrop);
-      document.body.appendChild(panel);
-      this.backdropEl = backdrop;
-      this.panelEl = panel;
+    // Right column gets the sticky detail card
+    const card = document.createElement('div');
+    card.className = 'bpc-detail-card';
+    right.appendChild(card);
 
-      this._keyHandler = (e) => { if (e.key === 'Escape') this.closePanel(); };
-      document.addEventListener('keydown', this._keyHandler);
+    // Insert the two-column container where the site map used to be.
+    // Legend strip and (hidden) materials section stay below.
+    if (legendEl && legendEl.parentNode === inner) {
+      inner.insertBefore(twocol, legendEl);
+      legendEl.classList.add('bpc-tight');
+    } else {
+      inner.appendChild(twocol);
     }
 
-    closePanel() {
-      if (this.backdropEl) { this.backdropEl.remove(); this.backdropEl = null; }
-      if (this.panelEl) { this.panelEl.remove(); this.panelEl = null; }
-      if (this._keyHandler) {
-        document.removeEventListener('keydown', this._keyHandler);
-        this._keyHandler = null;
-      }
-    }
+    // Hide the now-redundant full materials grid (its data is in the card).
+    const materialsSection = inner.querySelector('.pub-site-plan-materials');
+    if (materialsSection) materialsSection.classList.add('bpc-hidden');
+
+    // Default state
+    renderOverview(card, regions, regionMap);
+
+    // Polygon click: update card to that region's detail. Don't
+    // preventDefault — the existing <a href="#section-..."> wrapping each
+    // polygon should still scroll the page to the bid section. Tim
+    // explicitly wanted to preserve that pairing.
+    document.querySelectorAll('polygon.pub-drawing-region:not(.pub-drawing-region--static)').forEach((poly) => {
+      const regionId = poly.getAttribute('data-region-id');
+      const anchor = poly.closest('a');
+      if (!anchor || !regionId) return;
+      anchor.addEventListener('click', () => {
+        renderRegionDetail(card, regionId, regions, regionMap);
+      });
+    });
+
+    // Legend row click: same behavior (these are also <a> with section href).
+    document.querySelectorAll('.pub-region-legend-row').forEach((row) => {
+      const regionId = row.getAttribute('data-region-id');
+      if (!regionId) return;
+      row.addEventListener('click', () => {
+        renderRegionDetail(card, regionId, regions, regionMap);
+      });
+    });
   }
 
   // ─── Boot ────────────────────────────────────────────────────────────
-  async function init() {
-    const token = getAuthToken();
-    if (!token) return;  // not signed in — stay dormant
+  function init() {
+    const inner = document.querySelector('.pub-drawing-inner');
+    if (!inner) return;
+    const siteMapEl = inner.querySelector('.pub-site-plan-map');
+    if (!siteMapEl) return;
+    const materialsGrid = inner.querySelector('.pub-materials-grid');
+    if (!materialsGrid) return;
+    const legendEl = inner.querySelector('.pub-region-legend');
 
-    const slug = getSlugFromPath();
-    if (!slug) return;
+    const regions = extractRegions();
+    if (regions.length === 0) return;
+    const regionMap = extractRegionMaterials(materialsGrid);
 
-    let ctx;
-    try {
-      const r = await fetch(`${API_CONTEXT}?slug=${encodeURIComponent(slug)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!r.ok) return;  // 401/403/404 — viewer isn't an authorized homeowner
-      ctx = await r.json();
-    } catch (e) {
-      console.warn('p-customize: context fetch failed', e);
-      return;
-    }
-
-    if (!ctx || !Array.isArray(ctx.regions) || ctx.regions.length === 0) return;
-
-    new Overlay(ctx).mount();
+    injectStyles();
+    transformLayout(inner, siteMapEl, legendEl, regions, regionMap);
   }
 
   if (document.readyState === 'loading') {
