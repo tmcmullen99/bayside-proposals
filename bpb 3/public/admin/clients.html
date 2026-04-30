@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Clients · Bayside Proposal Builder</title>
+  <title>Clients · Admin · Bayside Proposal Builder</title>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin-shell.css">
   <style>
+    /* Page-specific styles only — chrome lives in admin-shell.css */
     :root {
       --green: #5d7e69;
       --green-dark: #4a6654;
@@ -19,80 +21,6 @@
       --danger: #b04040;
       --warn-soft: #fff4d4;
       --warn-text: #7a5a10;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--charcoal);
-      background: #fafafa;
-      line-height: 1.6;
-      font-size: 15px;
-      min-height: 100vh;
-    }
-    a { color: var(--green-dark); }
-
-    .admin-header {
-      background: #fff;
-      border-bottom: 1px solid var(--border);
-      padding: 18px 32px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .admin-header h1 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--navy);
-    }
-    .admin-header nav { display: flex; align-items: center; gap: 16px; }
-    .admin-header nav a {
-      font-size: 13px;
-      text-decoration: none;
-      color: var(--muted);
-    }
-    .admin-header nav a:hover { color: var(--green-dark); }
-    .admin-header nav a.active { color: var(--green-dark); font-weight: 600; }
-    .admin-header .signout {
-      font-size: 12px;
-      color: var(--muted);
-      cursor: pointer;
-      background: none;
-      border: none;
-      font-family: inherit;
-      padding: 6px 10px;
-      border-radius: 5px;
-    }
-    .admin-header .signout:hover {
-      background: #f0f0f0;
-      color: var(--navy);
-    }
-
-    .shell {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 32px;
-    }
-
-    .intro { margin-bottom: 28px; }
-    .eyebrow {
-      font-size: 11px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--green);
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    .intro h2 {
-      font-size: 28px;
-      font-weight: 600;
-      color: var(--navy);
-      margin-bottom: 10px;
-      letter-spacing: -0.01em;
-    }
-    .intro p {
-      color: var(--muted);
-      max-width: 720px;
-      font-size: 15px;
     }
 
     .status {
@@ -108,7 +36,6 @@
     .status.error { background: #fbe6e6; color: var(--danger); }
     .status.info { background: #eef3f8; color: #2b4a73; }
 
-    /* Toolbar */
     .toolbar {
       display: flex;
       gap: 12px;
@@ -164,7 +91,6 @@
     }
     .btn-danger:hover { background: #fbe6e6; }
 
-    /* Add client form */
     .add-form {
       background: #fff;
       border: 1px solid var(--border);
@@ -210,7 +136,6 @@
       justify-content: flex-end;
     }
 
-    /* Client list */
     .clients-list {
       display: grid;
       gap: 10px;
@@ -342,7 +267,6 @@
       flex-wrap: wrap;
     }
 
-    /* Loading */
     .loading {
       text-align: center;
       padding: 60px 20px;
@@ -374,23 +298,29 @@
 </head>
 <body>
 
-<header class="admin-header">
-  <h1>Bayside Proposal Builder · Admin</h1>
-  <nav>
-    <a href="/admin/index.html">Dashboard</a>
-    <a href="/admin/clients.html" class="active">Clients</a>
-    <a href="/admin/belgard-sync.html">Catalog sync</a>
-    <a href="/admin/material-swatches-bulk.html">Swatches</a>
-    <a href="/">← Back to editor</a>
-    <button class="signout" id="signOutBtn" title="Sign out">Sign out</button>
-  </nav>
+<!-- Shared admin chrome (topbar + tab strip) — rendered by admin-shell.js -->
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge is-loading" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
+    </div>
+  </div>
 </header>
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections"></nav>
 
-<main class="shell">
-  <div class="intro">
-    <div class="eyebrow">Admin · Client Platform</div>
-    <h2>Clients</h2>
-    <p>
+<main class="ash-shell">
+  <div class="ash-intro">
+    <div class="ash-eyebrow">Operations · Clients</div>
+    <h1 class="ash-title">Clients</h1>
+    <p class="ash-lede">
       Manage homeowner client accounts. Each client can have one or more proposals
       assigned to them. Click <strong>Send login link</strong> to email a magic-link
       invitation — once they log in, they'll see their assigned proposals in the
@@ -450,6 +380,15 @@
   </div>
 </main>
 
+<!--
+  Legacy #signOutBtn placeholder. The pre-Phase-5A clients page had a
+  signOutBtn in the topbar that admin-clients.js binds a click listener to.
+  The new shared shell uses #ashSignOutBtn instead. We keep a hidden stub
+  here so admin-clients.js doesn't TypeError on getElementById('signOutBtn').
+  Remove this when we migrate admin-clients.js itself in Phase 5B.
+-->
+<button id="signOutBtn" type="button" hidden aria-hidden="true" style="display:none"></button>
+<script type="module" src="/admin/admin-shell.js"></script>
 <script type="module" src="/admin/admin-clients.js"></script>
 
 </body>
