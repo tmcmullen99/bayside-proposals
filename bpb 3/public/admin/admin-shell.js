@@ -1,11 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /admin/admin-shell.js — Phase 5A
+// /admin/admin-shell.js — Phase 5A + 5B Part 1
 //
 // The master admin shell. Renders:
 //   1. The role badge + email in the topbar
 //   2. The tab strip (filtered by role)
 //   3. The landing-page tile grid (only when on /admin/ itself, not nested
 //      pages — those swap in their own content)
+//
+// 5B Part 1: added Designers tab (master-only) + new 'team' group.
 //
 // Adding a future admin tool:
 //   1. Add an entry to TABS below
@@ -128,6 +130,17 @@ const TABS = [
     description: 'Refresh the Belgard materials catalog from the manufacturer. Master-only — high blast radius.',
   },
 
+  // Team — staff account management
+  {
+    id: 'designers',
+    label: 'Designers',
+    href: '/admin/designers.html',
+    role: 'master',
+    group: 'team',
+    icon: '⚒',
+    description: 'List, edit, deactivate, and invite designer/master accounts. Promote or demote roles.',
+  },
+
   // Tools — utilities and one-offs
   {
     id: 'install-guide',
@@ -162,6 +175,7 @@ const TABS = [
 const GROUPS = [
   { id: 'operations', label: 'Operations',         desc: 'Day-to-day client management.' },
   { id: 'catalog',    label: 'Material catalog',   desc: 'The library of materials, swatches, and install PDFs that powers every proposal.' },
+  { id: 'team',       label: 'Team',               desc: 'Staff account management. Master-only.' },
   { id: 'tools',      label: 'Tools & maintenance',desc: 'Less-frequent utilities. Most are master-only.' },
 ];
 
