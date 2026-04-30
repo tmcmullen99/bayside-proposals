@@ -1,11 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /p-customize.js — Phase 4.1 Sprint B2 (revision 6)
+// /p-customize.js — Phase 4.1 Sprint B2 (revision 7)
 //
-// B2-r6: Install-guide footer per bid section, with Local Guy vs. Bayside
-// comparison merged in. For each .pub-scope-item:
-//   1. Detect install kind from name + line items (paver / turf / wall)
-//   2. Append collapsed <details> "Why this work costs what it does"
-//   3. When opened: 3-column grid — SVG diagram | comparison table | copy
+// B2-r7: Move install-guide visuals from bid sections to Quality Standards.
+//
+// Bid sections become clean (no install footer). The Quality Standards
+// section is transformed into a tab stage:
+//   - Existing horizontal-scroll rail becomes a single-card stage
+//   - New tab strip above lets reader pick a category directly
+//   - Matched cards (paver / turf / wall) get an SVG cross-section +
+//     Local Guy vs. Bayside comparison alongside the existing prose
+//   - Unmatched cards (porcelain, accessories, fire, lighting) keep
+//     their original prose-only layout
+//   - Prev/next nav + page dots below
 // ═══════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -13,7 +19,6 @@
 
   const API_DATA = '/api/proposal-customize-data';
   const API_SUBMIT = '/api/submit-substitutions';
-  const INSTALL_GUIDE_URL = 'https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf3c6e47/68d2db027d1d1b4ad1543f05_Bayside%20Pavers%20Presentation%20(1)_compressed%20(1).pdf';
 
   const customize = {
     enabled: false,
@@ -134,7 +139,7 @@
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // INSTALL-GUIDE FOOTER (B2-r6 — diagram + comparison + copy)
+  // INSTALL VISUALS (B2-r7 — used by Quality Standards transform)
   // ───────────────────────────────────────────────────────────────────────
 
   const SVG_PAVER = `<svg viewBox="0 0 280 220" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;"><defs><pattern id="bpc-pat-h1" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#5d7e69" stroke-width="0.6" opacity="0.5"/></pattern></defs><g fill="none" stroke="#353535" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><path d="M 18 195 L 165 195 L 168 198 L 18 198 Z" fill="#e8dfc8" opacity="0.6"/><path d="M 18 195 L 165 195"/><path d="M 22 192 L 26 195 M 35 192 L 39 195 M 50 193 L 54 196 M 70 192 L 74 195 M 92 193 L 96 196 M 115 192 L 119 195 M 140 193 L 144 196" stroke-width="0.7"/><text x="178" y="200" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">1. Native soil</text><path d="M 18 178 L 165 178 L 165 192 L 18 192 Z" fill="#d4cfb8" opacity="0.5"/><path d="M 18 178 L 165 178"/><path d="M 18 185 L 165 185" stroke-dasharray="2,2" stroke-width="0.6"/><text x="178" y="187" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">2. Geo-tech fabric</text><path d="M 18 158 L 165 158 L 165 178 L 18 178 Z" fill="url(#bpc-pat-h1)" opacity="0.4"/><path d="M 18 158 L 165 158"/><circle cx="32" cy="167" r="2"/><circle cx="48" cy="171" r="2.3"/><circle cx="64" cy="166" r="1.7"/><circle cx="82" cy="170" r="2.1"/><circle cx="100" cy="166" r="1.8"/><circle cx="120" cy="171" r="2.4"/><circle cx="142" cy="167" r="2"/><circle cx="156" cy="171" r="1.7"/><text x="178" y="172" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">3. Base material</text><path d="M 18 148 L 165 148 L 165 158 L 18 158 Z"/><path d="M 18 153 L 165 153" stroke-width="0.7"/><path d="M 30 148 L 30 158 M 50 148 L 50 158 M 70 148 L 70 158 M 90 148 L 90 158 M 110 148 L 110 158 M 130 148 L 130 158 M 150 148 L 150 158" stroke-width="0.6"/><text x="178" y="155" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">4. Geo grid</text><path d="M 18 128 L 165 128 L 165 148 L 18 148 Z" fill="url(#bpc-pat-h1)" opacity="0.4"/><path d="M 18 128 L 165 128"/><circle cx="32" cy="137" r="2"/><circle cx="48" cy="141" r="2.3"/><circle cx="64" cy="136" r="1.7"/><circle cx="82" cy="140" r="2.1"/><circle cx="100" cy="136" r="1.8"/><circle cx="120" cy="141" r="2.4"/><circle cx="142" cy="137" r="2"/><circle cx="156" cy="141" r="1.7"/><text x="178" y="142" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">5. Base material</text><path d="M 18 118 L 165 118 L 165 128 L 18 128 Z" fill="#f4e8c8" opacity="0.6"/><path d="M 18 118 L 165 118"/><text x="178" y="125" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">6. Bedding sand</text><path d="M 18 95 L 165 95 L 165 118 L 18 118 Z" fill="#a8a59a" opacity="0.5"/><path d="M 18 95 L 165 95"/><path d="M 42 95 L 42 118 M 70 95 L 70 118 M 100 95 L 100 118 M 130 95 L 130 118" stroke-width="0.8"/><path d="M 18 106 L 42 106 M 56 106 L 100 106 M 116 106 L 165 106" stroke-width="0.6"/><text x="178" y="110" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">7. Pavers</text><text x="178" y="92" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">8. Polymeric sand</text><line x1="172" y1="89" x2="100" y2="98" stroke-width="0.7"/></g></svg>`;
@@ -145,9 +150,7 @@
 
   const INSTALL_KIND_COPY = {
     paver: {
-      title: 'Pavers — 8-layer ICPI install',
       svg: SVG_PAVER,
-      body: 'Eight engineered layers, ICPI-certified install. The local guy who quoted you 30% less is skipping layers 2 and 4 — geo-tech fabric and geo-grid. You can\'t see them. The patio looks identical on day one. The difference shows up on year three when one corner starts to sink.',
       compare: [
         ['Geo-tech fabric',         '✕',     '✓'],
         ['Geo-grid (load support)', '✕',     '✓'],
@@ -159,9 +162,7 @@
       badges: ['ICPI CERTIFIED', '25-YR WARRANTY', 'LIFETIME MATERIAL'],
     },
     turf: {
-      title: 'Turf — 5-layer drainage system',
       svg: SVG_TURF,
-      body: 'Compacted base rock, weed barrier, edge restraint, anti-microbial infill — installed as one drainage system. The local guy lays turf on dirt with a perimeter staple. Year two, weeds come through. Year three, the edges curl.',
       compare: [
         ['3" compacted base rock',  '~',     '✓'],
         ['Weed barrier',            '✕',     '✓'],
@@ -172,9 +173,7 @@
       badges: ['25-YR WARRANTY', 'ANTI-MICROBIAL INFILL', 'PROPER DRAINAGE'],
     },
     wall: {
-      title: 'Retaining wall — engineered',
       svg: SVG_WALL,
-      body: 'A retaining wall is an engineered structure, not a stack of blocks. Toe drain, wall rock for drainage, reinforcement grid extending into the soil mass. Walls under 3ft don\'t need a permit; the engineering is the same. ICPI-certified, $1M insurance bond.',
       compare: [
         ['Toe drain',              '✕',  '✓'],
         ['Wall rock (drainage)',   '✕',  '✓'],
@@ -187,20 +186,22 @@
     },
   };
 
-  function detectInstallKind(scopeItem) {
-    const nameEl = scopeItem.querySelector('.pub-scope-item-name');
-    const name = nameEl ? (nameEl.textContent || '').toLowerCase() : '';
-    const bodies = Array.from(scopeItem.querySelectorAll('.pub-line-item-body, .pub-line-item'))
-      .map(el => (el.textContent || '').toLowerCase()).join(' ');
-    const haystack = name + ' ' + bodies;
-
-    if (/\b(retaining\s+wall|wall\s+rock|geo[\s-]?grid|wall\s+cap)\b/.test(haystack)) return 'wall';
-    if (/\b(paver|paving|hardscape|patio|driveway|walkway|polymeric|bedding\s+sand)\b/.test(haystack)) return 'paver';
-    if (/\b(turf|sod|grass|lawn|infill)\b/.test(haystack)) return 'turf';
+  function detectInstallKindFromTitle(title) {
+    const t = (title || '').toLowerCase();
+    if (/wall|retaining/.test(t)) return 'wall';
+    if (/paver|porcelain/.test(t)) return 'paver';
+    if (/turf|grass|sod|lawn/.test(t)) return 'turf';
     return null;
   }
 
-  function renderInstallFooterHtml(kind) {
+  function makeTabLabel(title) {
+    let t = String(title || '').replace(/&amp;/g, '&').trim();
+    t = t.replace(/\s+(Installation|Construction|Assembly)\s*$/i, '');
+    t = t.replace(/^Landscape & Hardscape\s+/i, '');
+    return t;
+  }
+
+  function buildVisualHtml(kind) {
     const c = INSTALL_KIND_COPY[kind];
     if (!c) return '';
     const compareRowsHtml = c.compare.map(([label, lg, bp]) => {
@@ -217,37 +218,121 @@
       `<span class="bpc-install-badge">${escapeHtml(b)}</span>`
     ).join('');
     return `
-      <details class="bpc-install-footer">
-        <summary class="bpc-install-summary">
-          <div class="bpc-install-summary-left">
-            <div class="bpc-install-summary-icon">⚙</div>
-            <div>
-              <div class="bpc-install-summary-eyebrow">Why this work costs what it does</div>
-              <div class="bpc-install-summary-title">${escapeHtml(c.title)}</div>
-            </div>
-          </div>
-          <div class="bpc-install-summary-cta">View install ↓</div>
-        </summary>
-        <div class="bpc-install-body">
-          <div class="bpc-install-body-grid">
-            <div class="bpc-install-svg">${c.svg}</div>
-            <div class="bpc-install-cmp">
-              <div class="bpc-cmp-header">
-                <span class="bpc-cmp-label-h"></span>
-                <span class="bpc-cmp-cell-h">Local guy</span>
-                <span class="bpc-cmp-cell-h bpc-cmp-cell-h--us">Bayside</span>
-              </div>
-              ${compareRowsHtml}
-            </div>
-            <div class="bpc-install-side">
-              <p class="bpc-install-copy">${escapeHtml(c.body)}</p>
-              <div class="bpc-install-badges">${badgesHtml}</div>
-              <a href="${escapeHtml(INSTALL_GUIDE_URL)}" target="_blank" rel="noopener" class="bpc-install-guide-link">See full installation guide →</a>
-            </div>
-          </div>
+      <div class="bpc-prep-svg">${c.svg}</div>
+      <div class="bpc-prep-cmp">
+        <div class="bpc-cmp-header">
+          <span class="bpc-cmp-label-h"></span>
+          <span class="bpc-cmp-cell-h">Local guy</span>
+          <span class="bpc-cmp-cell-h bpc-cmp-cell-h--us">Bayside</span>
         </div>
-      </details>
+        ${compareRowsHtml}
+      </div>
+      <div class="bpc-prep-badges">${badgesHtml}</div>
     `;
+  }
+
+  function enhanceCard(card, kind) {
+    const titleEl = card.querySelector('.pub-prep-card-title');
+    if (!titleEl) return false;
+
+    const visual = document.createElement('div');
+    visual.className = 'bpc-prep-visual';
+    visual.innerHTML = buildVisualHtml(kind);
+
+    const prose = document.createElement('div');
+    prose.className = 'bpc-prep-prose';
+    let next = titleEl.nextElementSibling;
+    while (next) {
+      const after = next.nextElementSibling;
+      prose.appendChild(next);
+      next = after;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'bpc-prep-grid';
+    grid.appendChild(visual);
+    grid.appendChild(prose);
+
+    card.appendChild(grid);
+    card.classList.add('bpc-prep-card--enhanced');
+    return true;
+  }
+
+  function transformQualityStandards() {
+    const railWrap = document.querySelector('.pub-prep-rail-wrap');
+    if (!railWrap) return null;
+    const rail = railWrap.querySelector('.pub-prep-rail');
+    if (!rail) return null;
+    const cards = Array.from(rail.querySelectorAll(':scope > .pub-prep-card'));
+    if (cards.length === 0) return null;
+
+    railWrap.querySelectorAll('.pub-prep-rail-arrow').forEach((b) => {
+      b.style.display = 'none';
+    });
+
+    const tabs = cards.map((card, idx) => {
+      const titleEl = card.querySelector('.pub-prep-card-title');
+      const title = titleEl ? (titleEl.textContent || '').trim() : `Category ${idx + 1}`;
+      const kind = detectInstallKindFromTitle(title);
+      if (kind) enhanceCard(card, kind);
+      return { card, title, label: makeTabLabel(title), kind, idx };
+    });
+
+    cards.forEach((c, i) => {
+      if (i !== 0) c.classList.add('bpc-prep-card--hidden');
+    });
+
+    const tabBar = document.createElement('div');
+    tabBar.className = 'bpc-prep-tabs';
+    tabs.forEach(({ label, idx }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bpc-prep-tab' + (idx === 0 ? ' bpc-prep-tab--active' : '');
+      btn.setAttribute('data-idx', String(idx));
+      btn.textContent = label;
+      tabBar.appendChild(btn);
+    });
+    railWrap.parentNode.insertBefore(tabBar, railWrap);
+
+    const nav = document.createElement('div');
+    nav.className = 'bpc-prep-nav';
+    nav.innerHTML = `
+      <button type="button" class="bpc-prep-nav-btn bpc-prep-nav-btn--prev" aria-label="Previous category">‹ Prev</button>
+      <div class="bpc-prep-nav-dots">${tabs.map((_, i) =>
+        `<button type="button" class="bpc-prep-nav-dot${i === 0 ? ' bpc-prep-nav-dot--active' : ''}" data-idx="${i}" aria-label="Category ${i + 1}"></button>`
+      ).join('')}</div>
+      <button type="button" class="bpc-prep-nav-btn bpc-prep-nav-btn--next" aria-label="Next category">Next ›</button>
+    `;
+    if (railWrap.nextSibling) {
+      railWrap.parentNode.insertBefore(nav, railWrap.nextSibling);
+    } else {
+      railWrap.parentNode.appendChild(nav);
+    }
+
+    let currentIdx = 0;
+    function selectTab(newIdx) {
+      const clamped = Math.max(0, Math.min(tabs.length - 1, newIdx));
+      if (clamped === currentIdx) return;
+      currentIdx = clamped;
+      cards.forEach((c, i) => c.classList.toggle('bpc-prep-card--hidden', i !== currentIdx));
+      tabBar.querySelectorAll('.bpc-prep-tab').forEach((b, i) =>
+        b.classList.toggle('bpc-prep-tab--active', i === currentIdx));
+      nav.querySelectorAll('.bpc-prep-nav-dot').forEach((d, i) =>
+        d.classList.toggle('bpc-prep-nav-dot--active', i === currentIdx));
+      const activeBtn = tabBar.querySelectorAll('.bpc-prep-tab')[currentIdx];
+      if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+
+    tabBar.querySelectorAll('.bpc-prep-tab').forEach((b) => {
+      b.addEventListener('click', () => selectTab(parseInt(b.getAttribute('data-idx'), 10)));
+    });
+    nav.querySelector('.bpc-prep-nav-btn--prev').addEventListener('click', () => selectTab(currentIdx - 1));
+    nav.querySelector('.bpc-prep-nav-btn--next').addEventListener('click', () => selectTab(currentIdx + 1));
+    nav.querySelectorAll('.bpc-prep-nav-dot').forEach((d) => {
+      d.addEventListener('click', () => selectTab(parseInt(d.getAttribute('data-idx'), 10)));
+    });
+
+    return { selectTab, tabs };
   }
 
   const STYLES = `
@@ -896,105 +981,108 @@
       font-size: 13px;
     }
 
-    /* Install-guide footer (B2-r6) */
-    .bpc-install-footer {
-      margin-top: 22px;
-      background: #faf8f3;
-      border: 1px solid #e7e3d6;
-      border-radius: 10px;
-      overflow: hidden;
+    /* ─── Quality Standards: tab stage (B2-r7) ─── */
+
+    body .pub-prep-rail-wrap { padding: 0 !important; }
+    body .pub-prep-rail {
+      display: block !important;
+      overflow: visible !important;
+      grid-auto-flow: row !important;
+      grid-template-columns: none !important;
+      scroll-snap-type: none !important;
+      gap: 0 !important;
+      padding: 0 !important;
     }
-    .bpc-install-footer[open] { background: #fff; }
-    .bpc-install-summary {
-      padding: 14px 18px;
-      cursor: pointer;
+    body .pub-prep-card {
+      min-width: 0 !important;
+      flex-shrink: 1 !important;
+      max-width: none !important;
+      width: 100% !important;
+      scroll-snap-align: none !important;
+    }
+    .bpc-prep-card--hidden { display: none !important; }
+
+    .bpc-prep-tabs {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      list-style: none;
-      transition: background 0.12s;
+      gap: 6px;
+      overflow-x: auto;
+      white-space: nowrap;
+      padding: 4px 4px 14px;
+      margin: 8px 0 0;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
     }
-    .bpc-install-summary::-webkit-details-marker { display: none; }
-    .bpc-install-summary:hover { background: #f4f1e8; }
-    .bpc-install-footer[open] .bpc-install-summary {
-      border-bottom: 1px solid #e7e3d6;
-    }
-    .bpc-install-summary-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-width: 0;
-    }
-    .bpc-install-summary-icon {
-      width: 34px; height: 34px;
-      background: #e8eee9;
-      color: #4a6554;
-      border-radius: 7px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 17px;
-      flex-shrink: 0;
-    }
-    .bpc-install-summary-eyebrow {
-      font-size: 10.5px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #5d7e69;
-      font-weight: 700;
-      margin-bottom: 1px;
-    }
-    .bpc-install-summary-title {
-      font-size: 14px;
+    .bpc-prep-tabs::-webkit-scrollbar { display: none; }
+    .bpc-prep-tab {
+      padding: 9px 16px;
+      border: 1px solid #d8d2bf;
+      background: #fff;
+      color: #58595b;
+      border-radius: 999px;
+      font-family: 'Onest', -apple-system, sans-serif;
+      font-size: 13px;
       font-weight: 500;
-      color: #353535;
-    }
-    .bpc-install-summary-cta {
-      font-size: 12px;
-      color: #5d7e69;
-      font-weight: 600;
-      letter-spacing: 0.02em;
+      cursor: pointer;
+      white-space: nowrap;
       flex-shrink: 0;
-      transition: transform 0.18s;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
     }
-    .bpc-install-footer[open] .bpc-install-summary-cta {
-      transform: rotate(180deg);
+    .bpc-prep-tab:hover { background: #f4f1e8; }
+    .bpc-prep-tab--active {
+      background: #5d7e69;
+      color: #fff;
+      border-color: #5d7e69;
     }
-    .bpc-install-body {
-      padding: 20px 22px 22px;
-    }
-    .bpc-install-body-grid {
+    .bpc-prep-tab--active:hover { background: #4a6554; }
+
+    .bpc-prep-grid {
       display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr) minmax(0, 1fr);
-      gap: 22px;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.1fr);
+      gap: 26px;
+      margin-top: 16px;
       align-items: start;
     }
-    @media (max-width: 1100px) {
-      .bpc-install-body-grid {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        grid-template-areas: 'svg svg' 'cmp side';
-      }
-      .bpc-install-svg { grid-area: svg; }
-      .bpc-install-cmp { grid-area: cmp; }
-      .bpc-install-side { grid-area: side; }
-    }
-    @media (max-width: 760px) {
-      .bpc-install-body-grid {
+    @media (max-width: 900px) {
+      .bpc-prep-grid {
         grid-template-columns: 1fr;
-        grid-template-areas: 'svg' 'cmp' 'side';
-        gap: 18px;
+        gap: 20px;
       }
     }
-    .bpc-install-svg {
+    .bpc-prep-visual {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .bpc-prep-svg {
       background: #faf8f3;
       border: 1px solid #efece4;
       border-radius: 8px;
-      padding: 10px;
+      padding: 12px;
     }
-    .bpc-install-cmp {
-      font-size: 12.5px;
+    .bpc-prep-cmp {
+      background: #fff;
+      border: 1px solid #efece4;
+      border-radius: 8px;
+      padding: 12px 14px;
     }
+    .bpc-prep-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .bpc-install-badge {
+      background: #e8eee9;
+      color: #4a6554;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.06em;
+    }
+    .bpc-prep-prose {
+      min-width: 0;
+    }
+
     .bpc-cmp-header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 56px 56px;
@@ -1035,34 +1123,48 @@
     .bpc-cmp-meh { color: #999; font-size: 11px; font-weight: 500; }
     .bpc-cmp-check { color: #5d7e69; font-weight: 700; }
 
-    .bpc-install-copy {
-      font-size: 13.5px;
-      line-height: 1.55;
-      color: #353535;
-      margin: 0 0 14px;
-    }
-    .bpc-install-badges {
+    .bpc-prep-nav {
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 12px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 0 4px;
+      max-width: 720px;
+      margin: 0 auto;
     }
-    .bpc-install-badge {
-      background: #e8eee9;
-      color: #4a6554;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 4px 8px;
-      border-radius: 4px;
-      letter-spacing: 0.06em;
-    }
-    .bpc-install-guide-link {
-      font-size: 12.5px;
+    .bpc-prep-nav-btn {
+      background: transparent;
+      border: 1px solid #d8d2bf;
+      color: #58595b;
+      font-family: inherit;
+      font-size: 12px;
       font-weight: 600;
-      color: #5d7e69;
-      text-decoration: none;
+      letter-spacing: 0.02em;
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
     }
-    .bpc-install-guide-link:hover { color: #4a6554; text-decoration: underline; }
+    .bpc-prep-nav-btn:hover { background: #f4f1e8; border-color: #5d7e69; color: #5d7e69; }
+    .bpc-prep-nav-dots {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .bpc-prep-nav-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      border: none;
+      background: #d8d2bf;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.12s, transform 0.12s;
+    }
+    .bpc-prep-nav-dot:hover { background: #a8b5ac; }
+    .bpc-prep-nav-dot--active {
+      background: #5d7e69;
+      transform: scale(1.3);
+    }
   `;
 
   function injectStyles() {
@@ -1569,15 +1671,8 @@
     const paneEl = document.createElement('div');
     paneEl.className = 'bpc-bid-reader-pane';
     sections.forEach(({ item }) => {
-      const kind = detectInstallKind(item);
       paneEl.appendChild(item);
       item.classList.add('bpc-hidden-section');
-      if (kind) {
-        const wrap = document.createElement('div');
-        wrap.innerHTML = renderInstallFooterHtml(kind);
-        const footerEl = wrap.firstElementChild;
-        if (footerEl) item.appendChild(footerEl);
-      }
     });
 
     reader.appendChild(listEl);
@@ -1647,6 +1742,7 @@
 
     transformLayout(inner, siteMapEl, legendEl, regions, regionMap);
     _bidReader = transformBidSection();
+    transformQualityStandards();
   }
 
   if (document.readyState === 'loading') {
