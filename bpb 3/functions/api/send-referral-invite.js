@@ -12,9 +12,13 @@
 //   5. Sends the invite email via Resend, written in the referrer's voice
 //      ("from Tim McMullen") with a $500 incentive callout and a CTA that
 //      links to /refer/?t={scheduling_token} on this domain.
-//
-// Returns 200 { ok, referral_id, scheduling_token } or appropriate error.
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Canonical public URL used in all outbound email links. Hardcoded rather
+// than derived from request.url so emails always point at the branded
+// portal-baysidepavers.com domain regardless of which host the API was
+// reached through (.pages.dev preview deployments, custom domain, etc.)
+const PUBLIC_BASE_URL = 'https://portal-baysidepavers.com';
 
 export async function onRequestPost({ request, env }) {
   const json = (status, body) => new Response(JSON.stringify(body), {
@@ -32,7 +36,6 @@ export async function onRequestPost({ request, env }) {
       return json(500, { error: 'Server not configured' });
     }
 
-    // ─── 1. Verify caller's JWT, get the auth user ──────────────────────
     const auth = request.headers.get('authorization') || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
     if (!token) return json(401, { error: 'Missing auth token' });
@@ -46,74 +49,44 @@ export async function onRequestPost({ request, env }) {
       return json(401, { error: 'Invalid auth token (no user)' });
     }
 
-    // ─── 2. Confirm caller is a homeowner ───────────────────────────────
     const referrerResp = await fetch(
       SUPABASE_URL + '/rest/v1/clients?user_id=eq.' + encodeURIComponent(callerUser.id) +
       '&select=id,name,email',
-      {
-        headers: {
-          'apikey': SERVICE_ROLE,
-          'Authorization': 'Bearer ' + SERVICE_ROLE,
-        },
-      }
+      { headers: { 'apikey': SERVICE_ROLE, 'Authorization': 'Bearer ' + SERVICE_ROLE } }
     );
-    if (!referrerResp.ok) {
-      return json(403, { error: 'Could not look up referrer account' });
-    }
+    if (!referrerResp.ok) return json(403, { error: 'Could not look up referrer account' });
     const referrerRows = await referrerResp.json();
     const referrer = Array.isArray(referrerRows) && referrerRows[0];
-    if (!referrer) {
-      return json(403, { error: 'Only homeowner accounts can send referrals' });
-    }
+    if (!referrer) return json(403, { error: 'Only homeowner accounts can send referrals' });
 
-    // ─── 3. Validate input ───────────────────────────────────────────────
     const body = await request.json().catch(() => null);
-    if (!body || typeof body !== 'object') {
-      return json(400, { error: 'Invalid JSON body' });
-    }
+    if (!body || typeof body !== 'object') return json(400, { error: 'Invalid JSON body' });
 
     const refEmail = String(body.referred_email || '').trim().toLowerCase();
     const refName  = String(body.referred_name  || '').trim();
     const refPhoneIn = String(body.referred_phone || '').trim();
     const refPhone = refPhoneIn || null;
 
-    if (!refEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(refEmail)) {
-      return json(400, { error: 'Invalid email address for your friend' });
-    }
-    if (!refName) {
-      return json(400, { error: "Please add your friend's name" });
-    }
-    if (refName.length > 120) {
-      return json(400, { error: 'Name too long (max 120 chars)' });
-    }
-    if (refEmail === referrer.email.toLowerCase()) {
-      return json(400, { error: "You can't refer yourself!" });
-    }
+    if (!refEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(refEmail)) return json(400, { error: 'Invalid email address for your friend' });
+    if (!refName) return json(400, { error: "Please add your friend's name" });
+    if (refName.length > 120) return json(400, { error: 'Name too long (max 120 chars)' });
+    if (refEmail === referrer.email.toLowerCase()) return json(400, { error: "You can't refer yourself!" });
 
-    // ─── 4. Block duplicate active invites ──────────────────────────────
     const dupResp = await fetch(
       SUPABASE_URL + '/rest/v1/referrals' +
       '?referrer_client_id=eq.' + encodeURIComponent(referrer.id) +
       '&referred_email=eq.' + encodeURIComponent(refEmail) +
       '&status=in.(sent,scheduled,appointment_completed,credit_awarded)' +
       '&select=id,status',
-      {
-        headers: {
-          'apikey': SERVICE_ROLE,
-          'Authorization': 'Bearer ' + SERVICE_ROLE,
-        },
-      }
+      { headers: { 'apikey': SERVICE_ROLE, 'Authorization': 'Bearer ' + SERVICE_ROLE } }
     );
     if (dupResp.ok) {
       const dups = await dupResp.json();
       if (Array.isArray(dups) && dups.length > 0) {
-        return json(409, {
-          error: "You've already sent an invite to that email — they should still have it in their inbox."
-        });
+        return json(409, { error: "You've already sent an invite to that email — they should still have it in their inbox." });
       }
     }
 
-    // ─── 5. Insert the referrals row ────────────────────────────────────
     const insertResp = await fetch(SUPABASE_URL + '/rest/v1/referrals', {
       method: 'POST',
       headers: {
@@ -138,8 +111,7 @@ export async function onRequestPost({ request, env }) {
     const insertedRows = await insertResp.json();
     const referral = Array.isArray(insertedRows) ? insertedRows[0] : insertedRows;
 
-    // ─── 6. Send the invite email via Resend ────────────────────────────
-    const origin = new URL(request.url).origin;
+    const origin = PUBLIC_BASE_URL;
     const landingUrl = origin + '/refer/?t=' + encodeURIComponent(referral.scheduling_token);
     const referrerFirstName = (referrer.name || '').split(/[\s,&]+/)[0] || 'a Bayside customer';
     const refeeFirstName    = (refName || '').split(/[\s,&]+/)[0] || 'there';
@@ -151,10 +123,7 @@ export async function onRequestPost({ request, env }) {
       try {
         const emailResp = await fetch('https://api.resend.com/emails', {
           method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + RESEND_API_KEY,
-            'Content-Type':  'application/json',
-          },
+          headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type':  'application/json' },
           body: JSON.stringify({
             from:    RESEND_FROM,
             to:      [refEmail],
@@ -202,10 +171,6 @@ export async function onRequestOptions() {
   });
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Email body — Bayside green #5d7e69, charcoal, tan #dad7c5
-// Written in referrer's voice (option C from Tim's spec).
-// ───────────────────────────────────────────────────────────────────────────
 function buildInviteHtml({ referrerName, refeeFirstName, landingUrl }) {
   return '<!DOCTYPE html>\n' +
 '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
@@ -245,23 +210,17 @@ escapeHtml(referrerName) + ' just referred you to Bayside Pavers — they though
 function buildInviteText({ referrerName, refeeFirstName, landingUrl }) {
   const referrerFirst = (referrerName || '').split(/[\s,&]+/)[0] || 'A friend';
   return [
-    'Hi ' + refeeFirstName + ',',
-    '',
+    'Hi ' + refeeFirstName + ',', '',
     referrerName + ' just referred you to Bayside Pavers — they thought you might be',
     'interested in what we are designing for their backyard, and they wanted you to',
-    'have an unfair advantage.',
-    '',
-    'YOUR REFERRAL PERK: $500 off your first project',
-    '',
+    'have an unfair advantage.', '',
+    'YOUR REFERRAL PERK: $500 off your first project', '',
     'Schedule a free design appointment with our team — no obligation. We will come out,',
     'walk your yard, and give you a real proposal. ' + referrerFirst + ' also gets $500 toward their',
-    'next project.',
-    '',
-    'Claim your $500 and schedule: ' + landingUrl,
-    '',
+    'next project.', '',
+    'Claim your $500 and schedule: ' + landingUrl, '',
     'This invitation was sent because ' + referrerName + ' referred you.',
-    'Reply to this email to reach them directly.',
-    '',
+    'Reply to this email to reach them directly.', '',
     '— Bayside Pavers · Creating backyards people love',
   ].join('\n');
 }
