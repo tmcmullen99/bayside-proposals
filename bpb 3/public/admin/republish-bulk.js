@@ -1,36 +1,39 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /admin/republish-bulk.js
+// /admin/republish-bulk.js — hardened
 //
-// Bulk republish for stale published proposals. Uses the existing publish.js
-// module — same code path as clicking "Publish new version" in the editor —
-// so new material swatches and any other catalog updates get baked into a
-// fresh snapshot for each selected bid.
+// Bulk republish for stale published proposals. Same flow as before — uses
+// publish.js to drive the existing publish path, processes bids serially —
+// but with three resilience changes vs the original:
 //
-// Strategy: process bids serially. publish.js holds module-level state
-// (proposalId, currentData) so it is NOT re-entrant; running two republishes
-// in parallel would race. The hidden #publishMount div in the page is
-// rendered offscreen so we can drive the publish UI without blocking the user.
+//   1. publish.js is LAZY imported (only when user clicks Republish), so a
+//      problem loading or evaluating that 155K module can't prevent the bid
+//      list from rendering.
+//   2. Every async step is wrapped in try/catch with VISIBLE error messages
+//      injected into the page. No more silent freezes — if anything goes
+//      wrong you see what.
+//   3. The Supabase query has a 15-second timeout race. If the network is
+//      hung, the page tells you instead of spinning forever.
+//
+// Console diagnostics: every milestone logs to console.log/console.error so
+// Cmd+Option+I → Console tab gives a precise breadcrumb if anything fails.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
-import { initPublish, handlePublish } from '/js/publish.js';
+
+console.log('[republish-bulk] module loaded');
 
 // ───────────────────────────────────────────────────────────────────────────
 // State
 // ───────────────────────────────────────────────────────────────────────────
 
-// Latest published row per proposal_id. We dedupe so the table shows one row
-// per bid (the most recent published version), not one row per snapshot.
 let bids = [];
-
-// Map of proposal_id → row state for the table.
-// Status: 'idle' | 'queued' | 'running' | 'success' | 'failed'
 const rowState = new Map();
-
-// Set of proposal_ids that are currently checked in the UI.
 const selectedIds = new Set();
-
 let isRunning = false;
+
+// publish.js exports — populated lazily when first republish is triggered
+let _initPublish = null;
+let _handlePublish = null;
 
 // ───────────────────────────────────────────────────────────────────────────
 // DOM
@@ -44,31 +47,73 @@ const selectNoneBtn = document.getElementById('selectNoneBtn');
 const republishBtn = document.getElementById('republishBtn');
 const publishMount = document.getElementById('publishMount');
 
+// Hard-fail check: if any required element is missing, the HTML deployed
+// out of sync with the JS. Tell the user, don't spin forever.
+const requiredEls = {
+  resultsEl, counterEl, statusEl, selectAllBtn, selectNoneBtn,
+  republishBtn, publishMount,
+};
+for (const [name, el] of Object.entries(requiredEls)) {
+  if (!el) {
+    console.error('[republish-bulk] missing required DOM element:', name);
+    document.body.innerHTML +=
+      `<div style="background:#fbe6e6;color:#b04040;padding:20px;margin:20px;border-radius:8px;font-family:system-ui,sans-serif;">
+        <strong>Page error:</strong> required element <code>${name}</code> not found.
+        The page HTML and JS may be out of sync — try a hard refresh
+        (<kbd>Cmd+Shift+R</kbd>). If that doesn't help, redeploy <code>republish-bulk.html</code>.
+      </div>`;
+    throw new Error(`Missing element: ${name}`);
+  }
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 // Init
 // ───────────────────────────────────────────────────────────────────────────
 
-async function init() {
-  await loadBids();
-  attachControls();
-}
+(async function init() {
+  try {
+    console.log('[republish-bulk] init started');
+    attachControls();
+    await loadBids();
+    console.log('[republish-bulk] init complete');
+  } catch (err) {
+    console.error('[republish-bulk] init failed:', err);
+    showFatalError('Could not load published bids', err);
+  }
+})();
 
 async function loadBids() {
-  // Pull every published_proposals row, group by proposal_id, keep latest
-  // by published_at. Joins to proposals for client_name / project_address
-  // so we can show a real label even if title was empty at publish time.
-  const { data, error } = await supabase
-    .from('published_proposals')
-    .select('id, proposal_id, slug, title, project_address, total_amount, published_at')
-    .order('published_at', { ascending: false });
+  console.log('[republish-bulk] loadBids: querying published_proposals…');
 
-  if (error) {
-    showStatus('Failed to load published proposals: ' + error.message, 'error');
-    resultsEl.innerHTML = '<div class="empty">Could not load.</div>';
+  // Race the query against a 15s timeout so we never spin forever on
+  // a hung network.
+  let result;
+  try {
+    result = await Promise.race([
+      supabase
+        .from('published_proposals')
+        .select('id, proposal_id, slug, title, project_address, total_amount, published_at')
+        .order('published_at', { ascending: false }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Query timeout — Supabase did not respond within 15 seconds')), 15000)
+      ),
+    ]);
+  } catch (err) {
+    console.error('[republish-bulk] loadBids fetch threw:', err);
+    showFatalError('Could not load published bids', err);
     return;
   }
 
-  // Group by proposal_id, keep the most recent published_at
+  const { data, error } = result;
+  if (error) {
+    console.error('[republish-bulk] loadBids error:', error);
+    showFatalError('Could not load published bids', error);
+    return;
+  }
+
+  console.log('[republish-bulk] loadBids: got', (data || []).length, 'rows');
+
+  // Group by proposal_id, keep most recent published_at per bid
   const seen = new Map();
   for (const row of (data || [])) {
     if (!seen.has(row.proposal_id)) seen.set(row.proposal_id, row);
@@ -78,11 +123,40 @@ async function loadBids() {
     (a.project_address || a.title || '').localeCompare(b.project_address || b.title || '')
   );
 
-  // Initialize row state
   for (const b of bids) rowState.set(b.proposal_id, { status: 'idle', error: null });
 
+  console.log('[republish-bulk] loadBids: deduped to', bids.length, 'unique bids');
   renderTable();
   updateCounter();
+}
+
+// Lazy-loads publish.js. Called the first time runBatch() runs. Returns
+// {initPublish, handlePublish} or throws with a clear message.
+async function loadPublishModule() {
+  if (_initPublish && _handlePublish) {
+    return { initPublish: _initPublish, handlePublish: _handlePublish };
+  }
+
+  console.log('[republish-bulk] lazy-loading /js/publish.js…');
+  let mod;
+  try {
+    mod = await import('/js/publish.js');
+  } catch (err) {
+    console.error('[republish-bulk] failed to import publish.js:', err);
+    throw new Error('Could not load publish module: ' + (err.message || String(err)));
+  }
+
+  if (typeof mod.initPublish !== 'function') {
+    throw new Error('publish.js does not export initPublish — redeploy publish.js');
+  }
+  if (typeof mod.handlePublish !== 'function') {
+    throw new Error('publish.js does not export handlePublish — redeploy publish.js with the export added');
+  }
+
+  _initPublish = mod.initPublish;
+  _handlePublish = mod.handlePublish;
+  console.log('[republish-bulk] publish.js loaded');
+  return { initPublish: _initPublish, handlePublish: _handlePublish };
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -130,7 +204,6 @@ function renderTable() {
 
   resultsEl.innerHTML = `<div class="bids-table">${headerHtml}${rowsHtml}</div>`;
 
-  // Wire checkbox listeners
   resultsEl.querySelectorAll('input[data-checkbox]').forEach((cb) => {
     cb.addEventListener('change', () => {
       const pid = cb.getAttribute('data-checkbox');
@@ -148,7 +221,9 @@ function renderStatusLabel(state) {
     case 'running': return 'Publishing…';
     case 'success': return 'Done';
     case 'failed': {
-      const msg = state.error ? `<span class="err-msg" title="${escapeHtml(state.error)}">${escapeHtml(state.error)}</span>` : '';
+      const msg = state.error
+        ? `<span class="err-msg" title="${escapeHtml(state.error)}">${escapeHtml(state.error)}</span>`
+        : '';
       return `Failed${msg}`;
     }
     default: return '—';
@@ -179,10 +254,43 @@ function showStatus(msg, kind = 'info') {
   statusEl.className = `status-banner visible ${kind}`;
   statusEl.textContent = msg;
 }
-
 function hideStatus() {
   statusEl.className = 'status-banner';
   statusEl.textContent = '';
+}
+
+// Visible fatal-error renderer. Replaces the loading placeholder with an
+// actionable error message + manual reload button.
+function showFatalError(headline, err) {
+  const msg = (err && (err.message || err.error_description || err.error)) || String(err);
+  resultsEl.innerHTML = `
+    <div class="empty" style="color:#b04040;background:#fff;text-align:left;">
+      <strong>${escapeHtml(headline)}</strong>
+      <div style="margin-top:8px;font-size:13px;color:#666;line-height:1.5;">
+        ${escapeHtml(msg)}
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px;">
+        <button type="button" class="btn btn-ghost" id="reloadBtn">Reload page</button>
+        <button type="button" class="btn btn-ghost" id="retryBtn">Retry query</button>
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:#999;">
+        Tip: open DevTools (Cmd+Option+I) → Console tab and look for red errors —
+        the diagnostic logs there usually pinpoint what failed.
+      </div>
+    </div>
+  `;
+  document.getElementById('reloadBtn')?.addEventListener('click', () => {
+    window.location.reload();
+  });
+  document.getElementById('retryBtn')?.addEventListener('click', async () => {
+    resultsEl.innerHTML = '<div class="loading"><span class="spinner"></span>Retrying…</div>';
+    try {
+      await loadBids();
+    } catch (e) {
+      showFatalError('Retry failed', e);
+    }
+  });
+  counterEl.textContent = 'error';
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -208,8 +316,17 @@ function attachControls() {
 
   republishBtn.addEventListener('click', () => {
     if (isRunning || selectedIds.size === 0) return;
-    if (!confirm(`Republish ${selectedIds.size} bid${selectedIds.size === 1 ? '' : 's'}? This will create a new published version for each. The old versions stay in place under their original slugs.`)) return;
-    runBatch();
+    if (!confirm(
+      `Republish ${selectedIds.size} bid${selectedIds.size === 1 ? '' : 's'}? ` +
+      `This will create a new published version for each. The old versions ` +
+      `stay in place under their original slugs.`
+    )) return;
+    runBatch().catch(err => {
+      console.error('[republish-bulk] runBatch threw:', err);
+      showStatus('Batch failed: ' + (err.message || String(err)), 'error');
+      isRunning = false;
+      updateRepublishBtn();
+    });
   });
 }
 
@@ -224,7 +341,20 @@ async function runBatch() {
   selectAllBtn.disabled = true;
   selectNoneBtn.disabled = true;
 
-  // Snapshot the selection so user can't change it mid-run by editing checkboxes
+  // Lazy-load publish.js up front so the first bid doesn't pay the cost
+  // mid-batch and so we can fail fast if the module is broken.
+  let publishMod;
+  try {
+    publishMod = await loadPublishModule();
+  } catch (err) {
+    isRunning = false;
+    selectAllBtn.disabled = false;
+    selectNoneBtn.disabled = false;
+    updateRepublishBtn();
+    showStatus(err.message, 'error');
+    return;
+  }
+
   const queue = bids.filter(b => selectedIds.has(b.proposal_id));
   queue.forEach(b => updateRowStatus(b.proposal_id, 'queued'));
 
@@ -234,11 +364,12 @@ async function runBatch() {
   for (const bid of queue) {
     updateRowStatus(bid.proposal_id, 'running');
     try {
-      await republishOne(bid.proposal_id);
+      await republishOne(bid.proposal_id, publishMod);
       updateRowStatus(bid.proposal_id, 'success');
       successes++;
     } catch (err) {
       const msg = (err && err.message) || String(err);
+      console.error('[republish-bulk] republishOne failed for', bid.proposal_id, err);
       updateRowStatus(bid.proposal_id, 'failed', msg);
       failures++;
     }
@@ -257,47 +388,29 @@ async function runBatch() {
     showStatus(`Republished ${successes}, ${failures} failed. See per-row errors above.`, 'warn');
   }
 
-  // Reload bid list so latest published_at reflects new versions
   await loadBids();
 }
 
-// Republish a single proposal: mount the publish module into the hidden
-// container, wait for its data to load, click Publish, wait for the row to
-// appear in published_proposals.
-async function republishOne(proposalId) {
-  // Clear any prior mount
+async function republishOne(proposalId, publishMod) {
   publishMount.innerHTML = '';
 
-  // initPublish renders a UI into `container`, including a #bpPublishBtn that
-  // is disabled while loading and enabled once data is ready.
-  await initPublish({
+  await publishMod.initPublish({
     proposalId,
     container: publishMount,
     onSave: () => {},
   });
 
-  // Wait until the publish button exists and is enabled — that means reload()
-  // has finished and currentData is populated.
   const btn = await waitForPublishButton();
-  if (!btn) throw new Error('Publish button did not appear within timeout');
+  if (!btn) throw new Error('Publish button did not appear within 30s — initPublish may have failed');
 
-  // Capture the count of existing published rows for this proposal so we
-  // can confirm a new one was inserted.
   const beforeCount = await countPublishedRows(proposalId);
-
-  // Trigger the publish — same code path the button click runs.
-  await handlePublish();
-
-  // Verify a new row appeared
+  await publishMod.handlePublish();
   const afterCount = await countPublishedRows(proposalId);
   if (afterCount <= beforeCount) {
-    throw new Error('No new published_proposals row was created');
+    throw new Error('No new published_proposals row was created — handlePublish ran but didn\'t insert');
   }
 }
 
-// Polls for the publish button. Up to 30 seconds — generous because
-// initPublish loads sections, materials, photos, regions, install guide
-// data, etc., and large bids on slow connections take a while.
 async function waitForPublishButton(timeoutMs = 30000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -341,5 +454,3 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
-
-init();
