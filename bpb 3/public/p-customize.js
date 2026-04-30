@@ -1,12 +1,10 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /p-customize.js — Phase 4.1 Sprint B2 (revision 2)
+// /p-customize.js — Phase 4.1 Sprint B2 (revision 3)
 //
-// B2-r2 changes:
-//   - Overview rows are <button>, not <a> — click only swaps card view.
-//   - Region detail card has a prominent "See detailed section bid →"
-//     primary button. This is the deliberate scroll trigger.
-//   - Legend strip rows below the map: button-style click, no auto-scroll.
-//   - Polygon clicks still scroll (matches Tim's preference).
+// B2-r3: bid-section polish (Tim's point #2). Adds CSS overrides at the
+// end of STYLES targeting the snapshot's baked-in .pub-scope-item /
+// .pub-line-item rules with `body` ancestor prefix for higher specificity.
+// Universal — applies to all viewers, all existing snapshots, no republish.
 // ═══════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -48,7 +46,6 @@
     }[c]));
   }
 
-  // Smooth-scroll without changing the URL hash.
   function scrollToHref(href) {
     if (!href || href.charAt(0) !== '#') return;
     const target = document.querySelector(href);
@@ -564,6 +561,63 @@
       margin-top: 4px !important;
       padding-top: 16px !important;
     }
+
+    /* ═════ BID SECTION POLISH (Tim's point #2) ═════
+       Override snapshot's baked-in rules. body prefix bumps specificity. */
+    body .pub-scope-item {
+      padding: 36px 0;
+    }
+    body .pub-scope-item:first-child {
+      padding-top: 4px;
+    }
+    body .pub-scope-item-header {
+      margin-bottom: 16px;
+    }
+    body .pub-scope-item-name {
+      font-size: 22px;
+      letter-spacing: -0.012em;
+    }
+    body .pub-scope-item-amount {
+      font-size: 19px;
+    }
+    body .pub-line-item {
+      padding: 12px 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 10px;
+    }
+    body .pub-line-item:first-child {
+      padding-top: 2px;
+    }
+    body .pub-line-item-type {
+      display: inline-block;
+      flex-shrink: 0;
+      margin-bottom: 0;
+      padding: 2px 8px;
+      background: #e8eee9;
+      color: #4a6554;
+      font-size: 9.5px;
+      letter-spacing: 0.16em;
+      border-radius: 3px;
+      font-weight: 700;
+      line-height: 1.5;
+      align-self: center;
+    }
+    body .pub-line-item-body {
+      flex: 1;
+      min-width: 200px;
+      font-size: 14.5px;
+      line-height: 1.5;
+      max-width: 78ch;
+    }
+    body .pub-scope-total {
+      margin-top: 8px;
+      padding: 28px 0 12px;
+    }
+    body .pub-scope-total-amount {
+      font-size: 28px;
+    }
   `;
 
   function injectStyles() {
@@ -944,7 +998,6 @@
     customize._lastRender = () => renderOverview(card, regions, regionMap);
     customize._lastRender();
 
-    // Polygon clicks — keep auto-scroll. Tim explicitly likes this pairing.
     document.querySelectorAll('polygon.pub-drawing-region:not(.pub-drawing-region--static)').forEach((poly) => {
       const regionId = poly.getAttribute('data-region-id');
       const anchor = poly.closest('a');
@@ -955,8 +1008,6 @@
       });
     });
 
-    // Legend strip rows below the map — REMOVE auto-scroll. preventDefault
-    // suppresses the browser's hash-change scroll on the existing <a>.
     document.querySelectorAll('.pub-region-legend-row').forEach((row) => {
       const regionId = row.getAttribute('data-region-id');
       if (!regionId) return;
