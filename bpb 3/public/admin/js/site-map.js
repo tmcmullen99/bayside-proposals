@@ -23,6 +23,12 @@
  *     Click a pill to add/remove from the region's set; order = pick order.
  *   - Snapshot wiring: pushUndoSnapshot('toggle material') before each pill click
  *     so Cmd+Z reverses one click per stroke.
+ *
+ * Phase 4.1 Sprint A: McMullen palette → Bayside palette for non-region UI.
+ *   - Polygon name label fill: #1a1f2e → #353535 (charcoal)
+ *   - Edge-insert "+" indicator stroke: #10b981 → #5d7e69 (Bayside green)
+ *   - Draft polygon first-vertex marker: #10b981 → #5d7e69 (Bayside green)
+ *   - REGION_COLORS array intentionally unchanged (functional polygon hues)
  */
 
 // ---------------------------------------------------------------------------
@@ -102,16 +108,13 @@ function undo() {
     setStatus('Nothing to undo');
     return;
   }
-  // Save current state into future, restore the most recent past snapshot.
   const currentLabel = undoStack.past[undoStack.past.length - 1].label;
   undoStack.future.push({ regions: cloneRegions(), label: currentLabel });
   const prev = undoStack.past.pop();
   state.regions = prev.regions;
-  // Selection may now point to a no-longer-existing index — clamp it.
   if (state.selectedRegionIdx >= state.regions.length) {
     state.selectedRegionIdx = -1;
   }
-  // Cancel any drag/draft/hover state that no longer makes sense after restore.
   state.draftPolygon = null;
   state.cursorPx = null;
   state.drag = null;
@@ -129,7 +132,6 @@ function redo() {
     setStatus('Nothing to redo');
     return;
   }
-  // Save current into past, restore from future.
   const next = undoStack.future.pop();
   undoStack.past.push({ regions: cloneRegions(), label: next.label });
   state.regions = next.regions;
@@ -251,7 +253,6 @@ async function setBackdrop(backdrop) {
   };
   state.backdropImg = await loadBackdropImage(state.backdrop.url);
 
-  // Size canvas to native dimensions
   els.canvas.width = state.backdrop.width;
   els.canvas.height = state.backdrop.height;
   els.empty.style.display = 'none';
@@ -368,7 +369,6 @@ function redraw() {
   ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
   ctx.drawImage(state.backdropImg, 0, 0, els.canvas.width, els.canvas.height);
 
-  // Draw committed polygons
   for (let i = 0; i < state.regions.length; i++) {
     drawPolygon(state.regions[i], i, i === state.selectedRegionIdx);
   }
@@ -383,21 +383,19 @@ function redraw() {
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.fill();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#10b981';
+    ctx.strokeStyle = '#5d7e69';
     ctx.stroke();
-    // Draw a "+" inside
     ctx.beginPath();
     ctx.moveTo(px.x - 4, px.y);
     ctx.lineTo(px.x + 4, px.y);
     ctx.moveTo(px.x, px.y - 4);
     ctx.lineTo(px.x, px.y + 4);
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#10b981';
+    ctx.strokeStyle = '#5d7e69';
     ctx.stroke();
     ctx.restore();
   }
 
-  // Draw draft polygon
   if (state.draftPolygon && state.draftPolygon.points.length > 0) {
     drawDraft(state.draftPolygon);
   }
@@ -418,16 +416,13 @@ function drawPolygon(region, idx, isSelected) {
   }
   ctx.closePath();
 
-  // Fill (translucent)
   ctx.fillStyle = hexToRgba(color, isSelected ? 0.35 : 0.20);
   ctx.fill();
 
-  // Stroke
   ctx.lineWidth = isSelected ? 3 : 2;
   ctx.strokeStyle = color;
   ctx.stroke();
 
-  // Vertices (only visible when selected, to keep canvas clean)
   if (isSelected) {
     for (let i = 0; i < pts.length; i++) {
       const p = fracToPx(pts[i]);
@@ -441,7 +436,6 @@ function drawPolygon(region, idx, isSelected) {
     }
   }
 
-  // Label (region name + index badge near centroid)
   const c = polygonCentroidPx(pts);
   const label = `${idx + 1}. ${region.name || '(unnamed)'}`;
   ctx.font = 'bold 14px DM Sans, sans-serif';
@@ -454,7 +448,7 @@ function drawPolygon(region, idx, isSelected) {
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = color;
   ctx.strokeRect(c.x - labelW / 2, c.y - labelH / 2, labelW, labelH);
-  ctx.fillStyle = '#1a1f2e';
+  ctx.fillStyle = '#353535';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(label, c.x, c.y);
@@ -466,7 +460,6 @@ function drawDraft(draft) {
   const pts = draft.points;
   ctx.save();
 
-  // Build the path once
   ctx.beginPath();
   const start = fracToPx(pts[0]);
   ctx.moveTo(start.x, start.y);
@@ -475,21 +468,16 @@ function drawDraft(draft) {
     ctx.lineTo(p.x, p.y);
   }
 
-  // White halo behind the line so it stays visible against both light and dark
-  // regions of the backdrop (construction drawings have busy grayscale areas).
   ctx.lineWidth = 8;
   ctx.strokeStyle = 'rgba(255,255,255,0.9)';
   ctx.stroke();
 
-  // Bold red dashed line on top — the actual draft polygon edge.
   ctx.lineWidth = 4;
   ctx.strokeStyle = '#dc2626';
   ctx.setLineDash([12, 6]);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Rubber-band preview: faint line from last placed vertex to current cursor.
-  // Helps Tim see where the next click will land before placing it.
   if (state.cursorPx && pts.length > 0) {
     const lastPx = fracToPx(pts[pts.length - 1]);
     ctx.beginPath();
@@ -505,8 +493,6 @@ function drawDraft(draft) {
     ctx.setLineDash([]);
   }
 
-  // Vertex markers: large white-filled circles with red border. First vertex
-  // is green to signal "click here to close the polygon."
   for (let i = 0; i < pts.length; i++) {
     const p = fracToPx(pts[i]);
     ctx.beginPath();
@@ -514,14 +500,13 @@ function drawDraft(draft) {
     ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.lineWidth = 3;
-    ctx.strokeStyle = i === 0 ? '#10b981' : '#dc2626';
+    ctx.strokeStyle = i === 0 ? '#5d7e69' : '#dc2626';
     ctx.stroke();
   }
   ctx.restore();
 }
 
 function polygonCentroidPx(pts) {
-  // Simple average of vertices in canvas pixels — good enough for label placement
   let sx = 0, sy = 0;
   for (const p of pts) {
     const px = fracToPx(p);
@@ -539,30 +524,16 @@ function hexToRgba(hex, a) {
 
 // ---------------------------------------------------------------------------
 // Mouse / keyboard handlers
-//
-// Precedence on mousedown when a polygon is selected and we're not drafting:
-//   1. Vertex drag (cursor over an existing vertex)
-//   2. Edge insert (cursor near an edge — insert vertex there, then drag it)
-//   3. Polygon interior drag (cursor inside the polygon — translate the whole shape)
-//   4. Otherwise: fall through to click handler (selects another polygon or starts a draft)
-//
-// We do drag setup in mousedown (not click) so the user can immediately drag
-// without an extra click. The `click` handler below only fires when no drag
-// happened (see DRAG_SUPPRESSES_CLICK below).
 // ---------------------------------------------------------------------------
 
-// Set true on mousedown when a drag operation begins, so the upcoming click
-// event is suppressed (otherwise mousedown→mousemove→mouseup→click would also
-// fire a click on the same coordinate, which we don't want for drags).
 let DRAG_SUPPRESSES_CLICK = false;
 
 els.canvas.addEventListener('mousedown', (e) => {
   if (!state.backdropImg) return;
-  if (state.draftPolygon) return;  // mousedown during draft is ignored — clicks place vertices
+  if (state.draftPolygon) return;
 
   const px = eventToCanvasPx(e);
 
-  // 1. Vertex drag (only if a polygon is selected and we're on one of its vertices)
   if (state.selectedRegionIdx !== -1) {
     const hitV = hitTestVertex(px);
     if (hitV && hitV.regionIdx === state.selectedRegionIdx) {
@@ -574,9 +545,6 @@ els.canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
-    // 2. Edge insert: if cursor is near an edge of the selected polygon, insert
-    // a new vertex there and immediately start dragging it (so Tim can refine
-    // the position in one motion).
     const hitE = hitTestEdge(px);
     if (hitE) {
       pushUndoSnapshot('insert vertex');
@@ -593,7 +561,6 @@ els.canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
-    // 3. Polygon interior drag: cursor inside the selected polygon.
     if (pointInPolygon(px, state.regions[state.selectedRegionIdx].polygon)) {
       pushUndoSnapshot('move polygon');
       state.polygonDrag = {
@@ -606,15 +573,12 @@ els.canvas.addEventListener('mousedown', (e) => {
       return;
     }
   }
-
-  // 4. Otherwise, fall through to click handler
 });
 
 els.canvas.addEventListener('mousemove', (e) => {
   if (!state.backdropImg) return;
   const px = eventToCanvasPx(e);
 
-  // Vertex drag in progress — update the dragged vertex.
   if (state.drag) {
     const frac = pxToFrac(px);
     const r = state.regions[state.drag.regionIdx];
@@ -627,7 +591,6 @@ els.canvas.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Polygon interior drag in progress — translate every vertex by the cursor delta.
   if (state.polygonDrag) {
     const curFrac = pxToFrac(px);
     const dx = curFrac.x - state.polygonDrag.lastFrac.x;
@@ -643,19 +606,15 @@ els.canvas.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Update rubber-band cursor position during draft drawing.
   if (state.draftPolygon) {
     state.cursorPx = px;
     redraw();
     return;
   }
 
-  // Otherwise, hover detection — show edge-insert "+" indicator when over an edge
-  // of the selected polygon (but not when over a vertex, which has its own behavior).
   if (state.selectedRegionIdx !== -1) {
     const hitV = hitTestVertex(px);
     const newHoveredEdge = hitV ? null : hitTestEdge(px);
-    // Only redraw if the hovered-edge state changed (avoid redrawing on every pixel of mouse movement)
     const changed =
       (newHoveredEdge === null) !== (state.hoveredEdge === null) ||
       (newHoveredEdge && state.hoveredEdge && newHoveredEdge.edgeIdx !== state.hoveredEdge.edgeIdx);
@@ -679,15 +638,12 @@ window.addEventListener('mouseup', () => {
   }
   if (wasDragging) {
     els.canvas.classList.remove('sm-cursor-grabbing');
-    // Keep DRAG_SUPPRESSES_CLICK true — the trailing click will reset it.
   }
 });
 
 els.canvas.addEventListener('click', (e) => {
   if (!state.backdropImg) return;
 
-  // Suppress the click that follows a drag operation (so e.g. dragging a vertex
-  // doesn't also trigger "place a new vertex" on the underlying click).
   if (DRAG_SUPPRESSES_CLICK) {
     DRAG_SUPPRESSES_CLICK = false;
     return;
@@ -695,20 +651,17 @@ els.canvas.addEventListener('click', (e) => {
 
   const px = eventToCanvasPx(e);
 
-  // If we're drawing, add a vertex (the dblclick handler runs after this for closure)
   if (state.draftPolygon) {
     state.draftPolygon.points.push(pxToFrac(px));
     redraw();
     return;
   }
 
-  // Not drawing — try to select an existing polygon
   const ri = hitTestPolygon(px);
   if (ri !== -1) {
     selectRegion(ri);
   } else {
     selectRegion(-1);
-    // Clicking empty canvas starts a new draft polygon
     state.draftPolygon = { points: [pxToFrac(px)] };
     state.cursorPx = px;
     setStatus('Drawing — click to add vertices, double-click to close, Esc to cancel');
@@ -718,7 +671,6 @@ els.canvas.addEventListener('click', (e) => {
 
 els.canvas.addEventListener('dblclick', (e) => {
   if (!state.draftPolygon) return;
-  // Remove the duplicate vertex from the click that preceded the dblclick
   if (state.draftPolygon.points.length >= 2) {
     state.draftPolygon.points.pop();
   }
@@ -730,7 +682,6 @@ els.canvas.addEventListener('dblclick', (e) => {
     redraw();
     return;
   }
-  // Commit the draft as a new region
   pushUndoSnapshot('add polygon');
   const newRegion = {
     name: `Region ${state.regions.length + 1}`,
@@ -738,7 +689,7 @@ els.canvas.addEventListener('dblclick', (e) => {
     area_sqft: null,
     area_lnft: null,
     display_order: state.regions.length,
-    materials: [],  // Phase 1B.3 — start with empty material set
+    materials: [],
     _color: colorForIndex(state.regions.length),
   };
   state.regions.push(newRegion);
@@ -752,7 +703,6 @@ els.canvas.addEventListener('dblclick', (e) => {
 });
 
 els.canvas.addEventListener('contextmenu', (e) => {
-  // Right-click a vertex to delete it
   e.preventDefault();
   if (state.selectedRegionIdx === -1) return;
   const px = eventToCanvasPx(e);
@@ -769,7 +719,6 @@ els.canvas.addEventListener('contextmenu', (e) => {
   els.btnSave.disabled = false;
 });
 
-// Mouse leaving the canvas: clear hover/cursor state so leftover indicators don't linger
 els.canvas.addEventListener('mouseleave', () => {
   if (state.hoveredEdge) {
     state.hoveredEdge = null;
@@ -782,14 +731,12 @@ els.canvas.addEventListener('mouseleave', () => {
 });
 
 document.addEventListener('keydown', (e) => {
-  // Cmd+Z (undo) / Cmd+Shift+Z (redo) — works on Mac. Don't hijack if focused in an input.
-  // Note: Ctrl+Z also works (caught by metaKey || ctrlKey) so this is cross-platform.
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
     if (document.activeElement && (
       document.activeElement.tagName === 'INPUT' ||
       document.activeElement.tagName === 'TEXTAREA'
     )) {
-      return;  // let the input's own undo handle it
+      return;
     }
     e.preventDefault();
     if (e.shiftKey) {
@@ -799,7 +746,6 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  // Escape cancels a draft
   if (e.key === 'Escape' && state.draftPolygon) {
     state.draftPolygon = null;
     state.cursorPx = null;
@@ -807,21 +753,18 @@ document.addEventListener('keydown', (e) => {
     redraw();
     return;
   }
-  // Delete/Backspace deletes the selected polygon (when not focused in an input)
   if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedRegionIdx !== -1) {
     if (document.activeElement && (
       document.activeElement.tagName === 'INPUT' ||
       document.activeElement.tagName === 'TEXTAREA'
     )) {
-      return;  // typing in a side-panel input — don't hijack delete
+      return;
     }
     e.preventDefault();
     deleteRegion(state.selectedRegionIdx);
   }
 });
 
-/** Delete a region by index. Used by both the side-panel ✕ button and the
- *  Delete/Backspace key. */
 function deleteRegion(idx) {
   if (idx < 0 || idx >= state.regions.length) return;
   const r = state.regions[idx];
@@ -841,11 +784,6 @@ function deleteRegion(idx) {
 
 // ---------------------------------------------------------------------------
 // Phase 1B.3 — material display helpers
-//
-// Used by the per-region material picker. Each pill shows a thumbnail (the
-// material's swatch image when available), the product name, and the color/
-// pattern as a meta line. Both Belgard and third-party material rows are
-// supported via the same shape.
 // ---------------------------------------------------------------------------
 function materialDisplayName(m) {
   if (!m) return 'Material';
@@ -897,32 +835,21 @@ function refreshSidePanel() {
   els.regionCount.textContent = state.regions.length;
   els.sideList.innerHTML = '';
   state.regions.forEach((r, idx) => {
-    // Defensive: ensure region.materials exists as an array. Old DB rows
-    // pre-Phase-1B.3 may load without it; treat as empty selection.
     if (!Array.isArray(r.materials)) r.materials = [];
 
     const card = document.createElement('div');
     card.className = 'sm-region-card' + (idx === state.selectedRegionIdx ? ' sm-selected' : '');
     card.dataset.idx = idx;
 
-    // Phase 1B: build the Section dropdown options. Empty <option> means
-    // "no section assigned" — Tim might draw a region that doesn't map to a
-    // single bid section, and that's fine.
     const sectionOptions = ['<option value="">— No section —</option>']
       .concat(state.sections.map(s =>
         `<option value="${escapeHtml(s.id)}"${r.proposal_section_id === s.id ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
       )).join('');
 
-    // Phase 1B.3: build the material picker. Each entry in state.materials
-    // becomes a togglable pill. Selected pills get `.sm-selected` and an
-    // order badge showing their position in r.materials (1-indexed). Empty
-    // proposal-materials list shows a placeholder line so Tim knows where
-    // to add materials (Editor → Section 03).
     let materialsBlock;
     if (state.materials.length === 0) {
       materialsBlock = `<div class="sm-material-pills-empty">No materials in this proposal yet — add them in the editor's Materials section.</div>`;
     } else {
-      // Build a quick lookup of selected material IDs → display_order (1-indexed for badge)
       const selectedOrder = new Map();
       r.materials.forEach((entry, j) => {
         selectedOrder.set(entry.proposal_material_id, j + 1);
@@ -982,7 +909,6 @@ function refreshSidePanel() {
     `;
 
     card.addEventListener('click', (e) => {
-      // Don't re-select if user clicked an input, select, or a material pill
       if (
         e.target.tagName !== 'INPUT' &&
         e.target.tagName !== 'SELECT' &&
@@ -999,9 +925,6 @@ function refreshSidePanel() {
     const lnftInput = card.querySelector('.sm-input-lnft');
     const sectionSelect = card.querySelector('.sm-input-section');
 
-    // Snapshot once when any field gains focus — this groups a whole editing
-    // session into a single undo step. Without this, every keystroke would push
-    // its own snapshot and Cmd+Z would walk back letter-by-letter.
     const snapshotOnFocus = (label) => () => pushUndoSnapshot(label);
     nameInput.addEventListener('focus', snapshotOnFocus('rename region'));
     sqftInput.addEventListener('focus', snapshotOnFocus('edit sqft'));
@@ -1022,19 +945,12 @@ function refreshSidePanel() {
       r.area_lnft = isNaN(v) ? null : v;
       els.btnSave.disabled = false;
     });
-    // Section <select>: change fires once per discrete pick — snapshot then mutate.
     sectionSelect.addEventListener('change', (e) => {
       pushUndoSnapshot('change section');
       r.proposal_section_id = e.target.value || null;
       els.btnSave.disabled = false;
     });
 
-    // Phase 1B.3 — material pill click toggles membership in r.materials.
-    // Order = pick order (display_order assigned at save time). Removing
-    // a pill renumbers the remaining selections in their existing relative
-    // order so badges stay sequential. Re-render the panel after each
-    // toggle so badges + selected styles update; the side panel is small
-    // and re-render is cheap.
     card.querySelectorAll('.sm-material-pill').forEach(pill => {
       pill.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1044,7 +960,6 @@ function refreshSidePanel() {
         pushUndoSnapshot(existingIdx >= 0 ? 'remove material' : 'add material');
         if (existingIdx >= 0) {
           r.materials.splice(existingIdx, 1);
-          // Renumber remaining display_orders so they stay 0..n-1
           r.materials.forEach((entry, j) => { entry.display_order = j; });
         } else {
           r.materials.push({
@@ -1052,7 +967,7 @@ function refreshSidePanel() {
             display_order: r.materials.length,
           });
         }
-        refreshSidePanel();  // re-render so order badges + selected states update
+        refreshSidePanel();
         els.btnSave.disabled = false;
       });
     });
@@ -1062,7 +977,6 @@ function refreshSidePanel() {
       if (!confirm(`Delete region "${r.name}"?`)) return;
       pushUndoSnapshot('delete region');
       state.regions.splice(idx, 1);
-      // Reassign display_order so they're sequential
       state.regions.forEach((r, i) => { r.display_order = i; r._color = colorForIndex(i); });
       if (state.selectedRegionIdx === idx) state.selectedRegionIdx = -1;
       else if (state.selectedRegionIdx > idx) state.selectedRegionIdx--;
@@ -1094,15 +1008,6 @@ function setStatus(msg) {
 // ---------------------------------------------------------------------------
 // Save
 // ---------------------------------------------------------------------------
-/**
- * Save all regions to the database. Same logic the "Save All" button runs,
- * extracted so it can also be triggered from the parent editor frame when
- * the user clicks "Open fullscreen" with unsaved work.
- *
- * Returns a Promise that resolves when save is complete (or rejects on error).
- * The button's disabled/text state is updated as a side effect — same UI feel
- * regardless of who initiated the save.
- */
 async function saveAll() {
   if (state.draftPolygon) {
     toast('Finish drawing the current polygon first (double-click to close, Esc to cancel)', 'error');
@@ -1112,11 +1017,8 @@ async function saveAll() {
   els.btnSave.textContent = 'Saving…';
   try {
     const result = await apiSaveRegions(state.proposalId, state.regions);
-    // Refresh state with the server's authoritative version (gives us new ids
-    // and confirms which materials persisted).
     state.regions = result.regions.map((r, i) => {
       const materials = Array.isArray(r.materials) ? r.materials : [];
-      // Sort defensively in case the server ever returns out-of-order
       materials.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
       return {
         ...r,
@@ -1137,17 +1039,9 @@ async function saveAll() {
 }
 
 els.btnSave.addEventListener('click', () => {
-  // Swallow rejections here — saveAll already showed a toast. Without this,
-  // unhandled promise rejection would fire for the simple click case.
   saveAll().catch(() => {});
 });
 
-// Cross-frame integration points. The parent editor's "Open fullscreen" link
-// reads these to decide whether to block-and-save before navigating away.
-//   • saveSiteMap() — returns a Promise; resolves when persistence is done.
-//   • hasUnsavedSiteMapChanges() — returns true if there's dirty state. We use
-//     the Save button's disabled flag as the source of truth (it's already the
-//     dirty indicator throughout this file).
 window.saveSiteMap = saveAll;
 window.hasUnsavedSiteMapChanges = () => !els.btnSave.disabled;
 
@@ -1183,7 +1077,7 @@ els.fileInput.addEventListener('change', async (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// "+ New polygon" button (alternative to clicking empty canvas)
+// "+ New polygon" button
 // ---------------------------------------------------------------------------
 els.btnAddRegion.addEventListener('click', () => {
   if (!state.backdropImg) {
@@ -1199,13 +1093,11 @@ els.btnAddRegion.addEventListener('click', () => {
 // Boot
 // ---------------------------------------------------------------------------
 async function boot() {
-  // Get proposal_id from URL or prompt
   const url = new URL(window.location.href);
   let proposalId = url.searchParams.get('proposal_id');
   if (!proposalId) {
     proposalId = await promptForProposalId();
     if (!proposalId) return;
-    // Update URL without reload so refresh works
     url.searchParams.set('proposal_id', proposalId);
     window.history.replaceState({}, '', url);
   }
@@ -1230,8 +1122,6 @@ async function boot() {
     if (state.regions.length > 0) {
       setStatus(`${state.regions.length} region(s) loaded.`);
     }
-    // Clear any snapshots that might have been pushed during init — first user
-    // action should be the first thing on the undo stack, not "load complete".
     resetUndoStack();
   } catch (err) {
     toast('Failed to load: ' + err.message, 'error', 6000);
