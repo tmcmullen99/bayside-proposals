@@ -23,9 +23,13 @@
 // a standalone page at /admin/belgard-sync. Tim runs it once (or when he
 // wants to refresh missing entries), reviews the results, clicks Apply.
 // Subsequent proposals automatically benefit from the enriched catalog.
+//
+// Phase 5B P2: master-only URL gating. Closes the gap where any signed-in
+// designer could navigate directly here and run a Belgard sync.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
+import { requireMaster } from '/js/auth-util.js';
 
 const CATEGORIES = [
   { id: 'pavers',          label: 'Pavers & Slabs',      url: 'https://www.belgard.com/products/pavers/' },
@@ -54,6 +58,9 @@ const state = {
 init();
 
 async function init() {
+  // Phase 5B P2: master-only gate. Designers get redirected to /admin/.
+  if (!await requireMaster()) return;
+
   renderCategories();
   wireCategoryCheckboxes();
 
