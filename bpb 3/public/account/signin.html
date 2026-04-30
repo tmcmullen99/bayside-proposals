@@ -130,6 +130,29 @@
     color: var(--bp-charcoal);
     margin-top: 4px;
   }
+
+  /* Team-member link below card (Phase 4.0c R3 — primary-landing pivot) */
+  .ho-team-link {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--bp-muted);
+    line-height: 1.6;
+  }
+  .ho-team-link a {
+    color: var(--bp-charcoal);
+    text-decoration: none;
+    font-weight: 600;
+    border-bottom: 1px dotted var(--bp-border);
+    padding-bottom: 1px;
+    margin-left: 4px;
+    transition: color .15s, border-color .15s;
+  }
+  .ho-team-link a:hover {
+    color: var(--bp-green-dk);
+    border-bottom-color: var(--bp-green);
+  }
+
   @media (max-width: 480px) {
     .ho-card { padding: 30px 22px; }
     .ho-title { font-size: 20px; }
@@ -167,6 +190,10 @@
     </form>
 
     <div class="ho-error" id="ho-error" hidden></div>
+  </div>
+
+  <div class="ho-team-link">
+    Bayside team member?<a href="/login.html">Sign in here →</a>
   </div>
 </div>
 
