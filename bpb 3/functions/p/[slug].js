@@ -1,19 +1,19 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // GET /p/[slug]
 //
-// Serves the stored html_snapshot for a published proposal. Runs as a
-// Cloudflare Pages Function — no client-side JS on the public page. One row
-// in `published_proposals` = one URL = one immutable snapshot.
+// Serves the stored html_snapshot for a published proposal.
+//
+// Phase 4.1 Sprint B1: injects /p-customize.js before </body> so signed-in
+// homeowners see a customization overlay on top of their proposal page.
+// The overlay self-deactivates when the viewer isn't a signed-in homeowner
+// who owns this proposal — public viewing is identical.
 //
 // Environment variables (set in CF Pages → Settings → Environment variables):
 //   SUPABASE_URL       — e.g. https://gfgbypcnxkschnfsitfb.supabase.co
 //   SUPABASE_ANON_KEY  — same anon key used by the front end
-//
-// The anon key is considered public (it's already embedded in the front end),
-// so passing it through an env var here is just housekeeping, not secrecy.
-// Row-level security is what actually gates access; the
-// dev_all_published_proposals RLS policy allows SELECT for anon.
 // ═══════════════════════════════════════════════════════════════════════════
+
+const CUSTOMIZE_SCRIPT_TAG = '<script src="/p-customize.js" defer></script>';
 
 export async function onRequestGet(context) {
   const { slug } = context.params;
@@ -69,11 +69,20 @@ export async function onRequestGet(context) {
   }
 
   const row = rows[0];
-  const html = row.html_snapshot;
+  let html = row.html_snapshot;
 
   if (!html || typeof html !== 'string') {
     return htmlError(500, 'Proposal is empty',
       'This proposal has no stored HTML snapshot.');
+  }
+
+  // Phase 4.1 Sprint B1: inject the customization overlay script.
+  // Self-deactivates if viewer isn't authorized — safe for public viewing.
+  // `defer` ensures snapshot renders without blocking on script download.
+  if (html.includes('</body>')) {
+    html = html.replace('</body>', `${CUSTOMIZE_SCRIPT_TAG}\n</body>`);
+  } else {
+    html = html + '\n' + CUSTOMIZE_SCRIPT_TAG;
   }
 
   return new Response(html, {
