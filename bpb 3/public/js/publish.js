@@ -921,7 +921,7 @@ function handleLoomInput(e) {
 // ───────────────────────────────────────────────────────────────────────────
 // Publish action
 // ───────────────────────────────────────────────────────────────────────────
-async function handlePublish() {
+export async function handlePublish() {
   if (!currentData) return;
 
   const btn = document.getElementById('bpPublishBtn');
