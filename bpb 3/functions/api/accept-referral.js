@@ -1,29 +1,29 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /api/accept-referral  —  Phase 4.0c
+// /api/accept-referral  —  Phase 4.0c (Round 1) + Round 3 (code path)
 //
-// Public endpoint (no JWT). Called from /refer/?t={token} when the referee
-// submits their info on the landing page. Creates a Supabase Auth user +
-// linked clients row, with auto-assignment to the referrer's designer per
-// Tim's spec ("designers own their referrals" — clients.created_by mirrors
-// referrer.created_by).
+// Public endpoint (no JWT). Two entry paths converge here:
 //
-// Steps:
-//   1. Validate the scheduling_token is real and status='sent'.
-//   2. Validate input (name, email, optional phone, address).
-//   3. Look up referrer's clients row to grab their assigned designer
-//      (created_by) — that's who gets the new homeowner.
-//   4. Create Supabase Auth user with the address-as-password convention.
-//   5. Insert clients row: created_by=referrer.created_by, referred_by=
-//      referrer.id, must_change_password=true.
-//   6. Update referrals row with referred_client_id (status stays 'sent'
-//      until they actually appear at the design appointment — Round 2 will
-//      handle the appointment lifecycle).
-//   7. Email the new homeowner welcome+credentials (same template as
-//      create-homeowner-account.js).
-//   8. Email the assigned designer: "New referral signed up — here's who
-//      they are, who referred them, schedule incoming via Acuity."
-//   9. Return success + the Acuity URL with their info pre-filled, so the
-//      browser can redirect them straight into scheduling.
+//   1. Token path  ({ token, name, email, address, phone? }):
+//      Original email-link flow. Body has the scheduling_token from the
+//      one-time invite email; the referrals row already exists (status=
+//      'sent') and just needs referred_client_id stamped on it.
+//
+//   2. Code path   ({ code,  name, email, address, phone? }):
+//      Round 3 share-link flow. The friend visited /refer/?code=XYZ from
+//      a homeowner's permanent share link. The referrals row does NOT
+//      yet exist — we look up the referrer by clients.refer_code, then
+//      INSERT a fresh referrals row including referred_client_id at
+//      creation time.
+//
+// Shared steps after the path branch:
+//   - Validate input (name, email, address, optional phone)
+//   - Look up referrer's designer (clients.created_by → profiles)
+//   - Normalize address → initial password
+//   - Create Supabase Auth user
+//   - Insert clients row (referred_by = referrer.id, created_by = designer)
+//   - Create / update the referrals row
+//   - Build Acuity prefill URL
+//   - Email new homeowner welcome + designer notification (best-effort)
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function onRequestPost({ request, env }) {
@@ -43,75 +43,106 @@ export async function onRequestPost({ request, env }) {
       return json(500, { error: 'Server not configured' });
     }
 
-    // ─── 1. Validate input ───────────────────────────────────────────────
+    // ─── 1. Parse body ───────────────────────────────────────────────────
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') {
       return json(400, { error: 'Invalid JSON body' });
     }
 
-    const tok       = String(body.token   || '').trim();
+    const tok       = String(body.token || '').trim();
+    const code      = String(body.code  || '').trim();
     const email     = String(body.email   || '').trim().toLowerCase();
     const name      = String(body.name    || '').trim();
     const address   = String(body.address || '').trim();
     const phoneIn   = String(body.phone   || '').trim();
     const phone     = phoneIn || null;
 
-    if (!tok) return json(400, { error: 'Missing referral token' });
+    if (!tok && !code) return json(400, { error: 'Missing referral token or share code' });
+    if (tok && code)   return json(400, { error: 'Provide either token or code, not both' });
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return json(400, { error: 'Invalid email address' });
     }
     if (!name)    return json(400, { error: 'Your name is required' });
     if (!address) return json(400, { error: 'Property address is required' });
 
-    // ─── 2. Look up the referral by token ───────────────────────────────
-    const referralResp = await fetch(
-      SUPABASE_URL + '/rest/v1/referrals' +
-      '?scheduling_token=eq.' + encodeURIComponent(tok) +
-      '&select=id,status,referrer_client_id,referred_client_id',
-      {
-        headers: {
-          'apikey': SERVICE_ROLE,
-          'Authorization': 'Bearer ' + SERVICE_ROLE,
-        },
+    // ─── 2. Resolve the referrer (and existing referral if token path) ──
+    let referral = null;       // populated only on token path
+    let referrer = null;       // populated either way
+
+    if (tok) {
+      // Token path: fetch the existing referrals row
+      const referralResp = await fetch(
+        SUPABASE_URL + '/rest/v1/referrals' +
+        '?scheduling_token=eq.' + encodeURIComponent(tok) +
+        '&select=id,status,referrer_client_id,referred_client_id',
+        {
+          headers: {
+            'apikey': SERVICE_ROLE,
+            'Authorization': 'Bearer ' + SERVICE_ROLE,
+          },
+        }
+      );
+      if (!referralResp.ok) {
+        return json(502, { error: 'Could not look up referral' });
       }
-    );
-    if (!referralResp.ok) {
-      return json(502, { error: 'Could not look up referral' });
-    }
-    const referralRows = await referralResp.json();
-    const referral = Array.isArray(referralRows) && referralRows[0];
-    if (!referral) {
-      return json(404, { error: 'Referral link not found or expired' });
-    }
-    if (referral.referred_client_id) {
-      return json(409, { error: 'This referral link has already been used' });
-    }
-    if (referral.status !== 'sent' && referral.status !== 'scheduled') {
-      return json(409, { error: 'This referral link is no longer active' });
+      const referralRows = await referralResp.json();
+      referral = Array.isArray(referralRows) && referralRows[0];
+      if (!referral) {
+        return json(404, { error: 'Referral link not found or expired' });
+      }
+      if (referral.referred_client_id) {
+        return json(409, { error: 'This referral link has already been used' });
+      }
+      if (referral.status !== 'sent' && referral.status !== 'scheduled') {
+        return json(409, { error: 'This referral link is no longer active' });
+      }
+
+      // Now look up the referrer using referral.referrer_client_id
+      const referrerResp = await fetch(
+        SUPABASE_URL + '/rest/v1/clients?id=eq.' + encodeURIComponent(referral.referrer_client_id) +
+        '&select=id,name,email,created_by',
+        {
+          headers: {
+            'apikey': SERVICE_ROLE,
+            'Authorization': 'Bearer ' + SERVICE_ROLE,
+          },
+        }
+      );
+      if (!referrerResp.ok) {
+        return json(502, { error: 'Could not look up referrer' });
+      }
+      const referrerRows = await referrerResp.json();
+      referrer = Array.isArray(referrerRows) && referrerRows[0];
+      if (!referrer) {
+        return json(502, { error: 'Referrer record not found' });
+      }
+    } else {
+      // Code path: look up referrer directly by refer_code
+      const referrerResp = await fetch(
+        SUPABASE_URL + '/rest/v1/clients' +
+        '?refer_code=eq.' + encodeURIComponent(code) +
+        '&user_id=not.is.null' +
+        '&select=id,name,email,created_by',
+        {
+          headers: {
+            'apikey': SERVICE_ROLE,
+            'Authorization': 'Bearer ' + SERVICE_ROLE,
+          },
+        }
+      );
+      if (!referrerResp.ok) {
+        return json(502, { error: 'Could not look up referrer' });
+      }
+      const referrerRows = await referrerResp.json();
+      referrer = Array.isArray(referrerRows) && referrerRows[0];
+      if (!referrer) {
+        return json(404, { error: 'Share link not recognized' });
+      }
     }
 
-    // ─── 3. Look up referrer + their assigned designer ─────────────────
-    const referrerResp = await fetch(
-      SUPABASE_URL + '/rest/v1/clients?id=eq.' + encodeURIComponent(referral.referrer_client_id) +
-      '&select=id,name,email,created_by',
-      {
-        headers: {
-          'apikey': SERVICE_ROLE,
-          'Authorization': 'Bearer ' + SERVICE_ROLE,
-        },
-      }
-    );
-    if (!referrerResp.ok) {
-      return json(502, { error: 'Could not look up referrer' });
-    }
-    const referrerRows = await referrerResp.json();
-    const referrer = Array.isArray(referrerRows) && referrerRows[0];
-    if (!referrer) {
-      return json(502, { error: 'Referrer record not found' });
-    }
-    const designerUserId = referrer.created_by; // auto-assignment target
+    const designerUserId = referrer.created_by;
 
-    // Look up the designer's profile (for email + display name).
+    // ─── 3. Look up designer profile (for email + display name) ─────────
     let designerProfile = null;
     if (designerUserId) {
       const dpResp = await fetch(
@@ -130,7 +161,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // ─── 4. Normalize address → initial password (same rule as 4.0a) ──
+    // ─── 4. Normalize address → initial password ────────────────────────
     const initialPassword = address.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (initialPassword.length < 8) {
       return json(400, {
@@ -188,8 +219,8 @@ export async function onRequestPost({ request, env }) {
       },
       body: JSON.stringify({
         user_id: newUserId,
-        created_by: designerUserId, // auto-assigned to referrer's designer
-        referred_by: referrer.id,    // link to referrer's clients row
+        created_by: designerUserId,
+        referred_by: referrer.id,
         name,
         email,
         phone,
@@ -201,7 +232,7 @@ export async function onRequestPost({ request, env }) {
 
     if (!clientResp.ok) {
       const errText = await clientResp.text();
-      // Best-effort rollback of orphan auth user.
+      // Best-effort rollback of orphan auth user
       await fetch(SUPABASE_URL + '/auth/v1/admin/users/' + newUserId, {
         method: 'DELETE',
         headers: { 'apikey': SERVICE_ROLE, 'Authorization': 'Bearer ' + SERVICE_ROLE },
@@ -215,19 +246,43 @@ export async function onRequestPost({ request, env }) {
     const clientRows = await clientResp.json();
     const newClient  = Array.isArray(clientRows) ? clientRows[0] : clientRows;
 
-    // ─── 7. Update referrals row with referred_client_id ────────────────
-    await fetch(
-      SUPABASE_URL + '/rest/v1/referrals?id=eq.' + encodeURIComponent(referral.id),
-      {
-        method: 'PATCH',
+    // ─── 7. Update existing referral OR insert new one (path-dependent) ─
+    if (referral) {
+      // Token path: update the row that already exists
+      await fetch(
+        SUPABASE_URL + '/rest/v1/referrals?id=eq.' + encodeURIComponent(referral.id),
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SERVICE_ROLE,
+            'Authorization': 'Bearer ' + SERVICE_ROLE,
+          },
+          body: JSON.stringify({ referred_client_id: newClient.id }),
+        }
+      ).catch(() => {});
+    } else {
+      // Code path: create a fresh referrals row, already linked to the
+      // newly-created homeowner. status='sent' so the dashboard pipeline
+      // looks identical to a token-flow referral; the friend never sees an
+      // invite email because they signed up directly via the share link.
+      await fetch(SUPABASE_URL + '/rest/v1/referrals', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': SERVICE_ROLE,
           'Authorization': 'Bearer ' + SERVICE_ROLE,
         },
-        body: JSON.stringify({ referred_client_id: newClient.id }),
-      }
-    ).catch(() => {});
+        body: JSON.stringify({
+          referrer_client_id:  referrer.id,
+          referred_email:      email,
+          referred_name:       name,
+          referred_phone:      phone,
+          referred_client_id:  newClient.id,
+          status:              'sent',
+        }),
+      }).catch(() => {});
+    }
 
     // ─── 8. Build Acuity prefill URL ────────────────────────────────────
     const firstSpace = name.indexOf(' ');
@@ -241,7 +296,7 @@ export async function onRequestPost({ request, env }) {
     if (phone) acuityParams.set('phone', phone);
     const acuityUrl = ACUITY_BASE + '?' + acuityParams.toString();
 
-    // ─── 9. Send the welcome email + designer notification (best-effort) ─
+    // ─── 9. Send the welcome email + designer notification ──────────────
     const origin = new URL(request.url).origin;
     const signinUrl = origin + '/account/signin.html';
     const designerName = (designerProfile && designerProfile.display_name) || 'your Bayside designer';
@@ -252,7 +307,6 @@ export async function onRequestPost({ request, env }) {
     let emailError = null;
 
     if (RESEND_API_KEY) {
-      // (a) Homeowner welcome with credentials
       try {
         const r = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -274,7 +328,6 @@ export async function onRequestPost({ request, env }) {
         emailError = 'Homeowner email error: ' + ((err && err.message) || 'unknown');
       }
 
-      // (b) Designer notification with new referral details + Acuity URL
       if (designerProfile && designerProfile.email) {
         try {
           const r = await fetch('https://api.resend.com/emails', {
@@ -311,6 +364,7 @@ export async function onRequestPost({ request, env }) {
       homeowner_email_sent: homeownerEmailSent,
       designer_email_sent:  designerEmailSent,
       email_error:       emailError,
+      via:              tok ? 'token' : 'code',
     });
 
   } catch (err) {
@@ -331,7 +385,7 @@ export async function onRequestOptions() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Email bodies
+// Email bodies (unchanged from Round 1)
 // ───────────────────────────────────────────────────────────────────────────
 
 function buildHomeownerWelcomeHtml({ name, email, initialPassword, signinUrl, designerName }) {
