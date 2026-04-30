@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Material Swatches · Bayside Proposal Builder</title>
+  <title>Material Swatches · Admin · Bayside Proposal Builder</title>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin-shell.css">
   <style>
+    /* Page-specific styles only — chrome lives in admin-shell.css */
     :root {
       --green: #5d7e69;
       --green-dark: #4a6654;
@@ -18,70 +20,7 @@
       --muted: #666;
       --danger: #b04040;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--charcoal);
-      background: #fafafa;
-      line-height: 1.6;
-      font-size: 15px;
-      min-height: 100vh;
-    }
-    a { color: var(--green-dark); }
 
-    /* Header */
-    .admin-header {
-      background: #fff;
-      border-bottom: 1px solid var(--border);
-      padding: 18px 32px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .admin-header h1 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--navy);
-    }
-    .admin-header nav a {
-      font-size: 13px;
-      text-decoration: none;
-      color: var(--muted);
-      margin-right: 18px;
-    }
-    .admin-header nav a:hover { color: var(--green-dark); }
-
-    /* Shell */
-    .shell {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 32px;
-    }
-
-    /* Intro */
-    .intro {
-      margin-bottom: 28px;
-    }
-    .eyebrow {
-      font-size: 11px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--green);
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    .intro h2 {
-      font-size: 28px;
-      font-weight: 600;
-      color: var(--navy);
-      margin-bottom: 10px;
-      letter-spacing: -0.01em;
-    }
-    .intro p {
-      color: var(--muted);
-      max-width: 680px;
-      font-size: 15px;
-    }
     .intro-help {
       margin-top: 14px;
       padding: 14px 18px;
@@ -96,7 +35,6 @@
     .intro-help ol { margin: 8px 0 0 18px; padding: 0; }
     .intro-help li { margin-bottom: 3px; }
 
-    /* Controls */
     .controls {
       background: #fff;
       border: 1px solid var(--border);
@@ -134,7 +72,6 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Status banner */
     .status {
       padding: 12px 16px;
       border-radius: 6px;
@@ -146,7 +83,6 @@
     .status.success { background: var(--green-soft); color: var(--green-dark); }
     .status.error { background: #fbe6e6; color: var(--danger); }
 
-    /* Product groups */
     .product-group {
       background: #fff;
       border: 1px solid var(--border);
@@ -186,7 +122,6 @@
     }
     .product-group-count.complete { color: var(--green-dark); }
 
-    /* Variant grid */
     .variant-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -293,7 +228,6 @@
       background: #fbe6e6;
     }
 
-    /* Empty/loading */
     .empty, .loading {
       text-align: center;
       padding: 60px 20px;
@@ -315,58 +249,70 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Mobile */
     @media (max-width: 640px) {
-      .admin-header { padding: 14px 18px; }
-      .shell { padding: 20px 16px; }
       .product-group { padding: 16px 16px; }
       .variant-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
     }
   </style>
 </head>
 <body>
-  <header class="admin-header">
-    <h1>Material Swatches</h1>
-    <nav>
-      <a href="/admin/">← Admin home</a>
-      <a href="/">Dashboard</a>
-    </nav>
-  </header>
 
-  <div class="shell">
-    <div class="intro">
-      <div class="eyebrow">Sprint 3 Part A</div>
-      <h2>Per-color swatch uploads</h2>
-      <p>Upload individual color swatch images for each Belgard product variant. Once a swatch is saved, it replaces the generic product hero on published proposals and in the material picker.</p>
-
-      <div class="intro-help">
-        <strong>How to source swatches from Belgard.com:</strong>
-        <ol>
-          <li>Open any product detail page, e.g. <code>belgard.com/products/pavers/catalina-grana/</code></li>
-          <li>Scroll to the <em>Colors</em> section — each color has a small circular swatch</li>
-          <li>Right-click a swatch → <em>Save Image As…</em> → save with a descriptive name like <code>scandina-gray.jpg</code></li>
-          <li>Come back here, find the matching variant, and click <em>Upload swatch</em></li>
-        </ol>
-      </div>
+<!-- Shared admin chrome (topbar + tab strip) — rendered by admin-shell.js -->
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge is-loading" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
     </div>
+  </div>
+</header>
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections"></nav>
 
-    <div class="controls">
-      <input type="search" id="searchInput" placeholder="Search products… (e.g. Catalina, Belair, Dimension)" autofocus>
-      <select id="filterState">
-        <option value="all">All variants</option>
-        <option value="missing">Missing swatch only</option>
-        <option value="has">Has swatch only</option>
-      </select>
-      <span class="counter" id="counter">loading…</span>
-    </div>
+<main class="ash-shell">
+  <div class="ash-intro">
+    <div class="ash-eyebrow">Catalog · Swatches</div>
+    <h1 class="ash-title">Per-color swatch uploads</h1>
+    <p class="ash-lede">Upload individual color swatch images for each Belgard product variant. Once a swatch is saved, it replaces the generic product hero on published proposals and in the material picker.</p>
 
-    <div id="statusBanner" class="status"></div>
-
-    <div id="results">
-      <div class="loading"><span class="spinner"></span>Loading catalog…</div>
+    <div class="intro-help">
+      <strong>How to source swatches from Belgard.com:</strong>
+      <ol>
+        <li>Open any product detail page, e.g. <code>belgard.com/products/pavers/catalina-grana/</code></li>
+        <li>Scroll to the <em>Colors</em> section — each color has a small circular swatch</li>
+        <li>Right-click a swatch → <em>Save Image As…</em> → save with a descriptive name like <code>scandina-gray.jpg</code></li>
+        <li>Come back here, find the matching variant, and click <em>Upload swatch</em></li>
+      </ol>
     </div>
   </div>
 
-  <script type="module" src="/js/admin-material-swatches.js"></script>
+  <div class="controls">
+    <input type="search" id="searchInput" placeholder="Search products… (e.g. Catalina, Belair, Dimension)" autofocus>
+    <select id="filterState">
+      <option value="all">All variants</option>
+      <option value="missing">Missing swatch only</option>
+      <option value="has">Has swatch only</option>
+    </select>
+    <span class="counter" id="counter">loading…</span>
+  </div>
+
+  <div id="statusBanner" class="status"></div>
+
+  <div id="results">
+    <div class="loading"><span class="spinner"></span>Loading catalog…</div>
+  </div>
+</main>
+
+<!-- Render the shared shell chrome (topbar role badge + tab strip) -->
+<script type="module" src="/admin/admin-shell.js"></script>
+<!-- Page-specific logic (loads catalog, handles uploads) -->
+<script type="module" src="/js/admin-material-swatches.js"></script>
+
 </body>
 </html>
