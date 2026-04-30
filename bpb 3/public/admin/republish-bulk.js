@@ -19,6 +19,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
+import { requireMaster } from '/js/auth-util.js';
 
 console.log('[republish-bulk] module loaded');
 
@@ -73,6 +74,10 @@ for (const [name, el] of Object.entries(requiredEls)) {
 (async function init() {
   try {
     console.log('[republish-bulk] init started');
+
+    // Phase 5B P2: master-only gate. Designers get redirected to /admin/.
+    if (!await requireMaster()) return;
+
     attachControls();
     await loadBids();
     console.log('[republish-bulk] init complete');
