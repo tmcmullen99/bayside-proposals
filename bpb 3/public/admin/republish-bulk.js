@@ -140,7 +140,10 @@ async function loadPublishModule() {
   console.log('[republish-bulk] lazy-loading /js/publish.js…');
   let mod;
   try {
-    mod = await import('/js/publish.js');
+    // Cache-bust the dynamic import. Some browsers cache module imports
+    // independently of static-resource hard-refresh, so a stale publish.js
+    // can hide a fresh deploy. The query string forces a fresh fetch.
+    mod = await import('/js/publish.js?v=' + Date.now());
   } catch (err) {
     console.error('[republish-bulk] failed to import publish.js:', err);
     throw new Error('Could not load publish module: ' + (err.message || String(err)));
