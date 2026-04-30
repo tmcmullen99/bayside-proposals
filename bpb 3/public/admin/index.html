@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · Bayside Proposal Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin-shell.css">
+</head>
+<body>
+
+<!-- Top bar: Bayside lockup left, role badge + sign out right -->
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<!-- Tab strip: rendered by admin-shell.js based on TABS registry + role -->
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections">
+  <!-- populated by JS -->
+</nav>
+
+<main class="ash-shell">
+  <!-- Default landing view: tile grid of every tool the current user can access.
+       Hidden when JS detects we're rendering as the chrome of another page;
+       individual admin pages will swap their content into <main> directly. -->
+  <div id="ashLanding">
+    <div class="ash-intro">
+      <div class="ash-eyebrow" id="ashIntroEyebrow">Admin home</div>
+      <h1 class="ash-title" id="ashIntroTitle">Loading…</h1>
+      <p class="ash-lede" id="ashIntroLede"></p>
+    </div>
+
+    <div class="ash-tile-groups" id="ashTileGroups">
+      <!-- populated by JS -->
+    </div>
+  </div>
+</main>
+
+<script type="module" src="/admin/admin-shell.js"></script>
+
+</body>
+</html>
