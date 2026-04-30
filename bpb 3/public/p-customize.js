@@ -1,25 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /p-customize.js — Phase 4.1 Sprint B2
+// /p-customize.js — Phase 4.1 Sprint B2 (revision 2)
 //
-// Two-column site-plan layout (universal, B1.5) PLUS material swap UI for
-// signed-in homeowners viewing their own proposal.
-//
-// Layered approach:
-//   1. Universal layout transformer runs for everyone — restructures the
-//      site-plan section into Condo-Market-style two-column with sticky
-//      detail card on the right.
-//   2. If a Supabase auth token is present in localStorage, fetch
-//      /api/proposal-customize-data with it. If 200, layer swap UI onto
-//      the right card. If 401/403/404, leave the universal layout alone.
-//
-// Right-card-with-auth flow:
-//   Region detail view → "Swap →" button per material →
-//   modal with category-filtered alternatives →
-//   pick replacement → adds to in-memory pending tray →
-//   tray docked at bottom of right card shows count + "Save & notify" CTA →
-//   POST to /api/submit-substitutions → success state with confirmation.
-//
-// CSS prefix: .bpc-  (Bayside Pavers Customize)
+// B2-r2 changes:
+//   - Overview rows are <button>, not <a> — click only swaps card view.
+//   - Region detail card has a prominent "See detailed section bid →"
+//     primary button. This is the deliberate scroll trigger.
+//   - Legend strip rows below the map: button-style click, no auto-scroll.
+//   - Polygon clicks still scroll (matches Tim's preference).
 // ═══════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -28,16 +15,13 @@
   const API_DATA = '/api/proposal-customize-data';
   const API_SUBMIT = '/api/submit-substitutions';
 
-  // ─── State (B2) ──────────────────────────────────────────────────────
-  // Module-level for simplicity. Single overlay instance per page.
   const customize = {
     enabled: false,
-    data: null,           // API response payload
-    pending: new Map(),   // proposal_region_material_id → { replacement_material_id, replacement_material, original }
-    submitted: false,     // flips true after successful submission
+    data: null,
+    pending: new Map(),
+    submitted: false,
   };
 
-  // ─── Helpers ─────────────────────────────────────────────────────────
   function getAuthToken() {
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -64,11 +48,13 @@
     }[c]));
   }
 
-  // Match snapshot DOM materials (extracted from pub-material-card) against
-  // API region_materials data by region_id + name + color. Returns the
-  // proposal_region_material row from the API for a given DOM material in
-  // a given region, or null. Names normalized loosely (case-insensitive,
-  // whitespace collapsed, trims punctuation).
+  // Smooth-scroll without changing the URL hash.
+  function scrollToHref(href) {
+    if (!href || href.charAt(0) !== '#') return;
+    const target = document.querySelector(href);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function normalizeMatch(s) {
     return String(s || '').toLowerCase().replace(/\s+/g, ' ').replace(/[\u2014\u2013\u2018\u2019]/g, '').trim();
   }
@@ -84,7 +70,6 @@
     }) || null;
   }
 
-  // ─── DOM extraction (unchanged from B1.5) ────────────────────────────
   function extractRegions() {
     const regions = [];
     document.querySelectorAll('.pub-region-legend-row').forEach((row) => {
@@ -131,7 +116,6 @@
     return map;
   }
 
-  // ─── Styles ──────────────────────────────────────────────────────────
   const STYLES = `
     .bpc-twocol {
       display: grid;
@@ -217,10 +201,14 @@
       gap: 12px;
       padding: 10px 12px;
       border-radius: 8px;
-      text-decoration: none;
-      color: inherit;
       cursor: pointer;
       border: 1px solid #efece4;
+      background: #fff;
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+      width: 100%;
+      text-align: left;
       transition: background 0.15s, border-color 0.15s;
     }
     .bpc-overview-row:hover {
@@ -345,18 +333,22 @@
     .bpc-card-section-link {
       display: block;
       text-align: center;
-      padding: 12px 0 4px;
-      margin-top: 8px;
+      width: 100%;
+      padding: 12px 16px;
+      margin-top: 14px;
+      font-family: inherit;
       font-size: 13px;
       font-weight: 600;
       color: #5d7e69;
-      text-decoration: none;
-      border-top: 1px solid #efece4;
+      background: #fff;
+      border: 1.5px solid #5d7e69;
+      border-radius: 6px;
+      cursor: pointer;
       letter-spacing: 0.02em;
+      transition: background 0.15s, color 0.15s;
     }
-    .bpc-card-section-link:hover { color: #4a6554; }
+    .bpc-card-section-link:hover { background: #5d7e69; color: #fff; }
 
-    /* Pending tray (footer of right card) */
     .bpc-tray {
       flex-shrink: 0;
       margin: 16px -22px -16px;
@@ -388,7 +380,6 @@
     .bpc-tray-cta:hover { background: #4a6554; }
     .bpc-tray-cta:disabled { background: #a8b5ac; cursor: not-allowed; }
 
-    /* Submit modal — note + confirm */
     .bpc-modal-backdrop {
       position: fixed; inset: 0;
       background: rgba(53, 53, 53, 0.4);
@@ -429,7 +420,6 @@
       display: flex; justify-content: flex-end; gap: 10px;
     }
 
-    /* Swap candidate grid in modal */
     .bpc-cand-current {
       background: #fdfcf8;
       border: 1px solid #efece4;
@@ -553,7 +543,6 @@
     .bpc-summary-from { color: #999; text-decoration: line-through; }
     .bpc-summary-arrow { color: #5d7e69; margin: 0 6px; }
 
-    /* Success state */
     .bpc-success {
       text-align: center;
       padding: 24px 12px;
@@ -585,7 +574,6 @@
     document.head.appendChild(el);
   }
 
-  // ─── Render: overview & detail ───────────────────────────────────────
   function renderOverview(card, regions, regionMap) {
     const matNames = new Set();
     regions.forEach(r => (regionMap.get(r.id) || []).forEach(m => matNames.add(m.name)));
@@ -601,14 +589,14 @@
         ${customizableNote}
         <div class="bpc-overview-list">
           ${regions.map(r => `
-            <a class="bpc-overview-row" data-region-id="${escapeHtml(r.id)}" href="${escapeHtml(r.sectionHref)}">
+            <button type="button" class="bpc-overview-row" data-region-id="${escapeHtml(r.id)}">
               <span class="bpc-overview-dot" style="background:${escapeHtml(r.color)};"></span>
               <span class="bpc-overview-text">
                 <span class="bpc-overview-name">${escapeHtml(r.name)}</span>
                 ${r.meta ? `<span class="bpc-overview-meta">${escapeHtml(r.meta)}</span>` : ''}
               </span>
               <span class="bpc-overview-arrow">→</span>
-            </a>
+            </button>
           `).join('')}
         </div>
       </div>
@@ -639,19 +627,22 @@
         <div class="bpc-card-title">${escapeHtml(region.name)}</div>
         ${region.meta ? `<div class="bpc-card-meta">${escapeHtml(region.meta)}</div>` : ''}
         <div class="bpc-detail-mats">${matsHtml}</div>
-        <a class="bpc-card-section-link" href="${escapeHtml(region.sectionHref)}">View scope details →</a>
+        ${region.sectionHref ? `<button type="button" class="bpc-card-section-link" data-href="${escapeHtml(region.sectionHref)}">See detailed section bid →</button>` : ''}
       </div>
       ${renderTrayHtml()}
     `;
     card.querySelector('.bpc-card-back').addEventListener('click', () => {
       renderOverview(card, regions, regionMap);
     });
+    const sectionBtn = card.querySelector('.bpc-card-section-link');
+    if (sectionBtn) {
+      sectionBtn.addEventListener('click', () => scrollToHref(sectionBtn.getAttribute('data-href')));
+    }
     wireMaterialRowClicks(card, regionId, regions, regionMap);
     wireTrayClicks(card);
   }
 
   function renderMaterialRowHtml(regionId, m, idx) {
-    // Is this material currently in the pending tray?
     const apiMat = customize.enabled ? findApiMaterial(regionId, m) : null;
     const pending = apiMat ? customize.pending.get(apiMat.id) : null;
 
@@ -716,7 +707,6 @@
     });
   }
 
-  // ─── Tray ────────────────────────────────────────────────────────────
   function renderTrayHtml() {
     if (!customize.enabled) return '';
     const count = customize.pending.size;
@@ -733,7 +723,6 @@
     if (cta) cta.addEventListener('click', () => openSubmitModal(card));
   }
 
-  // ─── Swap modal ──────────────────────────────────────────────────────
   function openSwapModal(rmId, onAfter) {
     const rm = customize.data.region_materials.find((r) => r.id === rmId);
     if (!rm) return;
@@ -806,7 +795,6 @@
     });
   }
 
-  // ─── Submit modal ────────────────────────────────────────────────────
   function openSubmitModal(card) {
     const items = Array.from(customize.pending.entries()).map(([rmId, p]) => {
       const rm = customize.data.region_materials.find((r) => r.id === rmId);
@@ -869,10 +857,8 @@
           alert('Could not send: ' + (result.error || ('HTTP ' + r.status)));
           return;
         }
-        // Success
         customize.submitted = true;
         showSuccessState(modal, items.length, result.email_sent);
-        // Clear pending so user doesn't double-submit; refresh card
         customize.pending.clear();
       } catch (err) {
         submitBtn.disabled = false;
@@ -898,13 +884,11 @@
     footer.innerHTML = `<button type="button" class="bpc-btn bpc-btn--primary" data-action="done">Done</button>`;
     footer.querySelector('[data-action="done"]').addEventListener('click', () => {
       closeModal();
-      // Re-render card to clear the tray
       const card = document.querySelector('.bpc-detail-card');
       if (card && customize._lastRender) customize._lastRender();
     });
   }
 
-  // ─── Modal scaffolding ───────────────────────────────────────────────
   let activeModal = null;
   function buildModal({ title, bodyHtml, footerHtml }) {
     closeModal();
@@ -933,7 +917,6 @@
   }
   function escCloseModal(e) { if (e.key === 'Escape') closeModal(); }
 
-  // ─── Layout transform ────────────────────────────────────────────────
   function transformLayout(inner, siteMapEl, legendEl, regions, regionMap) {
     const twocol = document.createElement('div');
     twocol.className = 'bpc-twocol';
@@ -961,6 +944,7 @@
     customize._lastRender = () => renderOverview(card, regions, regionMap);
     customize._lastRender();
 
+    // Polygon clicks — keep auto-scroll. Tim explicitly likes this pairing.
     document.querySelectorAll('polygon.pub-drawing-region:not(.pub-drawing-region--static)').forEach((poly) => {
       const regionId = poly.getAttribute('data-region-id');
       const anchor = poly.closest('a');
@@ -971,17 +955,19 @@
       });
     });
 
+    // Legend strip rows below the map — REMOVE auto-scroll. preventDefault
+    // suppresses the browser's hash-change scroll on the existing <a>.
     document.querySelectorAll('.pub-region-legend-row').forEach((row) => {
       const regionId = row.getAttribute('data-region-id');
       if (!regionId) return;
-      row.addEventListener('click', () => {
+      row.addEventListener('click', (e) => {
+        e.preventDefault();
         renderRegionDetail(card, regionId, regions, regionMap);
         customize._lastRender = () => renderRegionDetail(card, regionId, regions, regionMap);
       });
     });
   }
 
-  // ─── Boot ────────────────────────────────────────────────────────────
   async function init() {
     const inner = document.querySelector('.pub-drawing-inner');
     if (!inner) return;
@@ -997,7 +983,6 @@
 
     injectStyles();
 
-    // Try to fetch customize data — if signed-in homeowner, this enables swap UI.
     const token = getAuthToken();
     const slug = getSlugFromPath();
     if (token && slug) {
@@ -1009,9 +994,7 @@
           customize.data = await r.json();
           customize.enabled = true;
         }
-      } catch (e) {
-        // Stay in read-only universal layout mode
-      }
+      } catch (e) {}
     }
 
     transformLayout(inner, siteMapEl, legendEl, regions, regionMap);
