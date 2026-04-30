@@ -10,6 +10,7 @@
 //   - Expand client row → show assigned proposals + assign new one
 //   - Send magic-link invite (Supabase signInWithOtp with client's email)
 //   - Remove client (cascades to client_proposals via FK)
+//   - Phase 4.0c R2+: list sent referrals + mark appointment complete
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -36,7 +37,7 @@ const signOutBtn = document.getElementById('signOutBtn');
 // State
 const ctx = {
   admin: null,
-  clients: [],     // [{ ...client, proposals: [...] }]
+  clients: [],     // [{ ...client, proposals: [...], sent_referrals: [...] }]
   proposals: [],   // all proposals (for the assign dropdown)
   expandedIds: new Set(),
   searchTerm: '',
@@ -53,13 +54,15 @@ const ctx = {
 })();
 
 async function loadClients() {
-  // Load clients with nested client_proposals → proposals → published_proposals.
-  // published_proposals doesn't have created_at, so we pull just (id, slug)
-  // and sort by slug-encoded date+version in getLatestSlug().
+  // Load clients with nested client_proposals → proposals → published_proposals,
+  // PLUS each client's outgoing referrals (where they are referrer_client_id).
+  // The `sent_referrals:referrals!referrer_client_id` syntax disambiguates the
+  // FK because referrals has both referrer_client_id and referred_client_id.
   const { data, error } = await supabase
     .from('clients')
     .select(`
-      id, name, email, phone, address, notes, user_id, created_at,
+      id, name, email, phone, address, notes, user_id, created_at, created_by,
+      referral_credit_cents, referral_credit_used_cents, refer_code,
       client_proposals (
         id, status, sent_at, first_viewed_at, signed_at, created_at,
         proposal:proposals!proposal_id (
@@ -67,6 +70,11 @@ async function loadClients() {
           address,
           published_proposals (id, slug)
         )
+      ),
+      sent_referrals:referrals!referrer_client_id (
+        id, referred_email, referred_name, referred_phone, status,
+        invite_sent_at, scheduled_at, appointment_completed_at,
+        credit_awarded_at, credit_amount_cents
       )
     `)
     .order('created_at', { ascending: false });
@@ -159,6 +167,11 @@ function renderClientCard(client) {
     ? `<span class="badge proposals">${proposalCount} proposal${proposalCount === 1 ? '' : 's'}</span>`
     : '';
 
+  const referralCount = (client.sent_referrals || []).length;
+  const referralBadge = referralCount > 0
+    ? `<span class="badge proposals" style="background:#fff4d4;color:#7a5a10;">${referralCount} referral${referralCount === 1 ? '' : 's'}</span>`
+    : '';
+
   return `
     <div class="client-card ${isExpanded ? 'expanded' : ''}" data-client-id="${client.id}">
       <div class="client-row">
@@ -173,6 +186,7 @@ function renderClientCard(client) {
         <div class="client-badges">
           ${linkedBadge}
           ${proposalBadge}
+          ${referralBadge}
           <span class="client-chevron">›</span>
         </div>
       </div>
@@ -219,6 +233,8 @@ function renderClientExpand(client) {
         </div>
       ` : ''}
     </div>
+
+    ${renderReferralsSection(client)}
 
     <div class="expand-section">
       <h4>Client Actions</h4>
@@ -273,6 +289,93 @@ function renderAssignedProposal(a) {
   `;
 }
 
+// ── Phase 4.0c Round 2+: referrals section ─────────────────────────────────
+function renderReferralsSection(client) {
+  const referrals = client.sent_referrals || [];
+  const creditCents = Number(client.referral_credit_cents || 0);
+  const usedCents   = Number(client.referral_credit_used_cents || 0);
+  const cap         = 250000; // $2500
+  const referCode   = client.refer_code || '';
+
+  const balanceLine = referrals.length > 0 || creditCents > 0
+    ? `
+      <div style="background:var(--cream); border-radius:7px; padding:12px 16px; margin-bottom:10px; display:flex; gap:18px; align-items:center; flex-wrap:wrap; font-size:12px;">
+        <span style="font-family:'JetBrains Mono',monospace; font-weight:600; color:var(--green-dark);">
+          $${(creditCents/100).toFixed(0)} earned
+        </span>
+        <span style="color:var(--muted);">of $${(cap/100).toFixed(0)} cap</span>
+        ${usedCents > 0 ? `<span style="color:var(--muted);">· $${(usedCents/100).toFixed(0)} used</span>` : ''}
+        ${referCode ? `<span style="color:var(--muted); margin-left:auto;">code: <code style="background:#fff; padding:2px 6px; border-radius:3px; font-size:11px;">${escapeHtml(referCode)}</code></span>` : ''}
+      </div>
+    `
+    : '';
+
+  const list = referrals.length === 0
+    ? `<div style="color:var(--muted); font-size:13px; padding:8px 0;">No referrals sent yet.</div>`
+    : referrals
+        .slice()
+        .sort((a, b) => (b.invite_sent_at || '').localeCompare(a.invite_sent_at || ''))
+        .map(r => renderReferralRow(r, client))
+        .join('');
+
+  return `
+    <div class="expand-section">
+      <h4>Sent Referrals</h4>
+      ${balanceLine}
+      ${list}
+    </div>
+  `;
+}
+
+function renderReferralRow(referral, client) {
+  const status = referral.status || 'sent';
+  const refereeName = referral.referred_name || referral.referred_email || '(unknown)';
+
+  // Status pill
+  const pillStyles = {
+    sent:      { bg: '#eef3f8', fg: '#2b4a73', label: 'Invite sent' },
+    scheduled: { bg: '#fff4d4', fg: '#7a5a10', label: 'Appt scheduled' },
+    completed: { bg: '#e8eee9', fg: '#4a6654', label: 'Complete (cap reached)' },
+    credited:  { bg: '#e8eee9', fg: '#4a6654', label: '✓ Credited $500' },
+  };
+  const pill = pillStyles[status] || { bg: '#f0f0f0', fg: '#666', label: status };
+
+  // Mark-complete button: show only when status is 'sent' or 'scheduled'.
+  // The API enforces ownership; if the caller doesn't own this client's referrals
+  // they'll get a clean 403 and the showStatus error will explain.
+  const showButton = status === 'sent' || status === 'scheduled';
+  const button = showButton
+    ? `<button class="btn btn-small mark-complete-btn" data-referral-id="${escapeAttr(referral.id)}">Mark appt complete</button>`
+    : '';
+
+  // Date line: prefer the most recent meaningful timestamp
+  const dateLine = referral.credit_awarded_at
+    ? `Credited ${formatDate(referral.credit_awarded_at)}`
+    : referral.appointment_completed_at
+      ? `Completed ${formatDate(referral.appointment_completed_at)}`
+      : referral.scheduled_at
+        ? `Scheduled ${formatDate(referral.scheduled_at)}`
+        : referral.invite_sent_at
+          ? `Sent ${formatDate(referral.invite_sent_at)}`
+          : '';
+
+  return `
+    <div class="proposal-row">
+      <div class="proposal-row-info">
+        <div class="proposal-row-address">${escapeHtml(refereeName)}</div>
+        <div class="proposal-row-meta">
+          ${escapeHtml(referral.referred_email || '')}${referral.referred_phone ? ` · ${escapeHtml(referral.referred_phone)}` : ''}
+          ${dateLine ? ` · ${escapeHtml(dateLine)}` : ''}
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="badge" style="background:${pill.bg}; color:${pill.fg};">${escapeHtml(pill.label)}</span>
+        ${button}
+      </div>
+    </div>
+  `;
+}
+
 // ── Event wiring (per-card, after render) ──────────────────────────────────
 function wireCardHandlers(client) {
   const card = clientsList.querySelector(`[data-client-id="${client.id}"]`);
@@ -318,6 +421,14 @@ function wireCardHandlers(client) {
     btn.addEventListener('click', async (e) => {
       const assignmentId = e.currentTarget.dataset.assignmentId;
       await handleUnassign(assignmentId);
+    });
+  });
+
+  // Mark referral appointment complete (Phase 4.0c R2+)
+  card.querySelectorAll('.mark-complete-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const referralId = e.currentTarget.dataset.referralId;
+      await handleMarkComplete(referralId, e.currentTarget);
     });
   });
 }
@@ -476,6 +587,59 @@ async function handleDeleteClient(client) {
   ctx.expandedIds.delete(client.id);
   await loadClients();
   render();
+}
+
+// Phase 4.0c R2+: mark referral's design appointment complete via the API.
+// The API enforces auth (designer/master role) + ownership (clients.created_by
+// === auth.uid()) + atomic credit award. Browser-side just orchestrates.
+async function handleMarkComplete(referralId, btn) {
+  if (!confirm('Mark this design appointment as complete? This will award $500 credit to the referrer (capped at $2,500 total).')) return;
+
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Marking…';
+
+  // Get fresh JWT for the API call
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    showStatus('error', 'Session expired. Please sign in again.');
+    btn.disabled = false;
+    btn.textContent = originalText;
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/mark-appointment-completed', {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+      body: JSON.stringify({ referral_id: referralId }),
+    });
+    const data = await r.json();
+
+    if (!r.ok) {
+      showStatus('error', data.error || `API returned ${r.status}`);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      return;
+    }
+
+    const newBalance = '$' + (Number(data.new_credit_cents || 0) / 100).toFixed(0);
+    const referrerName = data.referrer_name || 'the referrer';
+    const msg = data.credit_awarded
+      ? `Appointment complete! $500 credit added — ${referrerName} now at ${newBalance}.`
+      : `Appointment complete. ${referrerName} is at the $2,500 cap, so no additional credit was added.`;
+    showStatus('success', msg);
+
+    await loadClients();
+    render();
+  } catch (err) {
+    showStatus('error', `Network error: ${err.message}`);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }
 
 // ── Slug / address helpers ─────────────────────────────────────────────────
