@@ -1,9 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /p-customize.js — Phase 4.1 Sprint B2 (revision 4)
+// /p-customize.js — Phase 4.1 Sprint B2 (revision 6)
 //
-// B2-r4: Two-pane bid section reader (Tim's design choice C).
-// Transforms .pub-scope-list into a two-pane reader. Section IDs preserved
-// so polygon anchors still work. PDF extraction unaffected.
+// B2-r6: Install-guide footer per bid section, with Local Guy vs. Bayside
+// comparison merged in. For each .pub-scope-item:
+//   1. Detect install kind from name + line items (paver / turf / wall)
+//   2. Append collapsed <details> "Why this work costs what it does"
+//   3. When opened: 3-column grid — SVG diagram | comparison table | copy
 // ═══════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -11,6 +13,7 @@
 
   const API_DATA = '/api/proposal-customize-data';
   const API_SUBMIT = '/api/submit-substitutions';
+  const INSTALL_GUIDE_URL = 'https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf3c6e47/68d2db027d1d1b4ad1543f05_Bayside%20Pavers%20Presentation%20(1)_compressed%20(1).pdf';
 
   const customize = {
     enabled: false,
@@ -19,8 +22,6 @@
     submitted: false,
   };
 
-  // Module-level handle to the bid reader so polygon and section-bid
-  // button handlers can call .select(id).
   let _bidReader = null;
 
   function getAuthToken() {
@@ -57,7 +58,6 @@
     return true;
   }
 
-  // Try to select a section in the two-pane reader; fall back to scrolling.
   function navigateToSection(href) {
     if (!href || href.charAt(0) !== '#') return;
     const id = href.slice(1);
@@ -131,6 +131,123 @@
       });
     });
     return map;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // INSTALL-GUIDE FOOTER (B2-r6 — diagram + comparison + copy)
+  // ───────────────────────────────────────────────────────────────────────
+
+  const SVG_PAVER = `<svg viewBox="0 0 280 220" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;"><defs><pattern id="bpc-pat-h1" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#5d7e69" stroke-width="0.6" opacity="0.5"/></pattern></defs><g fill="none" stroke="#353535" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><path d="M 18 195 L 165 195 L 168 198 L 18 198 Z" fill="#e8dfc8" opacity="0.6"/><path d="M 18 195 L 165 195"/><path d="M 22 192 L 26 195 M 35 192 L 39 195 M 50 193 L 54 196 M 70 192 L 74 195 M 92 193 L 96 196 M 115 192 L 119 195 M 140 193 L 144 196" stroke-width="0.7"/><text x="178" y="200" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">1. Native soil</text><path d="M 18 178 L 165 178 L 165 192 L 18 192 Z" fill="#d4cfb8" opacity="0.5"/><path d="M 18 178 L 165 178"/><path d="M 18 185 L 165 185" stroke-dasharray="2,2" stroke-width="0.6"/><text x="178" y="187" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">2. Geo-tech fabric</text><path d="M 18 158 L 165 158 L 165 178 L 18 178 Z" fill="url(#bpc-pat-h1)" opacity="0.4"/><path d="M 18 158 L 165 158"/><circle cx="32" cy="167" r="2"/><circle cx="48" cy="171" r="2.3"/><circle cx="64" cy="166" r="1.7"/><circle cx="82" cy="170" r="2.1"/><circle cx="100" cy="166" r="1.8"/><circle cx="120" cy="171" r="2.4"/><circle cx="142" cy="167" r="2"/><circle cx="156" cy="171" r="1.7"/><text x="178" y="172" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">3. Base material</text><path d="M 18 148 L 165 148 L 165 158 L 18 158 Z"/><path d="M 18 153 L 165 153" stroke-width="0.7"/><path d="M 30 148 L 30 158 M 50 148 L 50 158 M 70 148 L 70 158 M 90 148 L 90 158 M 110 148 L 110 158 M 130 148 L 130 158 M 150 148 L 150 158" stroke-width="0.6"/><text x="178" y="155" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">4. Geo grid</text><path d="M 18 128 L 165 128 L 165 148 L 18 148 Z" fill="url(#bpc-pat-h1)" opacity="0.4"/><path d="M 18 128 L 165 128"/><circle cx="32" cy="137" r="2"/><circle cx="48" cy="141" r="2.3"/><circle cx="64" cy="136" r="1.7"/><circle cx="82" cy="140" r="2.1"/><circle cx="100" cy="136" r="1.8"/><circle cx="120" cy="141" r="2.4"/><circle cx="142" cy="137" r="2"/><circle cx="156" cy="141" r="1.7"/><text x="178" y="142" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">5. Base material</text><path d="M 18 118 L 165 118 L 165 128 L 18 128 Z" fill="#f4e8c8" opacity="0.6"/><path d="M 18 118 L 165 118"/><text x="178" y="125" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">6. Bedding sand</text><path d="M 18 95 L 165 95 L 165 118 L 18 118 Z" fill="#a8a59a" opacity="0.5"/><path d="M 18 95 L 165 95"/><path d="M 42 95 L 42 118 M 70 95 L 70 118 M 100 95 L 100 118 M 130 95 L 130 118" stroke-width="0.8"/><path d="M 18 106 L 42 106 M 56 106 L 100 106 M 116 106 L 165 106" stroke-width="0.6"/><text x="178" y="110" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">7. Pavers</text><text x="178" y="92" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">8. Polymeric sand</text><line x1="172" y1="89" x2="100" y2="98" stroke-width="0.7"/></g></svg>`;
+
+  const SVG_TURF = `<svg viewBox="0 0 280 220" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;"><g fill="none" stroke="#353535" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><path d="M 18 188 L 165 188 L 168 192 L 18 192 Z" fill="#a89b7e" opacity="0.55"/><path d="M 18 188 L 165 188"/><path d="M 26 184 L 30 188 M 50 185 L 54 188 M 78 184 L 82 188 M 105 185 L 109 188 M 132 184 L 136 188 M 156 185 L 160 188" stroke-width="0.7"/><text x="178" y="192" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">Existing subgrade</text><path d="M 18 158 L 165 158 L 165 188 L 18 188 Z" fill="#bfb198" opacity="0.45"/><path d="M 18 158 L 165 158"/><circle cx="30" cy="170" r="2.3"/><circle cx="48" cy="175" r="1.9"/><circle cx="64" cy="168" r="2.2"/><circle cx="84" cy="174" r="2"/><circle cx="105" cy="170" r="2.5"/><circle cx="124" cy="175" r="1.8"/><circle cx="142" cy="168" r="2.1"/><circle cx="158" cy="174" r="1.9"/><circle cx="38" cy="180" r="1.6"/><circle cx="74" cy="182" r="2"/><circle cx="116" cy="180" r="1.8"/><circle cx="150" cy="183" r="1.7"/><text x="178" y="175" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">3" compacted base rock</text><path d="M 18 148 L 165 148 L 165 158 L 18 158 Z" fill="#3d3530" opacity="0.4"/><path d="M 18 148 L 165 148"/><path d="M 18 153 L 165 153" stroke-dasharray="3,2" stroke-width="0.6"/><text x="178" y="156" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">Weed barrier</text><path d="M 18 110 L 30 110 L 30 158 L 18 158 Z" fill="#8e8b85" opacity="0.5"/><path d="M 18 110 L 30 110 L 30 158"/><path d="M 22 118 L 26 122 M 22 130 L 26 134 M 22 142 L 26 146" stroke-width="0.6"/><text x="178" y="142" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">Edge restraint</text><line x1="172" y1="139" x2="36" y2="125" stroke-width="0.6"/><path d="M 30 138 L 165 138 L 165 148 L 30 148 Z" fill="#c8b896" opacity="0.5"/><path d="M 30 138 L 165 138"/><path d="M 38 142 L 42 144 M 56 142 L 60 144 M 76 142 L 80 144 M 96 142 L 100 144 M 116 142 L 120 144 M 136 142 L 140 144 M 156 142 L 160 144" stroke-width="0.6"/><text x="178" y="123" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">Infill</text><text x="178" y="135" font-family="Caveat, cursive" font-size="9" fill="#888" stroke="none">(anti-microbial)</text><line x1="172" y1="120" x2="100" y2="138" stroke-width="0.6"/><path d="M 30 110 L 165 110 L 165 138 L 30 138 Z"/><path d="M 30 110 L 165 110"/><path d="M 36 138 L 35 124 M 42 138 L 43 122 M 48 138 L 47 126 M 54 138 L 55 121 M 60 138 L 60 125 M 66 138 L 65 123 M 72 138 L 73 126 M 78 138 L 78 122 M 84 138 L 83 125 M 90 138 L 91 123 M 96 138 L 96 126 M 102 138 L 101 122 M 108 138 L 109 124 M 114 138 L 114 121 M 120 138 L 119 125 M 126 138 L 127 123 M 132 138 L 132 126 M 138 138 L 137 122 M 144 138 L 145 124 M 150 138 L 150 121 M 156 138 L 155 126 M 162 138 L 162 124" stroke-width="0.7"/><text x="178" y="105" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">Turf</text><line x1="172" y1="103" x2="100" y2="115" stroke-width="0.6"/></g></svg>`;
+
+  const SVG_WALL = `<svg viewBox="0 0 280 220" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;"><defs><pattern id="bpc-pat-soil" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#a89b7e" stroke-width="0.7" opacity="0.6"/></pattern></defs><g fill="none" stroke="#353535" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><path d="M 130 32 L 230 32 L 230 198 L 130 198 Z" fill="url(#bpc-pat-soil)" opacity="0.7"/><text x="200" y="50" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none" text-anchor="middle">Retained soil</text><path d="M 60 32 L 134 32 L 134 44 L 60 44 Z" fill="#bfb198" opacity="0.5"/><path d="M 60 32 L 134 32 L 134 44 L 60 44 Z"/><text x="38" y="38" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none" text-anchor="end">Wall cap</text><line x1="40" y1="36" x2="58" y2="38" stroke-width="0.6"/><g><path d="M 70 44 L 130 44 L 130 64 L 70 64 Z" fill="#bfb198" opacity="0.4"/><path d="M 70 44 L 130 44 L 130 64 L 70 64 Z"/><path d="M 70 64 L 130 64 L 130 84 L 70 84 Z"/><path d="M 70 84 L 130 84 L 130 104 L 70 104 Z"/><path d="M 70 104 L 130 104 L 130 124 L 70 124 Z"/><path d="M 70 124 L 130 124 L 130 144 L 70 144 Z"/><path d="M 70 144 L 130 144 L 130 164 L 70 164 Z"/><path d="M 100 44 L 100 64 M 85 64 L 85 84 M 115 64 L 115 84 M 100 84 L 100 104 M 85 104 L 85 124 M 115 104 L 115 124 M 100 124 L 100 144 M 85 144 L 85 164 M 115 144 L 115 164" stroke-width="0.5"/></g><text x="38" y="102" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none" text-anchor="end">Blocks</text><line x1="40" y1="100" x2="68" y2="100" stroke-width="0.6"/><path d="M 130 44 L 158 44 L 158 168 L 130 168 Z" fill="#d4cfb8" opacity="0.5"/><path d="M 130 44 L 158 44 L 158 168 L 130 168 Z"/><circle cx="138" cy="58" r="1.5"/><circle cx="148" cy="64" r="1.7"/><circle cx="142" cy="74" r="1.4"/><circle cx="152" cy="82" r="1.6"/><circle cx="138" cy="92" r="1.5"/><circle cx="148" cy="100" r="1.7"/><circle cx="142" cy="112" r="1.4"/><circle cx="152" cy="120" r="1.6"/><circle cx="138" cy="130" r="1.5"/><circle cx="148" cy="140" r="1.7"/><circle cx="142" cy="152" r="1.4"/><circle cx="152" cy="160" r="1.6"/><text x="38" y="125" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none" text-anchor="end">Wall rock</text><line x1="40" y1="123" x2="135" y2="118" stroke-width="0.6"/><path d="M 130 80 L 215 80" stroke-dasharray="3,2" stroke-width="0.8"/><path d="M 130 130 L 215 130" stroke-dasharray="3,2" stroke-width="0.8"/><text x="246" y="83" font-family="Caveat, cursive" font-size="10" fill="#353535" stroke="none">Reinforcement</text><text x="246" y="93" font-family="Caveat, cursive" font-size="10" fill="#353535" stroke="none">grid</text><path d="M 130 145 L 215 145" stroke-dasharray="3,2" stroke-width="0.8"/><line x1="130" y1="142" x2="130" y2="148"/><line x1="215" y1="142" x2="215" y2="148"/><text x="170" y="158" font-family="Caveat, cursive" font-size="10" fill="#353535" stroke="none" text-anchor="middle">Geo-grid length</text><path d="M 0 168 L 280 168 L 280 200 L 0 200 Z" fill="url(#bpc-pat-soil)" opacity="0.7"/><path d="M 0 168 L 280 168"/><circle cx="148" cy="180" r="5"/><circle cx="148" cy="180" r="2"/><text x="200" y="185" font-family="Caveat, cursive" font-size="11" fill="#353535" stroke="none">Toe drain</text><line x1="195" y1="183" x2="155" y2="181" stroke-width="0.6"/></g></svg>`;
+
+  const INSTALL_KIND_COPY = {
+    paver: {
+      title: 'Pavers — 8-layer ICPI install',
+      svg: SVG_PAVER,
+      body: 'Eight engineered layers, ICPI-certified install. The local guy who quoted you 30% less is skipping layers 2 and 4 — geo-tech fabric and geo-grid. You can\'t see them. The patio looks identical on day one. The difference shows up on year three when one corner starts to sink.',
+      compare: [
+        ['Geo-tech fabric',         '✕',     '✓'],
+        ['Geo-grid (load support)', '✕',     '✓'],
+        ['Two compacted base lifts', '~',    '✓'],
+        ['Polymeric sand seal',     'Sand',  '✓'],
+        ['ICPI certified install',  '✕',     '✓'],
+        ['25-yr craftsmanship',     '—',     '✓'],
+      ],
+      badges: ['ICPI CERTIFIED', '25-YR WARRANTY', 'LIFETIME MATERIAL'],
+    },
+    turf: {
+      title: 'Turf — 5-layer drainage system',
+      svg: SVG_TURF,
+      body: 'Compacted base rock, weed barrier, edge restraint, anti-microbial infill — installed as one drainage system. The local guy lays turf on dirt with a perimeter staple. Year two, weeds come through. Year three, the edges curl.',
+      compare: [
+        ['3" compacted base rock',  '~',     '✓'],
+        ['Weed barrier',            '✕',     '✓'],
+        ['Hard edge restraint',     'Stake', '✓'],
+        ['Anti-microbial infill',   '✕',     '✓'],
+        ['Proper drainage',         '✕',     '✓'],
+      ],
+      badges: ['25-YR WARRANTY', 'ANTI-MICROBIAL INFILL', 'PROPER DRAINAGE'],
+    },
+    wall: {
+      title: 'Retaining wall — engineered',
+      svg: SVG_WALL,
+      body: 'A retaining wall is an engineered structure, not a stack of blocks. Toe drain, wall rock for drainage, reinforcement grid extending into the soil mass. Walls under 3ft don\'t need a permit; the engineering is the same. ICPI-certified, $1M insurance bond.',
+      compare: [
+        ['Toe drain',              '✕',  '✓'],
+        ['Wall rock (drainage)',   '✕',  '✓'],
+        ['Geo-grid into soil',     '✕',  '✓'],
+        ['Reinforcement grid',     '✕',  '✓'],
+        ['Engineered design',      '~',  '✓'],
+        ['$1M insurance bond',     '✕',  '✓'],
+      ],
+      badges: ['ICPI CERTIFIED', '$1M INSURANCE BOND', 'PERMIT-READY'],
+    },
+  };
+
+  function detectInstallKind(scopeItem) {
+    const nameEl = scopeItem.querySelector('.pub-scope-item-name');
+    const name = nameEl ? (nameEl.textContent || '').toLowerCase() : '';
+    const bodies = Array.from(scopeItem.querySelectorAll('.pub-line-item-body, .pub-line-item'))
+      .map(el => (el.textContent || '').toLowerCase()).join(' ');
+    const haystack = name + ' ' + bodies;
+
+    if (/\b(retaining\s+wall|wall\s+rock|geo[\s-]?grid|wall\s+cap)\b/.test(haystack)) return 'wall';
+    if (/\b(paver|paving|hardscape|patio|driveway|walkway|polymeric|bedding\s+sand)\b/.test(haystack)) return 'paver';
+    if (/\b(turf|sod|grass|lawn|infill)\b/.test(haystack)) return 'turf';
+    return null;
+  }
+
+  function renderInstallFooterHtml(kind) {
+    const c = INSTALL_KIND_COPY[kind];
+    if (!c) return '';
+    const compareRowsHtml = c.compare.map(([label, lg, bp]) => {
+      const lgClass = lg === '✕' ? 'bpc-cmp-x' : (lg === '✓' ? 'bpc-cmp-check' : 'bpc-cmp-meh');
+      return `
+        <div class="bpc-cmp-row">
+          <span class="bpc-cmp-label">${escapeHtml(label)}</span>
+          <span class="bpc-cmp-cell ${lgClass}">${escapeHtml(lg)}</span>
+          <span class="bpc-cmp-cell bpc-cmp-check">${escapeHtml(bp)}</span>
+        </div>
+      `;
+    }).join('');
+    const badgesHtml = c.badges.map(b =>
+      `<span class="bpc-install-badge">${escapeHtml(b)}</span>`
+    ).join('');
+    return `
+      <details class="bpc-install-footer">
+        <summary class="bpc-install-summary">
+          <div class="bpc-install-summary-left">
+            <div class="bpc-install-summary-icon">⚙</div>
+            <div>
+              <div class="bpc-install-summary-eyebrow">Why this work costs what it does</div>
+              <div class="bpc-install-summary-title">${escapeHtml(c.title)}</div>
+            </div>
+          </div>
+          <div class="bpc-install-summary-cta">View install ↓</div>
+        </summary>
+        <div class="bpc-install-body">
+          <div class="bpc-install-body-grid">
+            <div class="bpc-install-svg">${c.svg}</div>
+            <div class="bpc-install-cmp">
+              <div class="bpc-cmp-header">
+                <span class="bpc-cmp-label-h"></span>
+                <span class="bpc-cmp-cell-h">Local guy</span>
+                <span class="bpc-cmp-cell-h bpc-cmp-cell-h--us">Bayside</span>
+              </div>
+              ${compareRowsHtml}
+            </div>
+            <div class="bpc-install-side">
+              <p class="bpc-install-copy">${escapeHtml(c.body)}</p>
+              <div class="bpc-install-badges">${badgesHtml}</div>
+              <a href="${escapeHtml(INSTALL_GUIDE_URL)}" target="_blank" rel="noopener" class="bpc-install-guide-link">See full installation guide →</a>
+            </div>
+          </div>
+        </div>
+      </details>
+    `;
   }
 
   const STYLES = `
@@ -582,7 +699,6 @@
       padding-top: 16px !important;
     }
 
-    /* Bid section polish (kept from B2-r3) */
     body .pub-scope-item {
       padding: 36px 0;
     }
@@ -638,7 +754,6 @@
       font-size: 28px;
     }
 
-    /* Two-pane bid reader (B2-r4) */
     .bpc-bid-reader {
       display: grid;
       grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
@@ -780,6 +895,174 @@
       color: #999;
       font-size: 13px;
     }
+
+    /* Install-guide footer (B2-r6) */
+    .bpc-install-footer {
+      margin-top: 22px;
+      background: #faf8f3;
+      border: 1px solid #e7e3d6;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .bpc-install-footer[open] { background: #fff; }
+    .bpc-install-summary {
+      padding: 14px 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      list-style: none;
+      transition: background 0.12s;
+    }
+    .bpc-install-summary::-webkit-details-marker { display: none; }
+    .bpc-install-summary:hover { background: #f4f1e8; }
+    .bpc-install-footer[open] .bpc-install-summary {
+      border-bottom: 1px solid #e7e3d6;
+    }
+    .bpc-install-summary-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .bpc-install-summary-icon {
+      width: 34px; height: 34px;
+      background: #e8eee9;
+      color: #4a6554;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+    .bpc-install-summary-eyebrow {
+      font-size: 10.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #5d7e69;
+      font-weight: 700;
+      margin-bottom: 1px;
+    }
+    .bpc-install-summary-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #353535;
+    }
+    .bpc-install-summary-cta {
+      font-size: 12px;
+      color: #5d7e69;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+      transition: transform 0.18s;
+    }
+    .bpc-install-footer[open] .bpc-install-summary-cta {
+      transform: rotate(180deg);
+    }
+    .bpc-install-body {
+      padding: 20px 22px 22px;
+    }
+    .bpc-install-body-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 22px;
+      align-items: start;
+    }
+    @media (max-width: 1100px) {
+      .bpc-install-body-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas: 'svg svg' 'cmp side';
+      }
+      .bpc-install-svg { grid-area: svg; }
+      .bpc-install-cmp { grid-area: cmp; }
+      .bpc-install-side { grid-area: side; }
+    }
+    @media (max-width: 760px) {
+      .bpc-install-body-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas: 'svg' 'cmp' 'side';
+        gap: 18px;
+      }
+    }
+    .bpc-install-svg {
+      background: #faf8f3;
+      border: 1px solid #efece4;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .bpc-install-cmp {
+      font-size: 12.5px;
+    }
+    .bpc-cmp-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 56px 56px;
+      gap: 6px;
+      padding: 0 0 6px;
+      border-bottom: 1px solid #d8d2bf;
+      margin-bottom: 4px;
+    }
+    .bpc-cmp-label-h, .bpc-cmp-cell-h {
+      font-size: 9.5px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #999;
+      text-align: center;
+    }
+    .bpc-cmp-label-h { text-align: left; }
+    .bpc-cmp-cell-h--us { color: #5d7e69; }
+    .bpc-cmp-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 56px 56px;
+      gap: 6px;
+      padding: 7px 0;
+      border-bottom: 1px solid #efece4;
+      align-items: center;
+    }
+    .bpc-cmp-row:last-child { border-bottom: none; }
+    .bpc-cmp-label {
+      font-size: 12.5px;
+      color: #353535;
+    }
+    .bpc-cmp-cell {
+      font-size: 13px;
+      text-align: center;
+      font-weight: 600;
+    }
+    .bpc-cmp-x { color: #b85450; }
+    .bpc-cmp-meh { color: #999; font-size: 11px; font-weight: 500; }
+    .bpc-cmp-check { color: #5d7e69; font-weight: 700; }
+
+    .bpc-install-copy {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: #353535;
+      margin: 0 0 14px;
+    }
+    .bpc-install-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .bpc-install-badge {
+      background: #e8eee9;
+      color: #4a6554;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.06em;
+    }
+    .bpc-install-guide-link {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #5d7e69;
+      text-decoration: none;
+    }
+    .bpc-install-guide-link:hover { color: #4a6554; text-decoration: underline; }
   `;
 
   function injectStyles() {
@@ -1184,9 +1467,6 @@
     });
   }
 
-  // Two-pane bid reader. Transforms .pub-scope-list ul into a two-pane
-  // reader with project-total card on the left rail and one section
-  // shown at a time on the right.
   function transformBidSection() {
     const scopeList = document.querySelector('.pub-scope-list');
     if (!scopeList) return null;
@@ -1289,8 +1569,15 @@
     const paneEl = document.createElement('div');
     paneEl.className = 'bpc-bid-reader-pane';
     sections.forEach(({ item }) => {
+      const kind = detectInstallKind(item);
       paneEl.appendChild(item);
       item.classList.add('bpc-hidden-section');
+      if (kind) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderInstallFooterHtml(kind);
+        const footerEl = wrap.firstElementChild;
+        if (footerEl) item.appendChild(footerEl);
+      }
     });
 
     reader.appendChild(listEl);
