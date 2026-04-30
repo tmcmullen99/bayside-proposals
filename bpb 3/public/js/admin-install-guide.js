@@ -19,9 +19,13 @@
 //
 // Sections with zero categories checked are skipped entirely — there'd be
 // no way for publish.js to find them at render time.
+//
+// Phase 5B P2: master-only URL gating. Closes the gap where any signed-in
+// designer could navigate directly here and rewrite installation_guide_sections.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
+import { requireMaster } from '/js/auth-util.js';
 
 const state = {
   categories: [],           // all belgard_categories rows
@@ -49,6 +53,9 @@ const CATEGORY_MATCHERS = {
 init();
 
 async function init() {
+  // Phase 5B P2: master-only gate. Designers get redirected to /admin/.
+  if (!await requireMaster()) return;
+
   document.getElementById('igParseBtn').addEventListener('click', runParse);
   document.getElementById('igApplyBtn').addEventListener('click', runWrite);
   document.getElementById('igDoneReload').addEventListener('click', () => {
