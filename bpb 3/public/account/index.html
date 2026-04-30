@@ -305,6 +305,70 @@
   .ho-credit-cta:hover { background: var(--bp-green-dk); }
   .ho-credit-cta:disabled { background: var(--bp-text); opacity: 0.6; cursor: not-allowed; }
 
+  /* Share link block in refer modal (Phase 4.0c R3 — Sprint B) */
+  .ho-share-block {
+    background: var(--bp-cream);
+    border: 1px solid var(--bp-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .ho-share-block-label {
+    font-size: 10px; font-weight: 700;
+    color: var(--bp-charcoal);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .ho-share-row {
+    display: flex; gap: 8px;
+    align-items: stretch;
+  }
+  .ho-share-input {
+    flex: 1; min-width: 0;
+    font-family: inherit; font-size: 12px;
+    padding: 8px 10px;
+    border: 1px solid var(--bp-border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--bp-text);
+  }
+  .ho-share-input:focus {
+    outline: none;
+    border-color: var(--bp-green);
+    box-shadow: 0 0 0 2px rgba(93, 126, 105, 0.16);
+  }
+  .ho-share-copy-btn {
+    background: var(--bp-green); color: #fff;
+    border: none; border-radius: 6px;
+    padding: 0 16px;
+    font: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+  }
+  .ho-share-copy-btn:hover { background: var(--bp-green-dk); }
+  .ho-share-copy-btn.copied { background: var(--bp-charcoal); }
+  .ho-share-help {
+    font-size: 11px; color: var(--bp-muted);
+    margin-top: 8px; line-height: 1.5;
+  }
+  .ho-share-divider {
+    text-align: center;
+    font-size: 10px; color: var(--bp-muted);
+    margin: 14px 0;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    position: relative;
+    font-weight: 600;
+  }
+  .ho-share-divider span { background: #fff; padding: 0 12px; position: relative; z-index: 1; }
+  .ho-share-divider::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%;
+    height: 1px; background: var(--bp-border); z-index: 0;
+  }
+
   /* Browse materials card (replaces old generic resources) */
   .ho-browse-card {
     background: linear-gradient(135deg, #fff 0%, var(--bp-cream) 100%);
@@ -735,6 +799,15 @@
     </div>
     <div class="ho-modal-body">
       <div id="ho-refer-form-wrap">
+        <div class="ho-share-block">
+          <span class="ho-share-block-label">📋 Your shareable link</span>
+          <div class="ho-share-row">
+            <input type="text" class="ho-share-input" id="ho-share-input" readonly>
+            <button type="button" class="ho-share-copy-btn" id="ho-share-copy">Copy</button>
+          </div>
+          <p class="ho-share-help">Share by text, social, or anywhere — friends who click and sign up earn you both $500.</p>
+        </div>
+        <div class="ho-share-divider"><span>or send a personalized invite</span></div>
         <p class="ho-modal-perk">
           We'll send the invite from <strong>tim@mcmullen.properties</strong> with your name on it. Replies go straight to your email.
         </p>
@@ -825,6 +898,35 @@ document.getElementById('ho-refer-done').addEventListener('click', () => { close
 document.getElementById('ho-refer-another').addEventListener('click', () => resetReferForm());
 referBackdrop.addEventListener('click', (e) => { if (e.target === referBackdrop) closeReferModal(); });
 
+// Share-link copy button (Phase 4.0c R3 — Sprint B). Tries the modern
+// async clipboard API first; falls back to selecting the input so the
+// user can Cmd+C if clipboard permission is blocked.
+document.getElementById('ho-share-copy').addEventListener('click', async () => {
+  const btn   = document.getElementById('ho-share-copy');
+  const input = document.getElementById('ho-share-input');
+  if (!input || !input.value) return;
+
+  let copied = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(input.value);
+      copied = true;
+    }
+  } catch (_) { /* fall through to fallback */ }
+
+  if (!copied) {
+    try { input.focus(); input.select(); copied = document.execCommand('copy'); } catch (_) {}
+  }
+
+  const original = btn.textContent;
+  btn.textContent = copied ? 'Copied!' : 'Press Cmd+C';
+  btn.classList.add('copied');
+  setTimeout(() => {
+    btn.textContent = original;
+    btn.classList.remove('copied');
+  }, 1500);
+});
+
 function openReferModal() {
   resetReferForm();
   referBackdrop.hidden = false;
@@ -911,7 +1013,7 @@ async function loadAccount() {
 
   const { data: client, error: clientErr } = await supabase
     .from('clients')
-    .select('id, name, email, phone, must_change_password, referral_credit_cents, referral_credit_used_cents')
+    .select('id, name, email, phone, refer_code, must_change_password, referral_credit_cents, referral_credit_used_cents')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -951,9 +1053,21 @@ async function loadAccount() {
   scheduleCta.href = 'https://baysidepaversfreeconsultation.as.me/?' + acuityParams.toString();
 
   applyCreditState(client);
+  applyShareLink(client);
 
   await loadProposals(client.id);
   await loadReferrals(client.id);
+}
+
+function applyShareLink(client) {
+  const shareInput = document.getElementById('ho-share-input');
+  if (!shareInput) return;
+  if (client.refer_code) {
+    shareInput.value = `${window.location.origin}/refer/?code=${client.refer_code}`;
+  } else {
+    shareInput.value = '';
+    shareInput.placeholder = 'Generating your share link…';
+  }
 }
 
 function applyCreditState(client) {
@@ -1210,7 +1324,7 @@ async function reloadReferrals() {
   const { data: { user } } = await supabase.auth.getUser();
   const { data: refreshed } = await supabase
     .from('clients')
-    .select('id, name, email, phone, referral_credit_cents, referral_credit_used_cents')
+    .select('id, name, email, phone, refer_code, referral_credit_cents, referral_credit_used_cents')
     .eq('user_id', user.id)
     .maybeSingle();
   if (refreshed) {
