@@ -359,6 +359,85 @@
   }
   .ho-browse-cta:hover { background: var(--bp-green-dk); }
 
+  /* Sent referrals section (Phase 4.0c R3) */
+  .ho-ref-list {
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .ho-ref-row {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex; justify-content: space-between;
+    gap: 14px; flex-wrap: wrap;
+    align-items: center;
+    transition: border-color .15s;
+  }
+  .ho-ref-row:hover { border-color: var(--bp-green); }
+  .ho-ref-info { flex: 1; min-width: 200px; }
+  .ho-ref-name {
+    font-size: 14px; font-weight: 600;
+    color: var(--bp-text); margin-bottom: 2px;
+    line-height: 1.3;
+  }
+  .ho-ref-meta {
+    font-size: 12px; color: var(--bp-muted);
+  }
+  .ho-ref-actions {
+    display: flex; gap: 8px; align-items: center;
+    flex-wrap: wrap;
+  }
+  .ho-ref-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .ho-ref-pill-sent      { background: #eef3f8; color: #2b4a73; }
+  .ho-ref-pill-scheduled { background: #fff4d4; color: #7a5a10; }
+  .ho-ref-pill-completed { background: var(--bp-green-soft); color: var(--bp-green-dk); }
+  .ho-ref-pill-credited  { background: var(--bp-green-soft); color: var(--bp-green-dk); }
+  .ho-ref-resend-btn {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    color: var(--bp-charcoal);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font: inherit; font-size: 11px; font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .ho-ref-resend-btn:hover {
+    background: var(--bp-green); color: #fff; border-color: var(--bp-green);
+  }
+  .ho-ref-resend-btn:disabled {
+    opacity: 0.5; cursor: not-allowed;
+    background: #fff; color: var(--bp-charcoal);
+  }
+  .ho-ref-empty {
+    background: #fff;
+    border: 1px dashed var(--bp-border);
+    border-radius: 10px;
+    padding: 22px 24px;
+    text-align: center;
+    color: var(--bp-muted);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .ho-ref-toast {
+    background: var(--bp-green-soft);
+    color: var(--bp-green-dk);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .ho-ref-toast.error { background: #fef2f2; color: var(--bp-err); }
+  .ho-ref-toast[hidden] { display: none; }
+
   .ho-loading {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -634,6 +713,16 @@
       </div>
     </div>
   </section>
+
+  <!-- Sent referrals (Phase 4.0c R3) -->
+  <section class="ho-section" id="ho-ref-section" hidden>
+    <div class="ho-section-head">
+      <h2>Your referrals</h2>
+      <span class="ho-section-meta" id="ho-ref-count"></span>
+    </div>
+    <div class="ho-ref-toast" id="ho-ref-toast" hidden></div>
+    <div id="ho-ref-area"></div>
+  </section>
 </main>
 
 <!-- Refer a neighbor modal -->
@@ -692,6 +781,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
 });
 
 const REFERRAL_CAP_CENTS = 250000;
+const RESEND_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000; // Show resend button only after 3 days
 
 const navName       = document.getElementById('ho-nav-name');
 const navOut        = document.getElementById('ho-nav-out');
@@ -703,7 +793,13 @@ const propArea      = document.getElementById('ho-prop-area');
 const creditAmount  = document.getElementById('ho-credit-amount');
 const creditCap     = document.getElementById('ho-credit-cap');
 const creditFill    = document.getElementById('ho-credit-fill');
+const creditCta     = document.getElementById('ho-credit-cta');
 const errorBanner   = document.getElementById('ho-error-banner');
+
+const refSection    = document.getElementById('ho-ref-section');
+const refCount      = document.getElementById('ho-ref-count');
+const refArea       = document.getElementById('ho-ref-area');
+const refToast      = document.getElementById('ho-ref-toast');
 
 const referBackdrop = document.getElementById('ho-refer-backdrop');
 const referFormWrap = document.getElementById('ho-refer-form-wrap');
@@ -712,15 +808,20 @@ const referForm     = document.getElementById('ho-refer-form');
 const referError    = document.getElementById('ho-refer-error');
 const referSubmit   = document.getElementById('ho-refer-submit');
 
+let currentClient = null; // populated after loadAccount
+
 navOut.addEventListener('click', async () => {
   try { await supabase.auth.signOut(); } catch (_) {}
   window.location.replace('/account/signin.html');
 });
 
-document.getElementById('ho-credit-cta').addEventListener('click', () => openReferModal());
+creditCta.addEventListener('click', () => {
+  if (creditCta.disabled) return;
+  openReferModal();
+});
 document.getElementById('ho-refer-close').addEventListener('click', () => closeReferModal());
 document.getElementById('ho-refer-cancel').addEventListener('click', () => closeReferModal());
-document.getElementById('ho-refer-done').addEventListener('click', () => closeReferModal());
+document.getElementById('ho-refer-done').addEventListener('click', () => { closeReferModal(); reloadReferrals(); });
 document.getElementById('ho-refer-another').addEventListener('click', () => resetReferForm());
 referBackdrop.addEventListener('click', (e) => { if (e.target === referBackdrop) closeReferModal(); });
 
@@ -832,6 +933,8 @@ async function loadAccount() {
     return;
   }
 
+  currentClient = client;
+
   const firstName = (client.name || '').split(/[\s,&]+/)[0] || 'there';
   navName.textContent = client.name || client.email;
   heroTitle.textContent = `Welcome, ${firstName}`;
@@ -847,6 +950,13 @@ async function loadAccount() {
   if (client.phone) acuityParams.set('phone', client.phone);
   scheduleCta.href = 'https://baysidepaversfreeconsultation.as.me/?' + acuityParams.toString();
 
+  applyCreditState(client);
+
+  await loadProposals(client.id);
+  await loadReferrals(client.id);
+}
+
+function applyCreditState(client) {
   const totalEarned    = Number(client.referral_credit_cents || 0);
   const totalUsed      = Number(client.referral_credit_used_cents || 0);
   const availableCents = Math.max(0, totalEarned - totalUsed);
@@ -855,7 +965,17 @@ async function loadAccount() {
   const pct = Math.min(100, Math.round((totalEarned / REFERRAL_CAP_CENTS) * 100));
   requestAnimationFrame(() => { creditFill.style.width = pct + '%'; });
 
-  await loadProposals(client.id);
+  // Cap enforcement (Phase 4.0c R3): when total earned hits the cap,
+  // disable the Refer CTA. The friend's $500 perk still works through the
+  // existing landing flow if the homeowner has a pending invite, but they
+  // can't initiate new ones from here.
+  if (totalEarned >= REFERRAL_CAP_CENTS) {
+    creditCta.disabled = true;
+    creditCta.textContent = '$2,500 cap reached';
+  } else {
+    creditCta.disabled = false;
+    creditCta.textContent = 'Refer a neighbor →';
+  }
 }
 
 async function loadProposals(clientId) {
@@ -951,12 +1071,179 @@ async function loadProposals(clientId) {
   propArea.innerHTML = `<div class="ho-grid">${html}</div>`;
 }
 
+// ── Phase 4.0c R3: referrals list ──────────────────────────────────────
+async function loadReferrals(clientId) {
+  const { data, error } = await supabase
+    .from('referrals')
+    .select('id, referred_name, referred_email, status, invite_sent_at, scheduled_at, appointment_completed_at, credit_awarded_at, credit_amount_cents')
+    .eq('referrer_client_id', clientId)
+    .order('invite_sent_at', { ascending: false });
+
+  if (error) {
+    refArea.innerHTML = `<div class="ho-error-msg">Could not load your referrals: ${escapeHtml(error.message)}</div>`;
+    refSection.hidden = false;
+    return;
+  }
+
+  // Hide the section entirely if no referrals AND no credits earned (fresh users).
+  // Show the section once they've sent at least one referral, even if status='sent' only.
+  const referrals = data || [];
+  const earned = Number((currentClient && currentClient.referral_credit_cents) || 0);
+  if (referrals.length === 0 && earned === 0) {
+    refSection.hidden = true;
+    return;
+  }
+
+  refSection.hidden = false;
+  refCount.textContent = referrals.length === 0
+    ? ''
+    : `${referrals.length} ${referrals.length === 1 ? 'referral' : 'referrals'}`;
+
+  if (referrals.length === 0) {
+    refArea.innerHTML = `
+      <div class="ho-ref-empty">
+        You don't have any active referrals right now. Refer a neighbor above to start earning credit.
+      </div>`;
+    return;
+  }
+
+  refArea.innerHTML = `<div class="ho-ref-list">${referrals.map(renderReferralRow).join('')}</div>`;
+  attachResendHandlers();
+}
+
+function renderReferralRow(r) {
+  const status = r.status || 'sent';
+  const refeeName = r.referred_name || r.referred_email || '(unknown)';
+  const refeeEmail = r.referred_email || '';
+
+  // Status pill
+  const pillMap = {
+    sent:      { cls: 'ho-ref-pill-sent',      label: 'Invite sent' },
+    scheduled: { cls: 'ho-ref-pill-scheduled', label: 'Appt scheduled' },
+    completed: { cls: 'ho-ref-pill-completed', label: 'Complete (cap reached)' },
+    credited:  { cls: 'ho-ref-pill-credited',  label: '✓ Credited $500' },
+  };
+  const pill = pillMap[status] || { cls: 'ho-ref-pill-sent', label: status };
+
+  // Resend button: show only when status='sent' AND last invite >3 days ago
+  let resendBtn = '';
+  if (status === 'sent' && r.invite_sent_at) {
+    const elapsed = Date.now() - new Date(r.invite_sent_at).getTime();
+    if (elapsed >= RESEND_COOLDOWN_MS) {
+      resendBtn = `<button type="button" class="ho-ref-resend-btn" data-referral-id="${escapeAttr(r.id)}">Resend invite</button>`;
+    }
+  }
+
+  // Date line
+  const dateLine = r.credit_awarded_at
+    ? `Credited ${formatDate(r.credit_awarded_at)}`
+    : r.appointment_completed_at
+      ? `Completed ${formatDate(r.appointment_completed_at)}`
+      : r.scheduled_at
+        ? `Scheduled ${formatDate(r.scheduled_at)}`
+        : r.invite_sent_at
+          ? `Sent ${formatDate(r.invite_sent_at)}`
+          : '';
+
+  return `
+    <div class="ho-ref-row">
+      <div class="ho-ref-info">
+        <div class="ho-ref-name">${escapeHtml(refeeName)}</div>
+        <div class="ho-ref-meta">${escapeHtml(refeeEmail)}${dateLine ? ' · ' + escapeHtml(dateLine) : ''}</div>
+      </div>
+      <div class="ho-ref-actions">
+        <span class="ho-ref-pill ${pill.cls}">${escapeHtml(pill.label)}</span>
+        ${resendBtn}
+      </div>
+    </div>`;
+}
+
+function attachResendHandlers() {
+  refArea.querySelectorAll('.ho-ref-resend-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const referralId = e.currentTarget.dataset.referralId;
+      await handleResend(referralId, e.currentTarget);
+    });
+  });
+}
+
+async function handleResend(referralId, btn) {
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Resending…';
+  refToast.hidden = true;
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Your session expired. Refresh and sign in again.');
+
+    const resp = await fetch('/api/resend-referral-invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+      body: JSON.stringify({ referral_id: referralId }),
+    });
+    const data = await resp.json().catch(() => ({}));
+
+    if (!resp.ok) {
+      throw new Error(data.error || ('Server returned ' + resp.status));
+    }
+
+    showRefToast('success', data.email_sent
+      ? 'Reminder email sent. The button will reappear in 3 days if they still haven\'t responded.'
+      : 'Referral updated, but the email did not send. ' + (data.email_error || ''));
+
+    // Reload to refresh dates + hide the resend button (24h API cooldown / 3d UI threshold)
+    await reloadReferrals();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    showRefToast('error', (err && err.message) || 'Could not resend invite.');
+  }
+}
+
+async function reloadReferrals() {
+  if (!currentClient) return;
+  // Re-fetch the client to get latest credit_cents in case credit was awarded.
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: refreshed } = await supabase
+    .from('clients')
+    .select('id, name, email, phone, referral_credit_cents, referral_credit_used_cents')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (refreshed) {
+    currentClient = refreshed;
+    applyCreditState(refreshed);
+  }
+  await loadReferrals(currentClient.id);
+}
+
+function showRefToast(type, msg) {
+  refToast.className = 'ho-ref-toast' + (type === 'error' ? ' error' : '');
+  refToast.textContent = msg;
+  refToast.hidden = false;
+  if (type === 'success') {
+    setTimeout(() => {
+      if (refToast.textContent === msg) refToast.hidden = true;
+    }, 6000);
+  }
+}
+
 function formatUSD(cents) {
   const dollars = (Number(cents) || 0) / 100;
   return dollars.toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: dollars % 1 === 0 ? 0 : 2,
+  });
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
   });
 }
 
@@ -973,6 +1260,7 @@ function escapeHtml(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+function escapeAttr(s) { return escapeHtml(s); }
 </script>
 </body>
 </html>
