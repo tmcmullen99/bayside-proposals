@@ -886,11 +886,13 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modalBa
 let activeGroup = null;
 let activeIdx = 0;
 let activeGalleryIdx = 0;
+let activeMainSource = 'gallery'; // 'gallery' = lifestyle photo at activeGalleryIdx; 'swatch' = enlarged swatch of variants[activeIdx]
 
 function openModal(group, startIdx) {
   activeGroup = group;
   activeIdx = Math.max(0, Math.min(startIdx || 0, group.variants.length - 1));
   activeGalleryIdx = 0;
+  activeMainSource = 'gallery';
 
   modalEyebrow.textContent = (group.manufacturer || 'Material').toUpperCase();
   modalTitle.textContent   = group.name;
@@ -928,20 +930,35 @@ function openModal(group, startIdx) {
 
 function renderGallery() {
   if (!activeGroup) return;
-  const gallery = activeGroup.gallery;
-  if (!gallery || gallery.length === 0) {
-    galleryMain.style.background = 'var(--bp-cream)';
-    galleryThumbs.hidden = true;
-    galleryThumbs.innerHTML = '';
-    return;
-  }
-  galleryMain.style.background = 'url(' + gallery[activeGalleryIdx] + ') center/cover no-repeat';
+  const gallery = activeGroup.gallery || [];
 
-  if (gallery.length > 1) {
+  // Decide what fills the main image slot.
+  // 'swatch' mode: enlarge the active variant's swatch (or primary fallback).
+  // 'gallery' mode: show the lifestyle photo at activeGalleryIdx.
+  let mainUrl = null;
+  if (activeMainSource === 'swatch') {
+    const v = activeGroup.variants[activeIdx];
+    mainUrl = (v && (v.swatch_url || v.primary_image_url)) || null;
+  }
+  if (!mainUrl && gallery.length > 0) {
+    mainUrl = gallery[activeGalleryIdx];
+  }
+
+  if (mainUrl) {
+    galleryMain.style.background = 'url(' + mainUrl + ') center/cover no-repeat';
+  } else {
+    galleryMain.style.background = 'var(--bp-cream)';
+  }
+
+  // Show the thumbnail rail when there's >1 lifestyle photo, OR when we're in swatch
+  // mode with at least 1 lifestyle photo (so the user has a way back to lifestyle).
+  const showThumbs = gallery.length > 1 || (activeMainSource === 'swatch' && gallery.length >= 1);
+  if (showThumbs) {
     galleryThumbs.hidden = false;
-    galleryThumbs.innerHTML = gallery.map((url, i) =>
-      '<button type="button" class="ho-gallery-thumb' + (i === activeGalleryIdx ? ' active' : '') + '" data-gi="' + i + '" style="background-image:url(' + escapeAttr(url) + ');" aria-label="Image ' + (i + 1) + '"></button>'
-    ).join('');
+    galleryThumbs.innerHTML = gallery.map((url, i) => {
+      const isActive = activeMainSource === 'gallery' && i === activeGalleryIdx;
+      return '<button type="button" class="ho-gallery-thumb' + (isActive ? ' active' : '') + '" data-gi="' + i + '" style="background-image:url(' + escapeAttr(url) + ');" aria-label="Image ' + (i + 1) + '"></button>';
+    }).join('');
   } else {
     galleryThumbs.hidden = true;
     galleryThumbs.innerHTML = '';
@@ -954,6 +971,7 @@ galleryThumbs.addEventListener('click', (e) => {
   const i = Number(btn.dataset.gi);
   if (Number.isNaN(i)) return;
   activeGalleryIdx = i;
+  activeMainSource = 'gallery';
   renderGallery();
 });
 
@@ -1012,8 +1030,13 @@ colorSwatches.addEventListener('click', (e) => {
   activeIdx = idx;
   colorSwatches.querySelectorAll('.ho-swatch-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  // NOTE: deliberately do NOT change activeGalleryIdx — gallery is product-level,
-  // selecting a color only updates the color name, specs, and per-variant actions.
+  // If this variant has a swatch (or primary) image, switch the main slot to enlarge
+  // it. Otherwise stay in gallery mode and only update color name + specs.
+  const v = activeGroup.variants[idx];
+  if (v && (v.swatch_url || v.primary_image_url)) {
+    activeMainSource = 'swatch';
+    renderGallery();
+  }
   renderActiveVariant();
 });
 
