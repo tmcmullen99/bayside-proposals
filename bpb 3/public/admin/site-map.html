@@ -8,27 +8,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* ----------------------------------------------------------------------
-       Site Map Editor — admin labeling UI for Phase 1A
-       CSS prefix: .sm-  (site-map)
-
-       Phase 1B.3 additions: per-region multi-material picker, rendered as
-       togglable pills below the Section dropdown in each region card. See
-       the .sm-material-* rules at the bottom of this block.
-       ---------------------------------------------------------------------- */
     * { box-sizing: border-box; }
     html, body {
       margin: 0; padding: 0;
       font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       background: #f5f6f8;
-      color: #1a1f2e;
+      color: #353535;
       height: 100%;
     }
     body { display: flex; flex-direction: column; height: 100vh; }
 
-    /* Header */
     .sm-header {
-      background: #1a1f2e;
+      background: #353535;
       color: #fff;
       padding: 12px 24px;
       display: flex;
@@ -38,10 +29,9 @@
       flex-shrink: 0;
     }
     .sm-header h1 { font-size: 18px; font-weight: 600; margin: 0; }
-    .sm-header-meta { font-size: 13px; color: #91a1ba; }
+    .sm-header-meta { font-size: 13px; color: #5d7e69; }
     .sm-header-actions { display: flex; gap: 8px; }
 
-    /* Buttons */
     .sm-btn {
       font-family: inherit;
       font-size: 14px;
@@ -53,88 +43,53 @@
       transition: background 0.15s, transform 0.05s;
     }
     .sm-btn:active { transform: scale(0.98); }
-    .sm-btn-primary { background: #91a1ba; color: #fff; }
-    .sm-btn-primary:hover { background: #7d8ba8; }
-    .sm-btn-primary:disabled { background: #c5cdda; cursor: not-allowed; }
-    .sm-btn-secondary { background: transparent; color: #fff; border-color: #91a1ba; }
-    .sm-btn-secondary:hover { background: rgba(145, 161, 186, 0.2); }
+    .sm-btn-primary { background: #5d7e69; color: #fff; }
+    .sm-btn-primary:hover { background: #4a6554; }
+    .sm-btn-primary:disabled { background: #a8b5ac; cursor: not-allowed; }
+    .sm-btn-secondary { background: transparent; color: #fff; border-color: #5d7e69; }
+    .sm-btn-secondary:hover { background: rgba(93, 126, 105, 0.16); }
     .sm-btn-danger { background: #c33; color: #fff; }
     .sm-btn-danger:hover { background: #a22; }
-    .sm-btn-ghost { background: transparent; color: #1a1f2e; border-color: #ccd; }
+    .sm-btn-ghost { background: transparent; color: #353535; border-color: #ccd; }
     .sm-btn-ghost:hover { background: #eee; }
 
-    /* Main layout: canvas + side panel */
-    .sm-main {
-      display: flex;
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-    }
+    .sm-main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
     .sm-canvas-wrap {
-      flex: 1;
-      min-width: 0;
-      position: relative;
+      flex: 1; min-width: 0; position: relative;
       background: #e5e7eb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       overflow: auto;
     }
-    .sm-canvas-inner {
-      position: relative;
-      background: #fff;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-    }
-    .sm-canvas {
-      display: block;
-      cursor: crosshair;
-      max-width: 100%;
-      max-height: 100%;
-    }
+    .sm-canvas-inner { position: relative; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .sm-canvas { display: block; cursor: crosshair; max-width: 100%; max-height: 100%; }
     .sm-canvas.sm-cursor-default { cursor: default; }
     .sm-canvas.sm-cursor-move { cursor: grab; }
     .sm-canvas.sm-cursor-grabbing { cursor: grabbing; }
 
-    /* Empty state */
     .sm-empty {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      padding: 40px;
-      color: #6b7280;
-      text-align: center;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; padding: 40px;
+      color: #6b7280; text-align: center;
     }
-    .sm-empty h2 { margin: 0; color: #1a1f2e; font-size: 20px; font-weight: 600; }
+    .sm-empty h2 { margin: 0; color: #353535; font-size: 20px; font-weight: 600; }
     .sm-empty p { margin: 0; font-size: 14px; max-width: 400px; }
 
-    /* File input — invisible, triggered by button */
     .sm-file-input { display: none; }
 
-    /* Side panel */
     .sm-side {
-      width: 360px;
-      flex-shrink: 0;
+      width: 360px; flex-shrink: 0;
       background: #fff;
       border-left: 1px solid #e5e7eb;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      display: flex; flex-direction: column; overflow: hidden;
     }
     .sm-side-header {
       padding: 16px;
       border-bottom: 1px solid #e5e7eb;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
     }
     .sm-side-header h2 { margin: 0; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; }
-    .sm-side-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px;
-    }
+    .sm-side-list { flex: 1; overflow-y: auto; padding: 8px; }
     .sm-region-card {
       padding: 12px;
       border-radius: 8px;
@@ -144,56 +99,37 @@
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
     }
-    .sm-region-card:hover { border-color: #91a1ba; }
-    .sm-region-card.sm-selected { border-color: #1a1f2e; background: #f5f6f8; box-shadow: 0 0 0 2px rgba(26, 31, 46, 0.1); }
-    .sm-region-card-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .sm-region-swatch {
-      width: 16px;
-      height: 16px;
-      border-radius: 4px;
-      flex-shrink: 0;
-      border: 1px solid rgba(0,0,0,0.1);
-    }
+    .sm-region-card:hover { border-color: #5d7e69; }
+    .sm-region-card.sm-selected { border-color: #353535; background: #f5f6f8; box-shadow: 0 0 0 2px rgba(53, 53, 53, 0.12); }
+    .sm-region-card-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .sm-region-swatch { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.1); }
     .sm-region-card-row:last-child { margin-bottom: 0; }
     .sm-region-card label {
       display: block;
-      font-size: 11px;
-      font-weight: 500;
+      font-size: 11px; font-weight: 500;
       color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      text-transform: uppercase; letter-spacing: 0.5px;
       margin-bottom: 4px;
     }
     .sm-region-card input[type="text"],
     .sm-region-card input[type="number"] {
-      width: 100%;
-      padding: 6px 8px;
-      border: 1px solid #d1d5db;
-      border-radius: 4px;
-      font-family: inherit;
-      font-size: 14px;
+      width: 100%; padding: 6px 8px;
+      border: 1px solid #d1d5db; border-radius: 4px;
+      font-family: inherit; font-size: 14px;
       background: #fff;
     }
     .sm-region-card input:focus {
       outline: none;
-      border-color: #91a1ba;
-      box-shadow: 0 0 0 2px rgba(145, 161, 186, 0.2);
+      border-color: #5d7e69;
+      box-shadow: 0 0 0 2px rgba(93, 126, 105, 0.16);
     }
     .sm-region-card-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .sm-region-card-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
     .sm-region-card-actions .sm-btn { padding: 4px 10px; font-size: 12px; }
 
-    /* Status bar at bottom of canvas */
     .sm-status {
-      position: absolute;
-      bottom: 8px;
-      left: 8px;
-      background: rgba(26, 31, 46, 0.85);
+      position: absolute; bottom: 8px; left: 8px;
+      background: rgba(53, 53, 53, 0.85);
       color: #fff;
       padding: 6px 12px;
       border-radius: 4px;
@@ -201,39 +137,31 @@
       pointer-events: none;
     }
 
-    /* Toast notifications */
     .sm-toast-wrap {
-      position: fixed;
-      top: 80px;
-      right: 24px;
+      position: fixed; top: 80px; right: 24px;
       z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      display: flex; flex-direction: column; gap: 8px;
       max-width: 320px;
     }
     .sm-toast {
-      padding: 12px 16px;
-      border-radius: 6px;
+      padding: 12px 16px; border-radius: 6px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       font-size: 14px;
       animation: smToastIn 0.2s ease;
     }
     .sm-toast-success { background: #10b981; color: #fff; }
     .sm-toast-error   { background: #ef4444; color: #fff; }
-    .sm-toast-info    { background: #1a1f2e; color: #fff; }
+    .sm-toast-info    { background: #353535; color: #fff; }
     @keyframes smToastIn {
       from { opacity: 0; transform: translateX(20px); }
       to   { opacity: 1; transform: translateX(0); }
     }
 
-    /* Help panel */
     .sm-help {
       padding: 12px 16px;
       background: #f9fafb;
       border-top: 1px solid #e5e7eb;
-      font-size: 12px;
-      line-height: 1.5;
+      font-size: 12px; line-height: 1.5;
       color: #4b5563;
     }
     .sm-help kbd {
@@ -246,105 +174,66 @@
       font-family: ui-monospace, monospace;
     }
 
-    /* Modal for proposal selection */
     .sm-modal-backdrop {
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       z-index: 100;
     }
     .sm-modal {
-      background: #fff;
-      border-radius: 8px;
-      padding: 24px;
-      width: 480px;
-      max-width: 90vw;
+      background: #fff; border-radius: 8px;
+      padding: 24px; width: 480px; max-width: 90vw;
     }
     .sm-modal h2 { margin: 0 0 12px; font-size: 18px; }
     .sm-modal p  { margin: 0 0 16px; color: #4b5563; font-size: 14px; }
     .sm-modal input {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 14px;
+      width: 100%; padding: 10px;
+      border: 1px solid #d1d5db; border-radius: 6px;
+      font-family: inherit; font-size: 14px;
       margin-bottom: 16px;
     }
     .sm-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-    /* ----------------------------------------------------------------------
-       Phase 1B.3 — multi-material picker (togglable pills)
-
-       Each region card gets a list of material pills. Click a pill to toggle
-       it in/out of the region's material set; selected pills get a green
-       background and an order badge showing their position in display_order.
-       Empty state (no proposal materials yet) shows a placeholder line.
-       ---------------------------------------------------------------------- */
-    .sm-region-card-materials-wrap {
-      margin-top: 8px;
-    }
+    .sm-region-card-materials-wrap { margin-top: 8px; }
     .sm-region-card-materials-wrap > label {
       display: block;
-      font-size: 11px;
-      font-weight: 500;
+      font-size: 11px; font-weight: 500;
       color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      text-transform: uppercase; letter-spacing: 0.5px;
       margin-bottom: 6px;
     }
-    .sm-material-pills {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+    .sm-material-pills { display: flex; flex-direction: column; gap: 4px; }
     .sm-material-pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      display: flex; align-items: center; gap: 8px;
       padding: 6px 8px;
       border-radius: 6px;
       border: 1px solid #e5e7eb;
       background: #fff;
       cursor: pointer;
-      font-family: inherit;
-      font-size: 13px;
-      color: #1a1f2e;
+      font-family: inherit; font-size: 13px;
+      color: #353535;
       text-align: left;
       width: 100%;
       transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
     }
-    .sm-material-pill:hover {
-      border-color: #91a1ba;
-      background: #f8fafc;
-    }
+    .sm-material-pill:hover { border-color: #5d7e69; background: #f8fafc; }
     .sm-material-pill.sm-selected {
-      border-color: #10b981;
-      background: #ecfdf5;
-      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12);
+      border-color: #5d7e69;
+      background: #e8eee9;
+      box-shadow: 0 0 0 2px rgba(93, 126, 105, 0.16);
     }
     .sm-material-pill-order {
       flex-shrink: 0;
-      width: 18px;
-      height: 18px;
+      width: 18px; height: 18px;
       border-radius: 50%;
-      background: #10b981;
+      background: #5d7e69;
       color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
     }
-    .sm-material-pill:not(.sm-selected) .sm-material-pill-order {
-      visibility: hidden; /* keep layout stable so selecting doesn't shift the row */
-    }
+    .sm-material-pill:not(.sm-selected) .sm-material-pill-order { visibility: hidden; }
     .sm-material-pill-thumb {
-      width: 28px;
-      height: 28px;
+      width: 28px; height: 28px;
       border-radius: 4px;
       object-fit: cover;
       flex-shrink: 0;
@@ -352,44 +241,27 @@
       border: 1px solid #e5e7eb;
     }
     .sm-material-pill-thumb-empty {
-      width: 28px;
-      height: 28px;
+      width: 28px; height: 28px;
       border-radius: 4px;
       flex-shrink: 0;
       background: linear-gradient(135deg, #f5f6f8, #e5e7eb);
       border: 1px solid #e5e7eb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
       color: #6b7280;
       letter-spacing: 0.06em;
     }
-    .sm-material-pill-text {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      flex: 1;
-    }
+    .sm-material-pill-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
     .sm-material-pill-name {
-      font-weight: 600;
-      line-height: 1.25;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-weight: 600; line-height: 1.25;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .sm-material-pill-meta {
-      font-size: 11px;
-      color: #6b7280;
-      line-height: 1.2;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-size: 11px; color: #6b7280; line-height: 1.2;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .sm-material-pills-empty {
-      font-size: 12px;
-      font-style: italic;
+      font-size: 12px; font-style: italic;
       color: #9ca3af;
       padding: 6px 0;
     }
@@ -397,7 +269,6 @@
 </head>
 <body>
 
-  <!-- Header -->
   <header class="sm-header">
     <div>
       <h1>Site Map Editor</h1>
@@ -410,14 +281,12 @@
     </div>
   </header>
 
-  <!-- Main: canvas + side panel -->
   <div class="sm-main">
     <div class="sm-canvas-wrap" id="sm-canvas-wrap">
       <div class="sm-empty" id="sm-empty">
         <h2>No backdrop uploaded yet</h2>
         <p>Click <strong>Upload Backdrop…</strong> in the header to upload the construction-drawing PNG for this proposal. Once uploaded, click on the canvas to start drawing polygon regions.</p>
       </div>
-      <!-- canvas-inner gets shown after upload -->
       <div class="sm-canvas-inner" id="sm-canvas-inner" style="display:none;">
         <canvas class="sm-canvas" id="sm-canvas"></canvas>
         <div class="sm-status" id="sm-status">Click to start drawing a polygon. Double-click to close.</div>
@@ -426,12 +295,10 @@
 
     <aside class="sm-side">
       <div class="sm-side-header">
-        <h2>Regions <span id="sm-region-count" style="color:#1a1f2e;font-weight:700;">0</span></h2>
+        <h2>Regions <span id="sm-region-count" style="color:#353535;font-weight:700;">0</span></h2>
         <button class="sm-btn sm-btn-ghost" id="sm-btn-add-region" style="font-size:12px;padding:4px 10px;">+ New polygon</button>
       </div>
-      <div class="sm-side-list" id="sm-side-list">
-        <!-- region cards injected by JS -->
-      </div>
+      <div class="sm-side-list" id="sm-side-list"></div>
       <div class="sm-help">
         <strong>Drawing:</strong> Click to add vertex · Double-click to close · <kbd>Esc</kbd> cancel<br>
         <strong>Editing:</strong> Click polygon to select · Drag vertex to move · Drag inside polygon to translate · Click an edge to insert vertex · Right-click vertex to delete · <kbd>Delete</kbd> removes selected polygon<br>
@@ -441,10 +308,8 @@
     </aside>
   </div>
 
-  <!-- Toast container -->
   <div class="sm-toast-wrap" id="sm-toast-wrap"></div>
 
-  <!-- Proposal-id prompt modal (shown if URL has no ?proposal_id=...) -->
   <div class="sm-modal-backdrop" id="sm-modal-backdrop" style="display:none;">
     <div class="sm-modal">
       <h2>Which proposal?</h2>
@@ -456,7 +321,6 @@
     </div>
   </div>
 
-  <!-- Module entry point -->
   <script type="module" src="/admin/js/site-map.js"></script>
 </body>
 </html>
