@@ -1,10 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /p-customize.js — Phase 4.1 Sprint B2 (revision 3)
+// /p-customize.js — Phase 4.1 Sprint B2 (revision 4)
 //
-// B2-r3: bid-section polish (Tim's point #2). Adds CSS overrides at the
-// end of STYLES targeting the snapshot's baked-in .pub-scope-item /
-// .pub-line-item rules with `body` ancestor prefix for higher specificity.
-// Universal — applies to all viewers, all existing snapshots, no republish.
+// B2-r4: Two-pane bid section reader (Tim's design choice C).
+// Transforms .pub-scope-list into a two-pane reader. Section IDs preserved
+// so polygon anchors still work. PDF extraction unaffected.
 // ═══════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -19,6 +18,10 @@
     pending: new Map(),
     submitted: false,
   };
+
+  // Module-level handle to the bid reader so polygon and section-bid
+  // button handlers can call .select(id).
+  let _bidReader = null;
 
   function getAuthToken() {
     try {
@@ -47,9 +50,26 @@
   }
 
   function scrollToHref(href) {
-    if (!href || href.charAt(0) !== '#') return;
+    if (!href || href.charAt(0) !== '#') return false;
     const target = document.querySelector(href);
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!target) return false;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
+  }
+
+  // Try to select a section in the two-pane reader; fall back to scrolling.
+  function navigateToSection(href) {
+    if (!href || href.charAt(0) !== '#') return;
+    const id = href.slice(1);
+    if (_bidReader && _bidReader.select(id)) {
+      const readerEl = _bidReader.root;
+      const rect = readerEl.getBoundingClientRect();
+      if (rect.top > window.innerHeight * 0.5 || rect.bottom < 0) {
+        readerEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
+    scrollToHref(href);
   }
 
   function normalizeMatch(s) {
@@ -562,8 +582,7 @@
       padding-top: 16px !important;
     }
 
-    /* ═════ BID SECTION POLISH (Tim's point #2) ═════
-       Override snapshot's baked-in rules. body prefix bumps specificity. */
+    /* Bid section polish (kept from B2-r3) */
     body .pub-scope-item {
       padding: 36px 0;
     }
@@ -617,6 +636,149 @@
     }
     body .pub-scope-total-amount {
       font-size: 28px;
+    }
+
+    /* Two-pane bid reader (B2-r4) */
+    .bpc-bid-reader {
+      display: grid;
+      grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+      gap: 0;
+      border: 1px solid #e7e3d6;
+      border-radius: 12px;
+      background: #fff;
+      margin: 24px 0;
+      overflow: hidden;
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    @media (max-width: 760px) {
+      .bpc-bid-reader { grid-template-columns: 1fr; }
+      .bpc-bid-reader-list { border-right: none !important; border-bottom: 1px solid #e7e3d6; max-height: 360px; }
+    }
+    .bpc-bid-reader-list {
+      border-right: 1px solid #e7e3d6;
+      background: #faf8f3;
+      max-height: 720px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .bpc-bid-reader-total-card {
+      padding: 18px 20px 16px;
+      border-bottom: 1px solid #e7e3d6;
+      background: #fff;
+    }
+    .bpc-bid-total-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      color: #5d7e69;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .bpc-bid-total-amount {
+      font-size: 26px;
+      font-weight: 700;
+      color: #353535;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+    }
+    .bpc-bid-total-meta {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+    .bpc-bid-total-breakdown {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #e7e3d6;
+      font-size: 12px;
+      color: #58595b;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .bpc-bid-total-breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .bpc-bid-total-breakdown-row span:last-child {
+      color: #353535;
+      font-weight: 500;
+    }
+    .bpc-bid-total-breakdown-row--credit span:last-child {
+      color: #5d7e69;
+    }
+
+    .bpc-bid-reader-rows {
+      flex: 1;
+      padding: 6px 0;
+      overflow-y: auto;
+    }
+    .bpc-bid-reader-row {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      border-left: 3px solid transparent;
+      padding: 11px 16px 11px 13px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .bpc-bid-reader-row:hover {
+      background: #f4f1e8;
+    }
+    .bpc-bid-reader-row.bpc-active {
+      background: #fff;
+      border-left-color: #5d7e69;
+    }
+    .bpc-bid-reader-row-eyebrow {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: #999;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .bpc-bid-reader-row.bpc-active .bpc-bid-reader-row-eyebrow {
+      color: #5d7e69;
+    }
+    .bpc-bid-reader-row-name {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: #353535;
+      line-height: 1.3;
+      margin-bottom: 2px;
+    }
+    .bpc-bid-reader-row-amount {
+      font-size: 12px;
+      font-weight: 500;
+      color: #58595b;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bpc-bid-reader-pane {
+      padding: 28px 32px;
+      overflow-y: auto;
+      max-height: 720px;
+    }
+    @media (max-width: 760px) {
+      .bpc-bid-reader-pane { padding: 22px 18px; max-height: none; }
+    }
+    .bpc-bid-reader-pane > .pub-scope-item {
+      padding: 0 !important;
+      border-top: none !important;
+    }
+    .bpc-bid-reader-pane > .pub-scope-item.bpc-hidden-section {
+      display: none !important;
+    }
+    .bpc-bid-reader-empty {
+      padding: 24px 0;
+      text-align: center;
+      color: #999;
+      font-size: 13px;
     }
   `;
 
@@ -690,7 +852,7 @@
     });
     const sectionBtn = card.querySelector('.bpc-card-section-link');
     if (sectionBtn) {
-      sectionBtn.addEventListener('click', () => scrollToHref(sectionBtn.getAttribute('data-href')));
+      sectionBtn.addEventListener('click', () => navigateToSection(sectionBtn.getAttribute('data-href')));
     }
     wireMaterialRowClicks(card, regionId, regions, regionMap);
     wireTrayClicks(card);
@@ -1002,9 +1164,12 @@
       const regionId = poly.getAttribute('data-region-id');
       const anchor = poly.closest('a');
       if (!anchor || !regionId) return;
-      anchor.addEventListener('click', () => {
+      anchor.addEventListener('click', (e) => {
+        e.preventDefault();
         renderRegionDetail(card, regionId, regions, regionMap);
         customize._lastRender = () => renderRegionDetail(card, regionId, regions, regionMap);
+        const href = anchor.getAttribute('href');
+        if (href) navigateToSection(href);
       });
     });
 
@@ -1017,6 +1182,151 @@
         customize._lastRender = () => renderRegionDetail(card, regionId, regions, regionMap);
       });
     });
+  }
+
+  // Two-pane bid reader. Transforms .pub-scope-list ul into a two-pane
+  // reader with project-total card on the left rail and one section
+  // shown at a time on the right.
+  function transformBidSection() {
+    const scopeList = document.querySelector('.pub-scope-list');
+    if (!scopeList) return null;
+
+    const items = Array.from(scopeList.querySelectorAll(':scope > .pub-scope-item'));
+    if (items.length === 0) return null;
+
+    const scopeTotal = scopeList.parentElement
+      ? scopeList.parentElement.querySelector('.pub-scope-total')
+      : null;
+
+    let finalTotalAmount = '';
+    let subtotalAmount = '';
+    let creditAmount = '';
+
+    if (scopeTotal) {
+      const amountEls = scopeTotal.querySelectorAll('.pub-scope-total-amount');
+      if (amountEls.length > 0) {
+        finalTotalAmount = (amountEls[amountEls.length - 1].textContent || '').trim();
+      }
+      const allText = (scopeTotal.parentElement
+        ? scopeTotal.parentElement.textContent
+        : scopeTotal.textContent) || '';
+      const subMatch = allText.match(/Estimate subtotal[\s\S]{0,30}?(\$[\d,]+(?:\.\d+)?)/i);
+      const credMatch = allText.match(/Credit[\s\S]{0,30}?(\(?\$[\d,]+(?:\.\d+)?\)?)/i);
+      if (subMatch) subtotalAmount = subMatch[1];
+      if (credMatch) creditAmount = credMatch[1];
+    }
+
+    if (!finalTotalAmount) {
+      let sum = 0;
+      let valid = true;
+      items.forEach((item) => {
+        const amtEl = item.querySelector('.pub-scope-item-amount');
+        if (!amtEl) { valid = false; return; }
+        const num = parseFloat((amtEl.textContent || '').replace(/[^0-9.\-]/g, ''));
+        if (isNaN(num)) { valid = false; return; }
+        sum += num;
+      });
+      if (valid) {
+        finalTotalAmount = '$' + sum.toLocaleString('en-US', { maximumFractionDigits: 0 });
+      }
+    }
+
+    const reader = document.createElement('div');
+    reader.className = 'bpc-bid-reader';
+
+    const listEl = document.createElement('div');
+    listEl.className = 'bpc-bid-reader-list';
+
+    const totalCard = document.createElement('div');
+    totalCard.className = 'bpc-bid-reader-total-card';
+    let breakdownHtml = '';
+    if (subtotalAmount || creditAmount) {
+      breakdownHtml = '<div class="bpc-bid-total-breakdown">';
+      if (subtotalAmount) {
+        breakdownHtml += `<div class="bpc-bid-total-breakdown-row"><span>Subtotal</span><span>${escapeHtml(subtotalAmount)}</span></div>`;
+      }
+      if (creditAmount) {
+        breakdownHtml += `<div class="bpc-bid-total-breakdown-row bpc-bid-total-breakdown-row--credit"><span>Credit</span><span>${escapeHtml(creditAmount)}</span></div>`;
+      }
+      breakdownHtml += '</div>';
+    }
+    totalCard.innerHTML = `
+      <div class="bpc-bid-total-eyebrow">Project total</div>
+      <div class="bpc-bid-total-amount">${escapeHtml(finalTotalAmount || '')}</div>
+      <div class="bpc-bid-total-meta">${items.length} section${items.length === 1 ? '' : 's'}</div>
+      ${breakdownHtml}
+    `;
+    listEl.appendChild(totalCard);
+
+    const rowsWrap = document.createElement('div');
+    rowsWrap.className = 'bpc-bid-reader-rows';
+
+    const sections = items.map((item, idx) => {
+      const id = item.getAttribute('id') || ('bpc-section-' + idx);
+      if (!item.getAttribute('id')) item.setAttribute('id', id);
+      const eyebrowEl = item.querySelector('.pub-scope-item-eyebrow');
+      const nameEl = item.querySelector('.pub-scope-item-name');
+      const amountEl = item.querySelector('.pub-scope-item-amount');
+      const eyebrow = eyebrowEl ? (eyebrowEl.textContent || '').trim() : ('Section ' + String(idx + 1).padStart(2, '0'));
+      const name = nameEl ? (nameEl.textContent || '').trim() : 'Section';
+      const amount = amountEl ? (amountEl.textContent || '').trim() : '';
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bpc-bid-reader-row';
+      btn.setAttribute('data-target', id);
+      btn.innerHTML = `
+        <div class="bpc-bid-reader-row-eyebrow">${escapeHtml(eyebrow)}</div>
+        <div class="bpc-bid-reader-row-name">${escapeHtml(name)}</div>
+        ${amount ? `<div class="bpc-bid-reader-row-amount">${escapeHtml(amount)}</div>` : ''}
+      `;
+      rowsWrap.appendChild(btn);
+
+      return { id, btn, item };
+    });
+    listEl.appendChild(rowsWrap);
+
+    const paneEl = document.createElement('div');
+    paneEl.className = 'bpc-bid-reader-pane';
+    sections.forEach(({ item }) => {
+      paneEl.appendChild(item);
+      item.classList.add('bpc-hidden-section');
+    });
+
+    reader.appendChild(listEl);
+    reader.appendChild(paneEl);
+
+    scopeList.parentNode.insertBefore(reader, scopeList);
+    scopeList.remove();
+    if (scopeTotal && scopeTotal.parentNode) {
+      const parent = scopeTotal.parentElement;
+      scopeTotal.remove();
+      if (parent) {
+        parent.querySelectorAll('.pub-scope-summary-row').forEach(el => el.remove());
+      }
+    }
+
+    function select(id) {
+      const target = sections.find(s => s.id === id);
+      if (!target) return false;
+      sections.forEach(s => {
+        s.item.classList.add('bpc-hidden-section');
+        s.btn.classList.remove('bpc-active');
+      });
+      target.item.classList.remove('bpc-hidden-section');
+      target.btn.classList.add('bpc-active');
+      paneEl.scrollTop = 0;
+      target.btn.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
+      return true;
+    }
+
+    sections.forEach((s) => {
+      s.btn.addEventListener('click', () => select(s.id));
+    });
+
+    if (sections.length > 0) select(sections[0].id);
+
+    return { root: reader, select };
   }
 
   async function init() {
@@ -1049,6 +1359,7 @@
     }
 
     transformLayout(inner, siteMapEl, legendEl, regions, regionMap);
+    _bidReader = transformBidSection();
   }
 
   if (document.readyState === 'loading') {
