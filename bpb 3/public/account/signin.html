@@ -9,89 +9,59 @@
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bp-green:    #5d7e69;
-    --bp-green-dk: #4a6554;
-    --bp-green-soft: #e8eee9;
-    --bp-charcoal: #353535;
-    --bp-tan:      #dad7c5;
-    --bp-cream:    #faf8f3;
-    --bp-bg:       #f4f4ef;
-    --bp-card:     #ffffff;
-    --bp-border:   #e4e4df;
-    --bp-text:     #1f2125;
-    --bp-muted:    #70726f;
-    --bp-err:      #b91c1c;
-    --bp-err-bg:   #fef2f2;
-    --bp-err-bd:   #fecaca;
+    --bp-green: #5d7e69; --bp-green-dk: #4a6554; --bp-green-soft: #e8eee9;
+    --bp-charcoal: #353535; --bp-tan: #dad7c5; --bp-cream: #faf8f3;
+    --bp-bg: #f4f4ef; --bp-card: #ffffff; --bp-border: #e4e4df;
+    --bp-text: #1f2125; --bp-muted: #70726f;
+    --bp-err: #b91c1c; --bp-err-bg: #fef2f2; --bp-err-bd: #fecaca;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
     font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
-    color: var(--bp-text);
-    background: var(--bp-bg);
-    background-image:
-      radial-gradient(ellipse 800px 500px at 50% -10%, var(--bp-green-soft), transparent 70%);
-    min-height: 100vh;
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px 16px;
-    line-height: 1.5; font-size: 16px;
+    color: var(--bp-text); background: var(--bp-bg);
+    background-image: radial-gradient(ellipse 800px 500px at 50% -10%, var(--bp-green-soft), transparent 70%);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 24px 16px; line-height: 1.5; font-size: 16px;
   }
   .ho-wrap { width: 100%; max-width: 440px; }
   .ho-brand { text-align: center; margin-bottom: 28px; }
   .ho-brand img { height: 40px; width: auto; }
   .ho-brand-tag {
-    margin-top: 14px;
-    font-size: 11px; letter-spacing: 0.22em;
+    margin-top: 14px; font-size: 11px; letter-spacing: 0.22em;
     color: var(--bp-muted); text-transform: uppercase;
   }
   .ho-card {
-    background: var(--bp-card);
-    border: 1px solid var(--bp-border);
-    border-radius: 14px;
-    padding: 38px 34px;
+    background: var(--bp-card); border: 1px solid var(--bp-border);
+    border-radius: 14px; padding: 38px 34px;
     box-shadow: 0 16px 40px rgba(31, 33, 37, 0.08);
   }
   .ho-eyebrow {
-    font-size: 11px; letter-spacing: 0.18em;
-    color: var(--bp-muted); text-transform: uppercase;
-    margin-bottom: 10px; font-weight: 600;
+    font-size: 11px; letter-spacing: 0.18em; color: var(--bp-muted);
+    text-transform: uppercase; margin-bottom: 10px; font-weight: 600;
   }
   .ho-title {
-    font-size: 24px; font-weight: 600;
-    color: var(--bp-text); letter-spacing: -0.012em;
-    line-height: 1.25; margin-bottom: 8px;
+    font-size: 24px; font-weight: 600; color: var(--bp-text);
+    letter-spacing: -0.012em; line-height: 1.25; margin-bottom: 8px;
   }
-  .ho-lede {
-    color: var(--bp-muted);
-    font-size: 14px; line-height: 1.6;
-    margin-bottom: 24px;
-  }
+  .ho-lede { color: var(--bp-muted); font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
   .ho-form { display: flex; flex-direction: column; gap: 16px; }
   .ho-field { display: flex; flex-direction: column; gap: 6px; }
-  .ho-field-label {
-    font-size: 12px; font-weight: 600;
-    color: var(--bp-charcoal);
-  }
+  .ho-field-label { font-size: 12px; font-weight: 600; color: var(--bp-charcoal); }
   .ho-field input {
-    font-family: inherit; font-size: 15px;
-    padding: 12px 14px;
-    border: 1px solid var(--bp-border);
-    border-radius: 10px; background: #fff;
+    font-family: inherit; font-size: 15px; padding: 12px 14px;
+    border: 1px solid var(--bp-border); border-radius: 10px; background: #fff;
     color: var(--bp-text); width: 100%;
     transition: border-color .15s, box-shadow .15s;
   }
   .ho-field input:focus {
-    outline: none;
-    border-color: var(--bp-green);
+    outline: none; border-color: var(--bp-green);
     box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.18);
   }
   .ho-btn {
-    padding: 13px 20px;
-    border-radius: 10px;
-    font-size: 14px; font-weight: 600;
-    cursor: pointer; font-family: inherit;
-    border: 1px solid transparent;
+    padding: 13px 20px; border-radius: 10px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; border: 1px solid transparent;
     transition: background .15s, transform .12s, box-shadow .15s, opacity .15s;
   }
   .ho-btn-primary {
@@ -99,58 +69,61 @@
     box-shadow: 0 6px 16px rgba(93, 126, 105, 0.22);
   }
   .ho-btn-primary:hover {
-    background: var(--bp-green-dk);
-    transform: translateY(-1px);
+    background: var(--bp-green-dk); transform: translateY(-1px);
     box-shadow: 0 10px 22px rgba(93, 126, 105, 0.28);
   }
+  .ho-btn-secondary {
+    background: #fff; color: var(--bp-charcoal);
+    border-color: var(--bp-border); width: 100%;
+  }
+  .ho-btn-secondary:hover {
+    background: var(--bp-cream); border-color: var(--bp-green-soft);
+    color: var(--bp-charcoal);
+  }
   .ho-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+  .ho-divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 18px 0 4px; color: var(--bp-muted);
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    font-weight: 600;
+  }
+  .ho-divider::before, .ho-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--bp-border);
+  }
   .ho-foot { text-align: center; margin-top: 8px; }
   .ho-link {
-    background: none; border: none;
-    color: var(--bp-green-dk);
+    background: none; border: none; color: var(--bp-green-dk);
     font: inherit; font-size: 13px; font-weight: 600;
     cursor: pointer; padding: 6px 10px; border-radius: 6px;
     transition: color .12s, background .12s;
     text-decoration: none; display: inline-block;
   }
   .ho-link:hover { color: var(--bp-green); background: var(--bp-green-soft); }
-  .ho-error {
-    background: var(--bp-err-bg); color: var(--bp-err);
-    border: 1px solid var(--bp-err-bd);
+  .ho-status {
     border-radius: 8px; padding: 10px 14px;
     font-size: 13px; line-height: 1.5; margin-top: 4px;
   }
-  .ho-error[hidden] { display: none; }
-  .ho-hint {
-    background: var(--bp-cream);
-    border-left: 3px solid var(--bp-green);
-    border-radius: 4px;
-    padding: 10px 14px;
-    font-size: 12px; line-height: 1.55;
-    color: var(--bp-charcoal);
-    margin-top: 4px;
+  .ho-status.is-error {
+    background: var(--bp-err-bg); color: var(--bp-err);
+    border: 1px solid var(--bp-err-bd);
   }
+  .ho-status.is-success {
+    background: var(--bp-green-soft); color: var(--bp-green-dk);
+    border: 1px solid #c8d8cc;
+  }
+  .ho-status[hidden] { display: none; }
 
-  /* Team-member link below card (Phase 4.0c R3 — primary-landing pivot) */
   .ho-team-link {
-    text-align: center;
-    margin-top: 20px;
-    font-size: 13px;
-    color: var(--bp-muted);
-    line-height: 1.6;
+    text-align: center; margin-top: 20px;
+    font-size: 13px; color: var(--bp-muted); line-height: 1.6;
   }
   .ho-team-link a {
-    color: var(--bp-charcoal);
-    text-decoration: none;
-    font-weight: 600;
-    border-bottom: 1px dotted var(--bp-border);
-    padding-bottom: 1px;
-    margin-left: 4px;
-    transition: color .15s, border-color .15s;
+    color: var(--bp-charcoal); text-decoration: none; font-weight: 600;
+    border-bottom: 1px dotted var(--bp-border); padding-bottom: 1px;
+    margin-left: 4px; transition: color .15s, border-color .15s;
   }
   .ho-team-link a:hover {
-    color: var(--bp-green-dk);
-    border-bottom-color: var(--bp-green);
+    color: var(--bp-green-dk); border-bottom-color: var(--bp-green);
   }
 
   @media (max-width: 480px) {
@@ -174,22 +147,28 @@
     <form class="ho-form" id="ho-signin-form" novalidate>
       <label class="ho-field">
         <span class="ho-field-label">Email</span>
-        <input type="email" name="email" required autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus>
+        <input type="email" name="email" id="ho-email" required autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus>
       </label>
       <label class="ho-field">
         <span class="ho-field-label">Password</span>
         <input type="password" name="password" required autocomplete="current-password">
       </label>
-      <div class="ho-hint">
-        First time signing in? Your password is your property's street address — lowercased, no spaces (e.g. <strong>123mainst</strong>). You'll set your own password right after.
-      </div>
       <button type="submit" class="ho-btn ho-btn-primary" id="ho-signin-submit">Sign in</button>
       <div class="ho-foot">
         <a class="ho-link" href="/account/forgot.html">Forgot your password?</a>
       </div>
     </form>
 
-    <div class="ho-error" id="ho-error" hidden></div>
+    <div class="ho-divider">or</div>
+
+    <button type="button" class="ho-btn ho-btn-secondary" id="ho-magic-btn" style="margin-top:8px;">
+      Email me a sign-in link
+    </button>
+    <p style="margin:8px 0 0;font-size:12px;color:var(--bp-muted);text-align:center;line-height:1.5;">
+      We&#39;ll send a one-click link to the email above. No password needed.
+    </p>
+
+    <div class="ho-status" id="ho-status" hidden></div>
   </div>
 
   <div class="ho-team-link">
@@ -200,8 +179,6 @@
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-// Inline supabase client (NOT importing /js/supabase-client.js which is the
-// designer/master auth gate that redirects to /login.html).
 const SUPABASE_URL  = 'https://gfgbypcnxkschnfsitfb.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZ2J5cGNueGtzY2huZnNpdGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MTkzMTUsImV4cCI6MjA5MjI5NTMxNX0.EAwmiNR5OWcaI8Sr36MVn7FuMhYoZvfngse7y0ZOgvA';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
@@ -210,19 +187,22 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
 
 const form      = document.getElementById('ho-signin-form');
 const submitBtn = document.getElementById('ho-signin-submit');
-const errorEl   = document.getElementById('ho-error');
+const magicBtn  = document.getElementById('ho-magic-btn');
+const emailEl   = document.getElementById('ho-email');
+const statusEl  = document.getElementById('ho-status');
 
-function showError(msg) { errorEl.textContent = msg; errorEl.hidden = false; }
-function hideError()     { errorEl.hidden = true; errorEl.textContent = ''; }
+function showStatus(msg, type) {
+  statusEl.textContent = msg;
+  statusEl.className = 'ho-status is-' + (type || 'error');
+  statusEl.hidden = false;
+}
+function hideStatus() { statusEl.hidden = true; statusEl.textContent = ''; }
 
 // If already signed in, route appropriately.
 const { data: { session } } = await supabase.auth.getSession();
-if (session) {
-  await routeAfterAuth();
-}
+if (session) await routeAfterAuth();
 
 async function routeAfterAuth() {
-  // Look up clients row to check must_change_password.
   const { data: clientRow } = await supabase
     .from('clients')
     .select('must_change_password')
@@ -230,7 +210,7 @@ async function routeAfterAuth() {
     .maybeSingle();
 
   if (clientRow && clientRow.must_change_password) {
-    window.location.replace('/account/set-password.html');
+    window.location.replace('/account/welcome.html');
   } else {
     window.location.replace('/account/');
   }
@@ -238,13 +218,13 @@ async function routeAfterAuth() {
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  hideError();
+  hideStatus();
 
   const fd = new FormData(form);
   const email    = String(fd.get('email') || '').trim().toLowerCase();
   const password = String(fd.get('password') || '');
 
-  if (!email || !password) { showError('Email and password are both required.'); return; }
+  if (!email || !password) { showStatus('Email and password are both required.'); return; }
 
   submitBtn.disabled = true;
   submitBtn.textContent = 'Signing in…';
@@ -257,10 +237,41 @@ form.addEventListener('submit', async (e) => {
     submitBtn.textContent = 'Sign in';
     const msg = (err && err.message) || 'Sign in failed.';
     if (/invalid login credentials/i.test(msg)) {
-      showError("That email and password don't match. If this is your first sign-in, try your property's street address (lowercased, no spaces) as the password.");
+      showStatus("That email and password don't match. Try \"Email me a sign-in link\" below — no password needed.");
     } else {
-      showError(msg);
+      showStatus(msg);
     }
+  }
+});
+
+magicBtn.addEventListener('click', async () => {
+  hideStatus();
+  const email = emailEl.value.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showStatus('Enter your email address above first.');
+    emailEl.focus();
+    return;
+  }
+
+  magicBtn.disabled = true;
+  magicBtn.textContent = 'Sending link…';
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin + '/account/welcome.html',
+        shouldCreateUser: false,
+      },
+    });
+    if (error) throw error;
+    showStatus('Check your email — a sign-in link is on its way to ' + email + '.', 'success');
+    magicBtn.textContent = 'Link sent ✓';
+    // Don't re-enable; user should switch to email.
+  } catch (err) {
+    magicBtn.disabled = false;
+    magicBtn.textContent = 'Email me a sign-in link';
+    const msg = (err && err.message) || 'Could not send link.';
+    showStatus(msg);
   }
 });
 </script>
