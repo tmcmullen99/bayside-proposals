@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/notification-digest  —  Phase 5F.2
+
 //
 // Triggered daily by pg_cron at 16:00 UTC (8am PST / 9am PDT). Authenticated
 // via the X-Cron-Secret header (must match env.CRON_SECRET).
