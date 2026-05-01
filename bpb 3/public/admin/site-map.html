@@ -30,7 +30,18 @@
     }
     .sm-header h1 { font-size: 18px; font-weight: 600; margin: 0; }
     .sm-header-meta { font-size: 13px; color: #5d7e69; }
-    .sm-header-actions { display: flex; gap: 8px; }
+    .sm-header-actions { display: flex; gap: 8px; align-items: center; }
+
+    /* Phase 6.1: scale indicator pill in the header actions area */
+    .sm-scale-indicator {
+      font-size: 12px;
+      font-family: ui-monospace, SF Mono, Menlo, monospace;
+      padding: 5px 10px;
+      border-radius: 4px;
+      letter-spacing: 0.02em;
+    }
+    .sm-scale-indicator.sm-scale-set { background: rgba(93, 126, 105, 0.25); color: #c8e0d0; }
+    .sm-scale-indicator.sm-scale-unset { background: rgba(255, 255, 255, 0.08); color: #aaa; }
 
     .sm-btn {
       font-family: inherit;
@@ -193,6 +204,25 @@
       margin-bottom: 16px;
     }
     .sm-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .sm-modal-error {
+      color: #b91c1c;
+      font-size: 13px;
+      margin: -8px 0 12px;
+      min-height: 18px;
+    }
+    .sm-modal-hint {
+      font-size: 12px;
+      color: #6b7280;
+      margin: -8px 0 12px;
+      line-height: 1.5;
+    }
+    .sm-modal-hint code {
+      font-family: ui-monospace, monospace;
+      background: #f3f4f6;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
 
     .sm-region-card-materials-wrap { margin-top: 8px; }
     .sm-region-card-materials-wrap > label {
@@ -265,6 +295,58 @@
       color: #9ca3af;
       padding: 6px 0;
     }
+
+    /* Phase 6.1: wizard hint card (top-right) */
+    .sm-wizard-card {
+      position: fixed;
+      top: 72px; right: 24px;
+      width: 320px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+      padding: 16px 18px;
+      z-index: 50;
+      animation: smWizIn 0.3s ease;
+    }
+    @keyframes smWizIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .sm-wizard-step {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #5d7e69;
+      margin-bottom: 4px;
+    }
+    .sm-wizard-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #353535;
+      margin: 0 0 6px;
+      padding-right: 24px;
+    }
+    .sm-wizard-desc {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #4b5563;
+      margin: 0;
+    }
+    .sm-wizard-close {
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 24px; height: 24px;
+      border: none;
+      background: transparent;
+      font-size: 18px;
+      color: #9ca3af;
+      cursor: pointer;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    .sm-wizard-close:hover { background: #f3f4f6; color: #353535; }
   </style>
 </head>
 <body>
@@ -275,6 +357,8 @@
       <div class="sm-header-meta" id="sm-proposal-label">Loading…</div>
     </div>
     <div class="sm-header-actions">
+      <span class="sm-scale-indicator sm-scale-unset" id="sm-scale-indicator">Scale: not set</span>
+      <button class="sm-btn sm-btn-secondary" id="sm-btn-set-scale">Set Scale</button>
       <button class="sm-btn sm-btn-secondary" id="sm-btn-upload">Upload Backdrop…</button>
       <input type="file" class="sm-file-input" id="sm-file-input" accept="image/png,image/jpeg" />
       <button class="sm-btn sm-btn-primary" id="sm-btn-save" disabled>Save All</button>
@@ -285,7 +369,7 @@
     <div class="sm-canvas-wrap" id="sm-canvas-wrap">
       <div class="sm-empty" id="sm-empty">
         <h2>No backdrop uploaded yet</h2>
-        <p>Click <strong>Upload Backdrop…</strong> in the header to upload the construction-drawing PNG for this proposal. Once uploaded, click on the canvas to start drawing polygon regions.</p>
+        <p>Click <strong>Upload Backdrop…</strong> in the header to upload your construction drawing or Cam To Plan screenshot. Once uploaded, click <strong>Set Scale</strong> to calibrate measurements, then click on the canvas to start drawing polygon regions.</p>
       </div>
       <div class="sm-canvas-inner" id="sm-canvas-inner" style="display:none;">
         <canvas class="sm-canvas" id="sm-canvas"></canvas>
@@ -300,6 +384,7 @@
       </div>
       <div class="sm-side-list" id="sm-side-list"></div>
       <div class="sm-help">
+        <strong>Cam To Plan import:</strong> Upload screenshot → Set Scale (tap 2 known points) → trace boundary<br>
         <strong>Drawing:</strong> Click to add vertex · Double-click to close · <kbd>Esc</kbd> cancel<br>
         <strong>Editing:</strong> Click polygon to select · Drag vertex to move · Drag inside polygon to translate · Click an edge to insert vertex · Right-click vertex to delete · <kbd>Delete</kbd> removes selected polygon<br>
         <strong>Materials:</strong> Click a pill to add/remove from this region · Order = pick order<br>
@@ -310,6 +395,7 @@
 
   <div class="sm-toast-wrap" id="sm-toast-wrap"></div>
 
+  <!-- Existing proposal-id modal -->
   <div class="sm-modal-backdrop" id="sm-modal-backdrop" style="display:none;">
     <div class="sm-modal">
       <h2>Which proposal?</h2>
@@ -319,6 +405,31 @@
         <button class="sm-btn sm-btn-primary" id="sm-modal-ok">Open</button>
       </div>
     </div>
+  </div>
+
+  <!-- Phase 6.1: scale calibration distance entry modal -->
+  <div class="sm-modal-backdrop" id="sm-scale-modal-backdrop" style="display:none;">
+    <div class="sm-modal">
+      <h2>Real-world distance</h2>
+      <p>Enter the actual measurement between the two points you tapped. This sets the scale for all future polygons.</p>
+      <input type="text" id="sm-scale-modal-input" placeholder="e.g. 60' 10&quot;" autocomplete="off" />
+      <div class="sm-modal-error" id="sm-scale-modal-error"></div>
+      <div class="sm-modal-hint">
+        Accepted formats: <code>60' 10"</code> · <code>60'10"</code> · <code>60.83'</code> · <code>729"</code> · <code>60 ft 10 in</code> · <code>60' 10 3/4"</code>
+      </div>
+      <div class="sm-modal-actions">
+        <button class="sm-btn sm-btn-ghost" id="sm-scale-modal-cancel">Cancel</button>
+        <button class="sm-btn sm-btn-primary" id="sm-scale-modal-ok">Set Scale</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 6.1: wizard hint card (only shown when ?wizard=1) -->
+  <div class="sm-wizard-card" id="sm-wizard-card" style="display:none;">
+    <button type="button" class="sm-wizard-close" id="sm-wizard-close" aria-label="Dismiss">×</button>
+    <div class="sm-wizard-step" id="sm-wizard-step-label">Step 1 of 3</div>
+    <h3 class="sm-wizard-title" id="sm-wizard-title">Upload your screenshot</h3>
+    <p class="sm-wizard-desc" id="sm-wizard-desc">…</p>
   </div>
 
   <script type="module" src="/admin/js/site-map.js"></script>
