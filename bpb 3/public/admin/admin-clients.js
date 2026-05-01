@@ -11,6 +11,8 @@
 //   - Send magic-link invite (Supabase signInWithOtp with client's email)
 //   - Remove client (cascades to client_proposals via FK)
 //   - Phase 4.0c R2+: list sent referrals + mark appointment complete
+//   - Phase 5D.2: engagement chip per assigned proposal (deep-link to
+//     /admin/engagement.html?id=<proposal_id>).
 //
 // Phase 5B P2 cleanup: removed legacy signOutBtn handling. The shared
 // admin-shell binds sign-out on #ashSignOutBtn for every admin page now.
@@ -18,6 +20,7 @@
 
 import { supabase } from '/js/supabase-client.js';
 import { requireAdmin, sendMagicLink } from '/js/auth-util.js';
+import { getProposalEngagementBulk, formatRelativeTime } from '/js/engagement-utils.js';
 
 // DOM
 const loadingState = document.getElementById('loadingState');
@@ -41,6 +44,7 @@ const ctx = {
   admin: null,
   clients: [],     // [{ ...client, proposals: [...], sent_referrals: [...] }]
   proposals: [],   // all proposals (for the assign dropdown)
+  engagement: new Map(), // Phase 5D.2: Map<proposal_id, summary>
   expandedIds: new Set(),
   searchTerm: '',
 };
@@ -51,6 +55,7 @@ const ctx = {
   if (!ctx.admin) return; // redirected
 
   await Promise.all([loadClients(), loadAllProposals()]);
+  await loadEngagement();
   render();
   attachEventListeners();
 })();
@@ -58,8 +63,6 @@ const ctx = {
 async function loadClients() {
   // Load clients with nested client_proposals → proposals → published_proposals,
   // PLUS each client's outgoing referrals (where they are referrer_client_id).
-  // The `sent_referrals:referrals!referrer_client_id` syntax disambiguates the
-  // FK because referrals has both referrer_client_id and referred_client_id.
   const { data, error } = await supabase
     .from('clients')
     .select(`
@@ -90,8 +93,6 @@ async function loadClients() {
 }
 
 async function loadAllProposals() {
-  // For the "assign proposal" dropdown on each client row.
-  // Pull published_proposals so we can show a slug-derived label when address is NULL.
   const { data, error } = await supabase
     .from('proposals')
     .select(`
@@ -107,6 +108,22 @@ async function loadAllProposals() {
     return;
   }
   ctx.proposals = data || [];
+}
+
+// Phase 5D.2: collect every proposal_id that appears in any client's
+// assignments and fetch their engagement summaries in one bulk query.
+async function loadEngagement() {
+  const ids = new Set();
+  for (const client of ctx.clients) {
+    for (const cp of (client.client_proposals || [])) {
+      if (cp.proposal && cp.proposal.id) ids.add(cp.proposal.id);
+    }
+  }
+  if (ids.size === 0) {
+    ctx.engagement = new Map();
+    return;
+  }
+  ctx.engagement = await getProposalEngagementBulk([...ids]);
 }
 
 function attachEventListeners() {
@@ -148,7 +165,17 @@ function render() {
 
   emptyState.style.display = 'none';
   clientsList.style.display = 'grid';
-  clientsList.innerHTML = visible.map(renderClientCard).join('');
+  // Phase 5D.2: inject pulse keyframes once at top so engagement chip's
+  // live indicator can animate without per-row inline @keyframes.
+  clientsList.innerHTML = `
+    <style>
+      @keyframes adminClientsEngPulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.4); opacity: 0.6; }
+      }
+    </style>
+    ${visible.map(renderClientCard).join('')}
+  `;
 
   // Wire up per-card handlers
   visible.forEach(c => {
@@ -271,6 +298,10 @@ function renderAssignedProposal(a) {
     ? `<a class="btn btn-small btn-secondary" href="/p/${escapeAttr(slug)}" target="_blank" rel="noopener">View</a>`
     : `<span class="btn btn-small btn-secondary" style="opacity:0.5;cursor:not-allowed;" title="No published version yet">View</span>`;
 
+  // Phase 5D.2: engagement chip below status meta. Clickable → engagement.html.
+  const eng = ctx.engagement.get(p.id);
+  const engagementChip = renderEngagementChip(p.id, eng);
+
   return `
     <div class="proposal-row">
       <div class="proposal-row-info">
@@ -280,6 +311,7 @@ function renderAssignedProposal(a) {
           ${a.sent_at ? ` · Sent ${formatDate(a.sent_at)}` : ''}
           ${a.first_viewed_at ? ` · Viewed ${formatDate(a.first_viewed_at)}` : ''}
         </div>
+        ${engagementChip}
       </div>
       <div style="display:flex; gap:6px;">
         ${viewButton}
@@ -289,12 +321,51 @@ function renderAssignedProposal(a) {
   `;
 }
 
+// Phase 5D.2: engagement chip rendered under each assigned proposal's meta.
+// Three states:
+//   - No data: muted "Not viewed yet" (no link)
+//   - Has data: clickable line linking to /admin/engagement.html?id=<id>
+//   - Live: pulsing dot + "Active right now"
+function renderEngagementChip(proposalId, eng) {
+  if (!eng || eng.totalEvents === 0) {
+    return `
+      <div style="font-size:11px; color:var(--muted); margin-top:6px; font-family:'JetBrains Mono', ui-monospace, monospace;">
+        Not viewed yet
+      </div>
+    `;
+  }
+
+  const dotColor = eng.isLive
+    ? '#10a04a'
+    : (Date.now() - new Date(eng.lastView).getTime() < 24 * 3600 * 1000
+        ? 'var(--green-dark)' : 'var(--muted)');
+  const animation = eng.isLive
+    ? 'animation: adminClientsEngPulse 1.5s ease-in-out infinite;' : '';
+  const eventsLabel = `${eng.totalEvents} event${eng.totalEvents === 1 ? '' : 's'}`;
+  const sessionsLabel = `${eng.sessions} device${eng.sessions === 1 ? '' : 's'}`;
+  const recencyLabel = eng.isLive
+    ? 'active right now'
+    : `last ${formatRelativeTime(eng.lastView)}`;
+
+  return `
+    <a href="/admin/engagement.html?id=${escapeAttr(proposalId)}"
+       style="display:inline-flex; align-items:center; gap:8px; margin-top:6px;
+              font-size:12px; color:var(--green-dark); text-decoration:none;
+              padding:4px 0; font-weight:500;">
+      <span style="display:inline-block; width:8px; height:8px; border-radius:50%;
+                   background:${dotColor}; flex-shrink:0; ${animation}"></span>
+      <span>${escapeHtml(eventsLabel)} · ${escapeHtml(sessionsLabel)} · ${escapeHtml(recencyLabel)}</span>
+      <span style="opacity:0.5;">→</span>
+    </a>
+  `;
+}
+
 // ── Phase 4.0c Round 2+: referrals section ─────────────────────────────────
 function renderReferralsSection(client) {
   const referrals = client.sent_referrals || [];
   const creditCents = Number(client.referral_credit_cents || 0);
   const usedCents   = Number(client.referral_credit_used_cents || 0);
-  const cap         = 250000; // $2500
+  const cap         = 250000;
   const referCode   = client.refer_code || '';
 
   const balanceLine = referrals.length > 0 || creditCents > 0
@@ -331,7 +402,6 @@ function renderReferralRow(referral, client) {
   const status = referral.status || 'sent';
   const refereeName = referral.referred_name || referral.referred_email || '(unknown)';
 
-  // Status pill
   const pillStyles = {
     sent:      { bg: '#eef3f8', fg: '#2b4a73', label: 'Invite sent' },
     scheduled: { bg: '#fff4d4', fg: '#7a5a10', label: 'Appt scheduled' },
@@ -340,15 +410,11 @@ function renderReferralRow(referral, client) {
   };
   const pill = pillStyles[status] || { bg: '#f0f0f0', fg: '#666', label: status };
 
-  // Mark-complete button: show only when status is 'sent' or 'scheduled'.
-  // The API enforces ownership; if the caller doesn't own this client's referrals
-  // they'll get a clean 403 and the showStatus error will explain.
   const showButton = status === 'sent' || status === 'scheduled';
   const button = showButton
     ? `<button class="btn btn-small mark-complete-btn" data-referral-id="${escapeAttr(referral.id)}">Mark appt complete</button>`
     : '';
 
-  // Date line: prefer the most recent meaningful timestamp
   const dateLine = referral.credit_awarded_at
     ? `Credited ${formatDate(referral.credit_awarded_at)}`
     : referral.appointment_completed_at
@@ -381,7 +447,6 @@ function wireCardHandlers(client) {
   const card = clientsList.querySelector(`[data-client-id="${client.id}"]`);
   if (!card) return;
 
-  // Toggle expand on row click (but not when clicking buttons/links/selects)
   card.querySelector('.client-row').addEventListener('click', (e) => {
     if (e.target.closest('button, select, a, input, textarea')) return;
     if (ctx.expandedIds.has(client.id)) {
@@ -392,7 +457,6 @@ function wireCardHandlers(client) {
     card.classList.toggle('expanded');
   });
 
-  // Assign
   card.querySelector('.assign-btn')?.addEventListener('click', async () => {
     const sel = card.querySelector('.assign-select');
     const proposalId = sel.value;
@@ -400,23 +464,19 @@ function wireCardHandlers(client) {
     await handleAssignProposal(client.id, proposalId);
   });
 
-  // Send login link
   card.querySelector('.send-link-btn')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     await handleSendLoginLink(client, btn);
   });
 
-  // Edit
   card.querySelector('.edit-btn')?.addEventListener('click', () => {
     handleEditClient(client);
   });
 
-  // Delete
   card.querySelector('.delete-btn')?.addEventListener('click', () => {
     handleDeleteClient(client);
   });
 
-  // Unassign individual proposals
   card.querySelectorAll('.unassign-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const assignmentId = e.currentTarget.dataset.assignmentId;
@@ -424,7 +484,6 @@ function wireCardHandlers(client) {
     });
   });
 
-  // Mark referral appointment complete (Phase 4.0c R2+)
   card.querySelectorAll('.mark-complete-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const referralId = e.currentTarget.dataset.referralId;
@@ -449,275 +508,4 @@ async function handleAddClient() {
   const { error } = await supabase
     .from('clients')
     .insert({
-      name, email, phone: phone || null,
-      address: address || null,
-      notes: notes || null,
-      created_by: ctx.admin.id,
-    });
-
-  saveClientBtn.disabled = false;
-
-  if (error) {
-    if (error.code === '23505') {
-      return showStatus('error', `A client with email "${email}" already exists.`);
-    }
-    return showStatus('error', `Could not save: ${error.message}`);
-  }
-
-  addForm.classList.remove('visible');
-  clearAddForm();
-  showStatus('success', `Added ${name}. Click their row to expand, then "Send login link" to invite them.`);
-  await loadClients();
-  render();
-}
-
-function clearAddForm() {
-  newName.value = '';
-  newEmail.value = '';
-  newPhone.value = '';
-  newAddress.value = '';
-  newNotes.value = '';
-}
-
-async function handleAssignProposal(clientId, proposalId) {
-  const { error } = await supabase
-    .from('client_proposals')
-    .insert({
-      client_id: clientId,
-      proposal_id: proposalId,
-      status: 'draft',
-    });
-  if (error) {
-    if (error.code === '23505') {
-      return showStatus('error', 'That proposal is already assigned to this client.');
-    }
-    return showStatus('error', `Could not assign: ${error.message}`);
-  }
-  showStatus('success', 'Proposal assigned.');
-  await loadClients();
-  render();
-}
-
-async function handleUnassign(assignmentId) {
-  if (!confirm('Remove this proposal assignment? The proposal itself is not deleted.')) return;
-  const { error } = await supabase
-    .from('client_proposals')
-    .delete()
-    .eq('id', assignmentId);
-  if (error) return showStatus('error', `Could not unassign: ${error.message}`);
-  showStatus('success', 'Unassigned.');
-  await loadClients();
-  render();
-}
-
-async function handleSendLoginLink(client, btn) {
-  btn.disabled = true;
-  const originalText = btn.textContent;
-  btn.textContent = 'Sending…';
-
-  const { error } = await sendMagicLink(client.email, '/client/dashboard.html');
-
-  if (error) {
-    showStatus('error', `Could not send: ${error.message}`);
-    btn.disabled = false;
-    btn.textContent = originalText;
-    return;
-  }
-
-  // Update all client_proposals in status='draft' to 'sent'
-  const draftIds = (client.client_proposals || [])
-    .filter(cp => cp.status === 'draft')
-    .map(cp => cp.id);
-
-  if (draftIds.length > 0) {
-    await supabase
-      .from('client_proposals')
-      .update({ status: 'sent', sent_at: new Date().toISOString() })
-      .in('id', draftIds);
-  }
-
-  showStatus('success', `Login link sent to ${client.email}. They'll receive an email from tim@mcmullen.properties with a sign-in link.`);
-  btn.disabled = false;
-  btn.textContent = 'Resend login link';
-
-  await loadClients();
-  render();
-}
-
-async function handleEditClient(client) {
-  const newNameVal = prompt('Full name:', client.name);
-  if (newNameVal === null) return;
-  const newPhoneVal = prompt('Phone:', client.phone || '');
-  if (newPhoneVal === null) return;
-  const newAddressVal = prompt('Address:', client.address || '');
-  if (newAddressVal === null) return;
-  const newNotesVal = prompt('Notes:', client.notes || '');
-  if (newNotesVal === null) return;
-
-  const { error } = await supabase
-    .from('clients')
-    .update({
-      name: newNameVal.trim() || client.name,
-      phone: newPhoneVal.trim() || null,
-      address: newAddressVal.trim() || null,
-      notes: newNotesVal.trim() || null,
-    })
-    .eq('id', client.id);
-
-  if (error) return showStatus('error', `Could not update: ${error.message}`);
-  showStatus('success', 'Client updated.');
-  await loadClients();
-  render();
-}
-
-async function handleDeleteClient(client) {
-  const count = (client.client_proposals || []).length;
-  const msg = count > 0
-    ? `Remove ${client.name}? This will also unassign ${count} proposal${count === 1 ? '' : 's'}. The proposals themselves won't be deleted. This can't be undone.`
-    : `Remove ${client.name}? This can't be undone.`;
-  if (!confirm(msg)) return;
-
-  const { error } = await supabase
-    .from('clients')
-    .delete()
-    .eq('id', client.id);
-
-  if (error) return showStatus('error', `Could not remove: ${error.message}`);
-  showStatus('success', `Removed ${client.name}.`);
-  ctx.expandedIds.delete(client.id);
-  await loadClients();
-  render();
-}
-
-// Phase 4.0c R2+: mark referral's design appointment complete via the API.
-// The API enforces auth (designer/master role) + ownership (clients.created_by
-// === auth.uid()) + atomic credit award. Browser-side just orchestrates.
-async function handleMarkComplete(referralId, btn) {
-  if (!confirm('Mark this design appointment as complete? This will award $500 credit to the referrer (capped at $2,500 total).')) return;
-
-  btn.disabled = true;
-  const originalText = btn.textContent;
-  btn.textContent = 'Marking…';
-
-  // Get fresh JWT for the API call
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    showStatus('error', 'Session expired. Please sign in again.');
-    btn.disabled = false;
-    btn.textContent = originalText;
-    return;
-  }
-
-  try {
-    const r = await fetch('/api/mark-appointment-completed', {
-      method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-      },
-      body: JSON.stringify({ referral_id: referralId }),
-    });
-    const data = await r.json();
-
-    if (!r.ok) {
-      showStatus('error', data.error || `API returned ${r.status}`);
-      btn.disabled = false;
-      btn.textContent = originalText;
-      return;
-    }
-
-    const newBalance = '$' + (Number(data.new_credit_cents || 0) / 100).toFixed(0);
-    const referrerName = data.referrer_name || 'the referrer';
-    const msg = data.credit_awarded
-      ? `Appointment complete! $500 credit added — ${referrerName} now at ${newBalance}.`
-      : `Appointment complete. ${referrerName} is at the $2,500 cap, so no additional credit was added.`;
-    showStatus('success', msg);
-
-    await loadClients();
-    render();
-  } catch (err) {
-    showStatus('error', `Network error: ${err.message}`);
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
-}
-
-// ── Slug / address helpers ─────────────────────────────────────────────────
-// A proposals row can have many published_proposals (one per publish event).
-// published_proposals doesn't have created_at, but the slug itself encodes
-// the date and version: "1728-whitham-ave-2026-04-22-3" = April 22, v3.
-// We parse those out to sort reliably, including when version > 9.
-function parseSlugSortKey(slug) {
-  if (!slug) return { date: '', version: 0 };
-  const match = String(slug).match(/(\d{4})-(\d{2})-(\d{2})(?:-(\d+))?$/);
-  if (!match) return { date: '', version: 0 };
-  return {
-    date: `${match[1]}-${match[2]}-${match[3]}`,
-    version: parseInt(match[4] || '1', 10),
-  };
-}
-
-function getLatestSlug(proposal) {
-  const pubs = proposal?.published_proposals;
-  if (!Array.isArray(pubs) || pubs.length === 0) return null;
-  const sorted = [...pubs].sort((a, b) => {
-    const ka = parseSlugSortKey(a.slug);
-    const kb = parseSlugSortKey(b.slug);
-    if (kb.date !== ka.date) return kb.date.localeCompare(ka.date);
-    return kb.version - ka.version;
-  });
-  return sorted[0]?.slug || null;
-}
-
-// Display name for a proposal — falls back through:
-//   1. proposals.address (preferred, human-edited)
-//   2. the latest slug, cleaned up ("1728-whitham-ave-2026-04-21-3" → "1728 Whitham Ave")
-//   3. "Untitled proposal"
-function getDisplayAddress(proposal) {
-  if (proposal?.address) return proposal.address;
-  const slug = getLatestSlug(proposal);
-  if (slug) {
-    // Strip a trailing YYYY-MM-DD(-N) and convert dashes → spaces, title-case.
-    const stripped = slug.replace(/-\d{4}-\d{2}-\d{2}(-\d+)?$/, '');
-    if (stripped) {
-      return stripped
-        .split('-')
-        .map(w => w ? w[0].toUpperCase() + w.slice(1) : w)
-        .join(' ');
-    }
-  }
-  return 'Untitled proposal';
-}
-
-// ── Utils ──────────────────────────────────────────────────────────────────
-function showStatus(type, msg) {
-  statusBox.className = `status visible ${type}`;
-  statusBox.textContent = msg;
-  statusBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  if (type === 'success') {
-    setTimeout(() => {
-      if (statusBox.textContent === msg) {
-        statusBox.className = 'status';
-        statusBox.textContent = '';
-      }
-    }, 5000);
-  }
-}
-
-function formatDate(iso) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  });
-}
-
-function escapeHtml(str) {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function escapeAttr(str) {
-  return escapeHtml(str);
-}
+      name, email, phon
