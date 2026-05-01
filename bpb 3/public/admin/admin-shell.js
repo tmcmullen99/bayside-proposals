@@ -10,10 +10,12 @@
 // 5B Part 1: added Designers tab (master-only) + new 'team' group.
 // 5C: added Events tab (designer-accessible) + new 'analytics' group;
 //     groundwork for the 5D dashboards that will live in the same group.
-// Phase 4 closeout: added Substitutions tab (designer-accessible) into
+// // Phase 4 closeout: added Substitutions tab (designer-accessible) into
 //     the existing 'operations' group.
 // 5F.3: added Notifications tab (designer-accessible) to 'analytics' group
 //     for managing first-view + daily digest preferences.
+// Phase 6.2: added Redesigns tab (designer-accessible) to 'operations' group
+//     for client-submitted geometric design change requests.
 //
 // Adding a future admin tool:
 //   1. Add an entry to TABS below
@@ -46,14 +48,14 @@ const TABS = [
     icon: '👤',
     description: 'Add, edit, and invite homeowner clients. Assign proposals, manage referrals, send login links.',
   },
-  {
-    id: 'substitutions',
-    label: 'Substitutions',
-    href: '/admin/substitutions.html',
+ {
+    id: 'client-redesigns',
+    label: 'Redesigns',
+    href: '/admin/client-redesigns.html',
     role: 'designer',
     group: 'operations',
-    icon: '↺',
-    description: 'Review homeowner material swap requests submitted from published proposals. Approve, reject, or mark applied.',
+    icon: '✏',
+    description: 'Review client design change requests — markups, photos of paper markup, and notes for changes beyond material swaps.',
   },
   {
     id: 'create-homeowner',
