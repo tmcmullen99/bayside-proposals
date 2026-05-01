@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Product Images · Bayside Proposal Builder</title>
+  <title>Product Images · Admin · Bayside Proposal Builder</title>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin-shell.css">
   <style>
+    /* Page-specific styles only — chrome lives in admin-shell.css */
     :root {
       --green: #5d7e69;
       --green-dark: #4a6654;
@@ -18,56 +20,6 @@
       --muted: #666;
       --danger: #b04040;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--charcoal);
-      background: #fafafa;
-      line-height: 1.6;
-      font-size: 15px;
-      min-height: 100vh;
-    }
-    a { color: var(--green-dark); }
-
-    .admin-header {
-      background: #fff;
-      border-bottom: 1px solid var(--border);
-      padding: 18px 32px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .admin-header h1 { font-size: 18px; font-weight: 600; color: var(--navy); }
-    .admin-header nav a {
-      font-size: 13px; text-decoration: none;
-      color: var(--muted); margin-right: 18px;
-    }
-    .admin-header nav a:hover { color: var(--green-dark); }
-
-    .shell { max-width: 1200px; margin: 0 auto; padding: 32px; }
-
-    .intro { margin-bottom: 28px; }
-    .eyebrow {
-      font-size: 11px; letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--green); font-weight: 600;
-      margin-bottom: 8px;
-    }
-    .intro h2 {
-      font-size: 28px; font-weight: 600;
-      color: var(--navy); margin-bottom: 10px;
-      letter-spacing: -0.01em;
-    }
-    .intro p { color: var(--muted); max-width: 680px; font-size: 15px; }
-    .intro-help {
-      margin-top: 14px;
-      padding: 14px 18px;
-      background: var(--green-soft);
-      border-left: 3px solid var(--green);
-      border-radius: 4px;
-      font-size: 13px;
-      color: var(--charcoal);
-      line-height: 1.6;
-    }
-    .intro-help strong { color: var(--navy); }
 
     .controls {
       background: #fff;
@@ -326,8 +278,6 @@
     .upload-status.visible { display: block; }
 
     @media (max-width: 640px) {
-      .admin-header { padding: 14px 18px; }
-      .shell { padding: 20px 16px; }
       .product-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
       .editor-body { padding: 18px 18px 22px; }
       .editor-head { padding: 18px 18px; }
@@ -336,83 +286,111 @@
   </style>
 </head>
 <body>
-  <header class="admin-header">
-    <h1>Product Images</h1>
-    <nav>
-      <a href="/admin/">← Admin home</a>
-      <a href="/admin/materials.html">Materials</a>
-      <a href="/admin/material-swatches.html">Swatches</a>
-    </nav>
-  </header>
 
-  <div class="shell">
-    <div class="intro">
-      <div class="eyebrow">Catalog management</div>
-      <h2>Product image galleries</h2>
-      <p>Manage the lifestyle photos for each product. A gallery applies to all color variants of that product — Catalina Grana's photos are shared across all 15 colors. Swatches handle the per-color visual; lifestyle photos handle the product context.</p>
-
-      <div class="intro-help">
-        <strong>How it works:</strong> Click a product card to open the gallery editor. Drag images in to add, drag thumbnails to reorder, click × to remove. Changes propagate to the homeowner catalog and editor materials picker immediately. Existing published proposal pages keep the images they were built with.
-      </div>
+<!-- Shared admin chrome (topbar + tab strip) — rendered by admin-shell.js -->
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge is-loading" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
     </div>
+  </div>
+</header>
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections"></nav>
 
-    <div class="controls">
-      <input type="search" id="searchInput" placeholder="Search products… (e.g. Catalina, Belair, Dimension)" autofocus>
-      <select id="filterCat">
-        <option value="all">All categories</option>
-      </select>
-      <select id="filterState">
-        <option value="all">All products</option>
-        <option value="has">With custom gallery</option>
-        <option value="missing">Without custom gallery</option>
-      </select>
-      <span class="counter" id="counter">loading…</span>
-    </div>
-
-    <div id="statusBanner" class="status"></div>
-
-    <div id="results">
-      <div class="loading"><span class="spinner-large"></span>Loading catalog…</div>
+<main class="ash-shell">
+  <div class="ash-intro">
+    <div class="ash-eyebrow">Catalog · Material images</div>
+    <h1 class="ash-title">Product image galleries</h1>
+    <p class="ash-lede">
+      Manage the lifestyle photos for each product. A gallery applies to all color variants of that product —
+      Catalina Grana's photos are shared across all 15 colors. Swatches handle the per-color visual; lifestyle photos
+      handle the product context. Master-only — alters catalog imagery in bulk.
+    </p>
+    <div style="margin-top:14px;padding:14px 18px;background:var(--green-soft);border-left:3px solid var(--green);border-radius:4px;font-size:13px;color:var(--charcoal);line-height:1.6;">
+      <strong style="color:var(--navy);">How it works:</strong> Click a product card to open the gallery editor.
+      Drag images in to add, drag thumbnails to reorder, click × to remove. Changes propagate to the homeowner catalog
+      and editor materials picker immediately. Existing published proposal pages keep the images they were built with.
     </div>
   </div>
 
-  <!-- Gallery editor modal -->
-  <div class="editor-backdrop" id="editorBackdrop" hidden>
-    <div class="editor" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
-      <div class="editor-head">
-        <div class="editor-head-info">
-          <div class="editor-head-mfr" id="editorMfr"></div>
-          <h2 id="editorTitle"></h2>
-          <div class="editor-head-sub" id="editorSub"></div>
-        </div>
-        <button type="button" class="editor-close" id="editorClose" aria-label="Close">×</button>
+  <div class="controls">
+    <input type="search" id="searchInput" placeholder="Search products… (e.g. Catalina, Belair, Dimension)" autofocus>
+    <select id="filterCat">
+      <option value="all">All categories</option>
+    </select>
+    <select id="filterState">
+      <option value="all">All products</option>
+      <option value="has">With custom gallery</option>
+      <option value="missing">Without custom gallery</option>
+    </select>
+    <span class="counter" id="counter">loading…</span>
+  </div>
+
+  <div id="statusBanner" class="status"></div>
+
+  <div id="results">
+    <div class="loading"><span class="spinner-large"></span>Loading catalog…</div>
+  </div>
+</main>
+
+<!-- Gallery editor modal -->
+<div class="editor-backdrop" id="editorBackdrop" hidden>
+  <div class="editor" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+    <div class="editor-head">
+      <div class="editor-head-info">
+        <div class="editor-head-mfr" id="editorMfr"></div>
+        <h2 id="editorTitle"></h2>
+        <div class="editor-head-sub" id="editorSub"></div>
       </div>
-      <div class="editor-body">
-        <div class="editor-section">
-          <div class="editor-section-label">Gallery (drag to reorder, hover for actions)</div>
-          <div class="gallery" id="gallery"></div>
-          <p id="galleryEmpty" style="color:var(--muted);font-size:13px;margin:12px 0 0;display:none;">No images yet. Drop a photo below to start the gallery.</p>
-        </div>
-        <div class="editor-section">
-          <div class="editor-section-label">Add images</div>
-          <label class="drop-zone" id="dropZone">
-            <strong>Drop images here or click to choose files</strong>
-            <span>JPG, PNG, or WebP · max 10MB each · multi-select supported</span>
-            <input type="file" accept="image/jpeg,image/png,image/webp" multiple id="fileInput">
-          </label>
-          <div id="uploadStatus" class="upload-status"></div>
-        </div>
-        <div class="editor-section">
-          <div class="editor-section-label">Color variants sharing this gallery</div>
-          <div class="variants-row" id="variantsRow"></div>
-        </div>
+      <button type="button" class="editor-close" id="editorClose" aria-label="Close">×</button>
+    </div>
+    <div class="editor-body">
+      <div class="editor-section">
+        <div class="editor-section-label">Gallery (drag to reorder, hover for actions)</div>
+        <div class="gallery" id="gallery"></div>
+        <p id="galleryEmpty" style="color:var(--muted);font-size:13px;margin:12px 0 0;display:none;">No images yet. Drop a photo below to start the gallery.</p>
+      </div>
+      <div class="editor-section">
+        <div class="editor-section-label">Add images</div>
+        <label class="drop-zone" id="dropZone">
+          <strong>Drop images here or click to choose files</strong>
+          <span>JPG, PNG, or WebP · max 10MB each · multi-select supported</span>
+          <input type="file" accept="image/jpeg,image/png,image/webp" multiple id="fileInput">
+        </label>
+        <div id="uploadStatus" class="upload-status"></div>
+      </div>
+      <div class="editor-section">
+        <div class="editor-section-label">Color variants sharing this gallery</div>
+        <div class="variants-row" id="variantsRow"></div>
       </div>
     </div>
   </div>
+</div>
 
-  <script type="module">
-    import { supabase } from '/js/supabase-client.js';
+<!-- Render the shared shell chrome (topbar role badge + tab strip) -->
+<script type="module" src="/admin/admin-shell.js"></script>
 
+<!-- Page-specific logic. Wrapped in `if (await requireMaster())` so designers
+     who navigate directly to this URL get redirected before any catalog
+     loading or upload handlers run. -->
+<script type="module">
+  import { supabase } from '/js/supabase-client.js';
+  import { requireMaster } from '/js/auth-util.js';
+
+  // Phase 5B P2: master-only URL gate. Designers get redirected to /admin/.
+  // The admin-shell.js still renders the topbar/tabs above; this just
+  // prevents the catalog logic from running for non-masters.
+  if (await requireMaster()) runApp();
+
+  function runApp() {
     const STORAGE_BUCKET = 'material-images';
     const STORAGE_PUBLIC_BASE = 'https://gfgbypcnxkschnfsitfb.supabase.co/storage/v1/object/public/' + STORAGE_BUCKET + '/';
 
@@ -630,7 +608,6 @@
           dragSrcIdx = Number(item.dataset.idx);
           item.classList.add('dragging');
           e.dataTransfer.effectAllowed = 'move';
-          // Required for Firefox
           e.dataTransfer.setData('text/plain', String(dragSrcIdx));
         });
         item.addEventListener('dragend', () => {
@@ -662,7 +639,6 @@
       const img = activeProduct.images.find(x => x.id === id);
       if (!img) return;
 
-      // Delete storage object first (best effort), then DB row.
       if (img.storage_path) {
         await supabase.storage.from(STORAGE_BUCKET).remove([img.storage_path]).catch(() => {});
       }
@@ -673,20 +649,16 @@
       }
       activeProduct.images = activeProduct.images.filter(x => x.id !== id);
       renderGallery();
-      // Update the catalog grid card image if needed
       bumpProductCardImage(activeProduct);
       showStatus('Image removed.', 'success');
     }
 
     async function reorderImage(srcIdx, destIdx) {
-      // Reorder client-side first
       const moved = activeProduct.images.splice(srcIdx, 1)[0];
       activeProduct.images.splice(destIdx, 0, moved);
 
-      // Rewrite display_order with even spacing so subsequent inserts have room
       const updates = activeProduct.images.map((img, i) => ({ id: img.id, display_order: (i + 1) * 100 }));
 
-      // Apply each update (simple sequential — N is small, usually <10)
       for (const u of updates) {
         const { error } = await supabase
           .from('product_images')
@@ -694,7 +666,6 @@
           .eq('id', u.id);
         if (error) {
           showStatus('Reorder failed: ' + error.message, 'error');
-          // Refresh to reset state
           await refreshActiveProductImages();
           return;
         }
@@ -721,7 +692,6 @@
     }
 
     function bumpProductCardImage(product) {
-      // Rerender just the catalog card for this product so the grid stays in sync
       const card = results.querySelector('.product-card[data-key="' + product.key.replace(/"/g, '\\"') + '"]');
       if (!card) return;
       card.outerHTML = renderProductCard(product);
@@ -774,7 +744,6 @@
     async function uploadOne(file) {
       const ext = file.type === 'image/png' ? 'png' :
                   file.type === 'image/webp' ? 'webp' : 'jpg';
-      // Path: products/{manufacturer-slug}/{product-slug}/{uuid}.{ext}
       const slugMfr  = slugify(activeProduct.manufacturer);
       const slugProd = slugify(activeProduct.name);
       const fileId   = crypto.randomUUID();
@@ -800,7 +769,6 @@
         uploaded_by: user ? user.id : null,
       }).select().single();
       if (insErr) {
-        // best-effort cleanup of orphaned storage object
         await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]).catch(() => {});
         throw insErr;
       }
@@ -833,6 +801,8 @@
     function escapeAttr(s) { return escapeHtml(s); }
 
     loadCatalog();
-  </script>
+  }
+</script>
+
 </body>
 </html>
