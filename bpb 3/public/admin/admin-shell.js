@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /admin/admin-shell.js — Phase 5A + 5B Part 1 + 5C + Phase 4 closeout
+// /admin/admin-shell.js — Phase 5A + 5B Part 1 + 5C + Phase 4 closeout + 5F
 //
 // The master admin shell. Renders:
 //   1. The role badge + email in the topbar
@@ -11,8 +11,9 @@
 // 5C: added Events tab (designer-accessible) + new 'analytics' group;
 //     groundwork for the 5D dashboards that will live in the same group.
 // Phase 4 closeout: added Substitutions tab (designer-accessible) into
-//     the existing 'operations' group — review pending homeowner material
-//     swap requests submitted from published proposals.
+//     the existing 'operations' group.
+// 5F.3: added Notifications tab (designer-accessible) to 'analytics' group
+//     for managing first-view + daily digest preferences.
 //
 // Adding a future admin tool:
 //   1. Add an entry to TABS below
@@ -22,21 +23,6 @@
 
 import { requireDesigner, signOut } from '/js/auth-util.js';
 
-// ───────────────────────────────────────────────────────────────────────────
-// Tab registry — single source of truth.
-//
-// Fields:
-//   id           unique key for this tab. Used for the active-state check.
-//   label        what shows in the tab + tile.
-//   href         the page path. Use trailing / for the landing page.
-//   role         'master' = master only. 'designer' = designer + master.
-//   group        landing-page tile bucket. 'main' shows first.
-//   icon         single emoji or short character. Keep it short.
-//   description  shown on the landing tile, not in the tab. One sentence.
-//
-// Order of appearance in the tab strip and tile grid follows this array's
-// order, so put high-traffic tools first within each group.
-// ───────────────────────────────────────────────────────────────────────────
 const TABS = [
   // Landing
   {
@@ -47,10 +33,10 @@ const TABS = [
     group: 'main',
     icon: '⌂',
     description: 'Quick access to every admin tool you have permission for.',
-    hideFromLanding: true, // already on the landing — don't list ourselves
+    hideFromLanding: true,
   },
 
-  // Operations — daily client-management work
+  // Operations
   {
     id: 'clients',
     label: 'Clients',
@@ -88,7 +74,7 @@ const TABS = [
     description: 'Edit interactive site-map regions and material assignments for a published proposal.',
   },
 
-  // Catalog — material library + media
+  // Catalog
   {
     id: 'materials',
     label: 'Materials',
@@ -144,7 +130,7 @@ const TABS = [
     description: 'Refresh the Belgard materials catalog from the manufacturer. Master-only — high blast radius.',
   },
 
-  // Team — staff account management
+  // Team
   {
     id: 'designers',
     label: 'Designers',
@@ -155,7 +141,7 @@ const TABS = [
     description: 'List, edit, deactivate, and invite designer/master accounts. Promote or demote roles.',
   },
 
-  // Analytics — engagement and conversion data (5C ships, 5D will expand)
+  // Analytics
   {
     id: 'events',
     label: 'Events',
@@ -165,8 +151,17 @@ const TABS = [
     icon: '⚡',
     description: 'Recent homeowner engagement events captured from published proposals. Sanity-check view; dashboards are coming in 5D.',
   },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    href: '/admin/notifications.html',
+    role: 'designer',
+    group: 'analytics',
+    icon: '🔔',
+    description: 'Get pinged when homeowners view your proposals. Manage first-view emails, daily digest, and quiet hours.',
+  },
 
-  // Tools — utilities and one-offs
+  // Tools
   {
     id: 'install-guide',
     label: 'Install guide',
@@ -196,7 +191,6 @@ const TABS = [
   },
 ];
 
-// Group definitions for landing-page rendering. Order here is render order.
 const GROUPS = [
   { id: 'operations', label: 'Operations',         desc: 'Day-to-day client management.' },
   { id: 'catalog',    label: 'Material catalog',   desc: 'The library of materials, swatches, and install PDFs that powers every proposal.' },
@@ -205,13 +199,9 @@ const GROUPS = [
   { id: 'tools',      label: 'Tools & maintenance',desc: 'Less-frequent utilities. Most are master-only.' },
 ];
 
-// ───────────────────────────────────────────────────────────────────────────
-// Boot
-// ───────────────────────────────────────────────────────────────────────────
-
 (async function init() {
   const auth = await requireDesigner();
-  if (!auth) return; // redirected
+  if (!auth) return;
 
   const { user, profile } = auth;
   const isMaster = profile.role === 'master';
@@ -223,10 +213,6 @@ const GROUPS = [
   document.getElementById('ashSignOutBtn').addEventListener('click', signOut);
 })();
 
-// ───────────────────────────────────────────────────────────────────────────
-// Topbar
-// ───────────────────────────────────────────────────────────────────────────
-
 function renderTopbar(user, profile, isMaster) {
   const badge = document.getElementById('ashRoleBadge');
   badge.textContent = isMaster ? 'Master' : 'Designer';
@@ -237,20 +223,13 @@ function renderTopbar(user, profile, isMaster) {
   emailEl.textContent = profile.email || user.email || '';
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Tab strip
-// ───────────────────────────────────────────────────────────────────────────
-
 function renderTabs(isMaster) {
   const wrap = document.getElementById('ashTabs');
   if (!wrap) return;
 
   const visible = TABS.filter(t => isMaster || t.role === 'designer');
 
-  // Active tab detection: prefer exact href match. For nested admin pages
-  // not in TABS (e.g. a deep-link), nothing is active and Overview link
-  // remains the way home.
-  const here = window.location.pathname.replace(/\/$/, '/'); // normalize trailing /
+  const here = window.location.pathname.replace(/\/$/, '/');
   const activeId = (visible.find(t => normalizePath(t.href) === normalizePath(here)) || {}).id;
 
   const inner = document.createElement('div');
@@ -275,16 +254,10 @@ function renderTabs(isMaster) {
 function normalizePath(p) {
   if (!p) return '';
   let s = p.split('?')[0].split('#')[0];
-  // Treat /admin/ and /admin/index.html as the same.
   if (s === '/admin/index.html') s = '/admin/';
-  // Remove trailing index.html generally
   s = s.replace(/\/index\.html$/, '/');
   return s;
 }
-
-// ───────────────────────────────────────────────────────────────────────────
-// Landing — only rendered on /admin/ itself
-// ───────────────────────────────────────────────────────────────────────────
 
 function renderLanding(profile, isMaster) {
   const landing = document.getElementById('ashLanding');
@@ -292,12 +265,10 @@ function renderLanding(profile, isMaster) {
 
   const here = normalizePath(window.location.pathname);
   if (here !== '/admin/') {
-    // We're on a nested admin page — that page renders its own content.
     landing.style.display = 'none';
     return;
   }
 
-  // Intro
   const eyebrow = document.getElementById('ashIntroEyebrow');
   const title = document.getElementById('ashIntroTitle');
   const lede = document.getElementById('ashIntroLede');
@@ -309,7 +280,6 @@ function renderLanding(profile, isMaster) {
     ? 'Everything in BPB. Tools tagged with M are master-only — they affect the catalog, infrastructure, or other designers\' work.'
     : 'Tools you use day-to-day. A few admin utilities aren\'t shown here because they\'re reserved for master access.';
 
-  // Tile groups
   const groupsWrap = document.getElementById('ashTileGroups');
   groupsWrap.innerHTML = '';
 
@@ -352,10 +322,6 @@ function renderTile(t) {
     </a>
   `;
 }
-
-// ───────────────────────────────────────────────────────────────────────────
-// Utilities
-// ───────────────────────────────────────────────────────────────────────────
 
 function escapeHtml(str) {
   if (str == null) return '';
