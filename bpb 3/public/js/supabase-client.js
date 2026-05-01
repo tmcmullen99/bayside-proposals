@@ -24,6 +24,13 @@
 // Login page (/login.html) imports this module too (to get the supabase
 // client for sign-in calls), so the gate explicitly skips itself when
 // running on the login page.
+//
+// Phase 5B P2: the floating auth pill is suppressed on pages that use
+// the shared admin shell (admin-shell.css/js), since the shell renders
+// its own role badge + sign-out in the sticky topbar. Two overlapping
+// auth widgets looked broken. The pill still renders on dashboard.html,
+// editor.html, site-map.html, and any other page that doesn't adopt
+// the shell — those still need the floating pill.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -103,6 +110,13 @@ if (!isPublicAdminPath()) {
 // ─── Auth pill (logged-in user indicator + Sign out button) ─────────────────
 async function injectAuthPill() {
   if (document.getElementById('bpb-auth-pill')) return;
+
+  // Phase 5B P2: skip the floating pill on pages that use the shared
+  // admin shell. The shell already shows role + email + sign-out in its
+  // sticky topbar (.ash-topbar / #ashRoleBadge / #ashSignOutBtn), and
+  // two overlapping auth widgets looked broken. Non-admin-shell pages
+  // (dashboard, editor, site-map, etc.) still get the pill.
+  if (document.querySelector('.ash-topbar')) return;
 
   // Get user info
   let user = null;
