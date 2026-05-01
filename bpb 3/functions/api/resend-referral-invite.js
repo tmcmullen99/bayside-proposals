@@ -20,7 +20,14 @@
 // send-referral-invite.js because Pages Functions don't share a module
 // system across files cheaply. Per Karpathy "simplicity first," copy-paste
 // is preferred over a shared utility for two callsites.
+//
+// Phase 4 closeout (R3): hardcoded PUBLIC_BASE_URL replaces the previous
+// `new URL(request.url).origin` derivation. Emails always need to point
+// at the real production domain regardless of which origin the function
+// was invoked through (preview deploys, *.pages.dev, etc).
 // ═══════════════════════════════════════════════════════════════════════════
+
+const PUBLIC_BASE_URL = 'https://portal-baysidepavers.com';
 
 export async function onRequestPost({ request, env }) {
   const json = (status, body) => new Response(JSON.stringify(body), {
@@ -144,8 +151,9 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ─── 7. Re-send the invite email via Resend ──────────────────────────
-    const origin       = new URL(request.url).origin;
-    const landingUrl   = origin + '/refer/?t=' + encodeURIComponent(referral.scheduling_token);
+    // Phase 4 closeout (R3): use PUBLIC_BASE_URL constant rather than
+    // deriving from request.url so emails always link to the real domain.
+    const landingUrl   = PUBLIC_BASE_URL + '/refer/?t=' + encodeURIComponent(referral.scheduling_token);
     const refeeFirst   = (referral.referred_name || '').split(/[\s,&]+/)[0] || 'there';
     const referrerName = callerClient.name || callerClient.email;
 
