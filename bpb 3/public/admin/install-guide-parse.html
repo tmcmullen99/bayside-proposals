@@ -3,47 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Install Guide Parse · Proposal Builder</title>
-<link rel="stylesheet" href="/styles.css">
+<title>Install Guide Parse · Admin · Bayside Proposal Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin-shell.css">
 <style>
-  /* Admin-page-specific styles. Prefix .ig- (Install Guide) to avoid
-     collisions with .bs- (Belgard Sync) on the sibling admin page. */
-  body { background: #faf8f3; }
-
-  .ig-shell {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 32px 28px 96px;
-  }
-
-  .ig-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 28px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #e5e5e5;
-  }
-  .ig-header h1 {
-    font-size: 26px;
-    font-weight: 600;
-    color: #1a1f2e;
-    margin: 0;
-  }
-  .ig-eyebrow {
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #5d7e69;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-  .ig-back-link {
-    font-size: 13px;
-    color: #666;
-    text-decoration: none;
-  }
-  .ig-back-link:hover { color: #1a1f2e; }
+  /* Page-specific styles only — chrome lives in admin-shell.css.
+     All page classes prefixed .ig- (Install Guide). */
 
   /* Stats strip */
   .ig-stats {
@@ -105,7 +70,7 @@
     font-size: 12px;
     color: #5d7e69;
     text-decoration: none;
-    font-family: 'SF Mono', Menlo, monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
   }
   .ig-pdf-link:hover { background: #f5f5f5; color: #1a1f2e; }
 
@@ -119,6 +84,7 @@
     font-size: 14px;
     cursor: pointer;
     transition: background 0.15s;
+    font-family: inherit;
   }
   .ig-btn-primary { background: #5d7e69; color: #fff; }
   .ig-btn-primary:hover { background: #4a6654; }
@@ -189,7 +155,7 @@
   .ig-section-pages {
     font-size: 11px;
     color: #888;
-    font-family: 'SF Mono', Menlo, monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
   }
   .ig-section-key-badge {
     font-size: 10px;
@@ -316,14 +282,35 @@
 </head>
 <body>
 
-<div class="ig-shell">
-  <header class="ig-header">
-    <div>
-      <div class="ig-eyebrow">Admin tool</div>
-      <h1>Install guide parse</h1>
+<!-- Shared admin chrome (topbar + tab strip) — rendered by admin-shell.js -->
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge is-loading" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
     </div>
-    <a href="/dashboard.html" class="ig-back-link">← Back to dashboard</a>
-  </header>
+  </div>
+</header>
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections"></nav>
+
+<main class="ash-shell">
+  <div class="ash-intro">
+    <div class="ash-eyebrow">Tools · Install guide</div>
+    <h1 class="ash-title">Install guide parse</h1>
+    <p class="ash-lede">
+      Parse the Bayside install-guide PDF into structured sections. Master-only.
+      Claude reads the master Belgard PDF natively and extracts ~5 ICPI-standard prep sections,
+      each linkable to the catalog categories the section applies to. Sections drive the dynamic
+      "Why preparation matters" content on published proposals.
+    </p>
+  </div>
 
   <!-- Stats strip -->
   <div class="ig-stats">
@@ -418,8 +405,12 @@
     </p>
     <button id="igDoneReload" class="ig-btn ig-btn-secondary">Reload page</button>
   </section>
-</div>
+</main>
 
+<!-- Render the shared shell chrome (topbar role badge + tab strip) -->
+<script type="module" src="/admin/admin-shell.js"></script>
+
+<!-- Page-specific logic (already has master URL gate from Phase 5B P2 Batch 1) -->
 <script type="module" src="/js/admin-install-guide.js"></script>
 
 </body>
