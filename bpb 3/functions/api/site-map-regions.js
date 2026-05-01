@@ -1,7 +1,7 @@
 /**
  * BPB Phase 1A — Site Map Regions CRUD (extended for Phase 1B.3 multi-material)
  *
- * GET    /api/site-map-regions?proposal_id=...    → regions + backdrop + sections + materials
+ * GET    /api/site-map-regions?proposal_id=...    → regions + backdrop + sections + materials + scale
  * POST   /api/site-map-regions                    → bulk upsert regions + reconcile region-material join
  * DELETE /api/site-map-regions?id=...             → delete one region
  *
@@ -28,6 +28,12 @@
  *   • POST body's per-region object accepts an optional `materials` array of
  *     the same shape; after region inserts/updates settle (and we have stable
  *     IDs), the join rows for those regions are replaced atomically.
+ *
+ * Phase 6.1 change (Cam To Plan import):
+ *   • GET response also includes `scale`, the pixels-per-foot calibration
+ *     stored on proposals.site_plan_scale (JSONB, NULL when not calibrated).
+ *     Saving the scale itself is handled by /api/site-map-scale, kept
+ *     separate to avoid coupling calibration to the bulk regions save.
  */
 
 const CORS_HEADERS = {
@@ -71,15 +77,12 @@ function validateRegion(r) {
       return { ok: false, error: 'Polygon vertices must be {x,y} with 0<=value<=1' };
     }
   }
-  // area_sqft / area_lnft optional, but if provided must be numbers >= 0
   if (r.area_sqft != null && (typeof r.area_sqft !== 'number' || r.area_sqft < 0)) {
     return { ok: false, error: 'area_sqft must be a non-negative number' };
   }
   if (r.area_lnft != null && (typeof r.area_lnft !== 'number' || r.area_lnft < 0)) {
     return { ok: false, error: 'area_lnft must be a non-negative number' };
   }
-  // Phase 1B.3: materials is optional. If present, must be an array of
-  // { proposal_material_id: uuid string, display_order?: number }.
   if (r.materials != null) {
     if (!Array.isArray(r.materials)) {
       return { ok: false, error: 'Region.materials must be an array' };
@@ -102,7 +105,7 @@ export async function onRequestOptions() {
 
 // =============================================================================
 // GET — list regions + per-region material assignments + proposal-level
-// materials list (with catalog joins) + sections + backdrop
+// materials list (with catalog joins) + sections + backdrop + scale (Phase 6.1)
 // =============================================================================
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -118,10 +121,6 @@ export async function onRequestGet(context) {
     apikey: env.SUPABASE_SERVICE_ROLE_KEY,
   };
 
-  // Regions with embedded join-table rows. PostgREST follows the FK on
-  // proposal_region_materials.region_id and exposes the rows under the alias
-  // `materials` we declare here. We sort them by display_order in JS below
-  // because PostgREST embedded ordering syntax is awkward.
   const regionsResp = await fetch(
     `${env.SUPABASE_URL}/rest/v1/proposal_regions`
       + `?proposal_id=eq.${proposalId}`
@@ -142,11 +141,11 @@ export async function onRequestGet(context) {
     }
   }
 
-  // Backdrop info — single row from proposals
+  // Backdrop info + Phase 6.1 scale — single row from proposals
   const propResp = await fetch(
     `${env.SUPABASE_URL}/rest/v1/proposals`
       + `?id=eq.${proposalId}`
-      + `&select=site_plan_backdrop_url,site_plan_backdrop_width,site_plan_backdrop_height`,
+      + `&select=site_plan_backdrop_url,site_plan_backdrop_width,site_plan_backdrop_height,site_plan_scale`,
     { headers }
   );
   if (!propResp.ok) {
@@ -154,9 +153,17 @@ export async function onRequestGet(context) {
     return jsonResponse({ error: 'DB read failed (proposal)', detail: errText }, 502);
   }
   const proposalArr = await propResp.json();
-  const backdrop = proposalArr[0] || null;
+  const proposalRow = proposalArr[0] || null;
+  // Split backdrop and scale into separate top-level fields so the client
+  // can treat them independently — calibration is per-image but reuses the
+  // same proposals row to avoid a fourth round-trip.
+  const backdrop = proposalRow ? {
+    site_plan_backdrop_url: proposalRow.site_plan_backdrop_url,
+    site_plan_backdrop_width: proposalRow.site_plan_backdrop_width,
+    site_plan_backdrop_height: proposalRow.site_plan_backdrop_height,
+  } : null;
+  const scale = (proposalRow && proposalRow.site_plan_scale) || null;
 
-  // Phase 1B — bid sections (powers per-region Section dropdown)
   const sectionsResp = await fetch(
     `${env.SUPABASE_URL}/rest/v1/proposal_sections`
       + `?proposal_id=eq.${proposalId}`
@@ -170,9 +177,6 @@ export async function onRequestGet(context) {
   }
   const sections = await sectionsResp.json();
 
-  // Phase 1B.3 — proposal_materials with embedded catalog rows (Belgard or
-  // third-party) for the picker. We only request the catalog fields the
-  // labeling tool actually renders, to keep the response small.
   const materialsResp = await fetch(
     `${env.SUPABASE_URL}/rest/v1/proposal_materials`
       + `?proposal_id=eq.${proposalId}`
@@ -189,11 +193,12 @@ export async function onRequestGet(context) {
   }
   const materials = await materialsResp.json();
 
-  return jsonResponse({ regions, backdrop, sections, materials });
+  return jsonResponse({ regions, backdrop, sections, materials, scale });
 }
 
 // =============================================================================
 // POST — bulk upsert regions for one proposal, then reconcile region-material join
+// (unchanged from Phase 1B.3 — scale lives on /api/site-map-scale)
 // =============================================================================
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -213,7 +218,6 @@ export async function onRequestPost(context) {
     return jsonResponse({ error: 'regions must be an array' }, 400);
   }
 
-  // Validate every region before touching the DB
   for (let i = 0; i < regions.length; i++) {
     const v = validateRegion(regions[i]);
     if (!v.ok) {
@@ -227,7 +231,6 @@ export async function onRequestPost(context) {
     'Content-Type': 'application/json',
   };
 
-  // 1) Read existing region ids for this proposal
   const existingResp = await fetch(
     `${env.SUPABASE_URL}/rest/v1/proposal_regions?proposal_id=eq.${proposal_id}&select=id`,
     { headers }
@@ -239,14 +242,11 @@ export async function onRequestPost(context) {
   const existing = await existingResp.json();
   const existingIds = new Set(existing.map((r) => r.id));
 
-  // 2) Split incoming regions into to-insert / to-update.
-  //    Track the materials side-data separately, indexed in parallel arrays
-  //    so we can map back to stable region IDs after step 5 returns.
-  const toInsert = [];        // rows for INSERT
-  const toUpdate = [];        // rows for PATCH (each has .id)
+  const toInsert = [];
+  const toUpdate = [];
   const incomingIds = new Set();
-  const insertMaterials = []; // index aligned with toInsert
-  const updateMaterials = {}; // keyed by region.id
+  const insertMaterials = [];
+  const updateMaterials = {};
 
   for (let i = 0; i < regions.length; i++) {
     const r = regions[i];
@@ -258,8 +258,6 @@ export async function onRequestPost(context) {
       polygon: r.polygon,
       area_sqft: r.area_sqft ?? null,
       area_lnft: r.area_lnft ?? null,
-      // legacy single-FK column kept on the row schema but never set by Phase 1B.3
-      // — the join table is authoritative now.
       proposal_material_id: r.proposal_material_id ?? null,
       proposal_section_id: r.proposal_section_id ?? null,
     };
@@ -273,8 +271,6 @@ export async function onRequestPost(context) {
     }
   }
 
-  // 3) Delete any region not in the incoming set. CASCADE on the
-  //    proposal_region_materials.region_id FK drops their join rows too.
   const toDelete = [...existingIds].filter((id) => !incomingIds.has(id));
   if (toDelete.length > 0) {
     const idList = toDelete.map((id) => `"${id}"`).join(',');
@@ -288,7 +284,6 @@ export async function onRequestPost(context) {
     }
   }
 
-  // 4) Update existing rows (PATCH one by one — small list, simpler than bulk upsert)
   for (const row of toUpdate) {
     const { id, ...patch } = row;
     const updResp = await fetch(
@@ -301,7 +296,6 @@ export async function onRequestPost(context) {
     }
   }
 
-  // 5) Insert new rows (single batched POST), get IDs back via Prefer
   let inserted = [];
   if (toInsert.length > 0) {
     const insResp = await fetch(`${env.SUPABASE_URL}/rest/v1/proposal_regions`, {
@@ -316,11 +310,6 @@ export async function onRequestPost(context) {
     inserted = await insResp.json();
   }
 
-  // 6) [Phase 1B.3] Reconcile proposal_region_materials.
-  //    For every region we just upserted (updates + inserts), delete its
-  //    existing join rows in one batched IN(...) call, then INSERT the new
-  //    set with explicit display_order. Deleted regions had their join rows
-  //    dropped by CASCADE in step 3 — nothing to do for them here.
   const upsertedRegionIds = [];
   const newJoinRows = [];
 
@@ -371,9 +360,6 @@ export async function onRequestPost(context) {
     }
   }
 
-  // 7) Return final state — re-read regions with embedded materials so the
-  //    client gets the same shape as GET (no need for a separate refetch
-  //    on the labeling tool side).
   const finalResp = await fetch(
     `${env.SUPABASE_URL}/rest/v1/proposal_regions`
       + `?proposal_id=eq.${proposal_id}`
