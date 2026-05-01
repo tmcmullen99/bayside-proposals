@@ -25,10 +25,17 @@
  *     so Cmd+Z reverses one click per stroke.
  *
  * Phase 4.1 Sprint A: McMullen palette → Bayside palette for non-region UI.
- *   - Polygon name label fill: #1a1f2e → #353535 (charcoal)
- *   - Edge-insert "+" indicator stroke: #10b981 → #5d7e69 (Bayside green)
- *   - Draft polygon first-vertex marker: #10b981 → #5d7e69 (Bayside green)
- *   - REGION_COLORS array intentionally unchanged (functional polygon hues)
+ *
+ * Phase 6.1 (Cam To Plan import) additions — all additive, no existing behavior changed:
+ *   - state.scale: { pixelsPerFoot, p1Frac, p2Frac, realDistanceInches, calibratedAt } | null
+ *   - state.calibration: in-progress calibration capture (idle | awaiting_p1 | awaiting_p2 | awaiting_distance)
+ *   - "Set Scale" header button → enters calibration mode
+ *   - Length parser: "60' 10\"", "60'10\"", "60.83'", "729\"", "729 in", "60 ft 10 in" → inches
+ *   - Length formatter: inches → "60' 10\"" or "60' 10 1/4\"" (rounded to nearest 1/4")
+ *   - Edge labels on closed polygons (when scale set), filtered to edges ≥ 12"
+ *   - Auto-compute area_sqft via shoelace on polygon close + vertex-edit commits
+ *   - Wizard hints when ?wizard=1 in URL — top-right card guiding upload → calibrate → trace
+ *   - Scale persists immediately to /api/site-map-scale on calibration commit
  */
 
 // ---------------------------------------------------------------------------
@@ -36,21 +43,25 @@
 // ---------------------------------------------------------------------------
 const state = {
   proposalId: null,
-  backdrop: null,            // { url, width, height } or null
-  backdropImg: null,         // HTMLImageElement
-  regions: [],               // [{ id?, name, polygon:[{x,y}], area_sqft, area_lnft, display_order, proposal_section_id, materials:[{proposal_material_id, display_order}], _color }]
+  backdrop: null,
+  backdropImg: null,
+  regions: [],
   selectedRegionIdx: -1,
-  draftPolygon: null,        // { points:[{x,y}] } during draw mode, null otherwise
-  drag: null,                // { regionIdx, vertexIdx } during vertex drag
-  hoveredVertex: null,       // { regionIdx, vertexIdx } for visual feedback
-  cursorPx: null,            // { x, y } current mouse position in canvas px (for rubber-band preview during draft)
-  polygonDrag: null,         // { regionIdx, lastFrac:{x,y} } when dragging an entire polygon by its interior
-  hoveredEdge: null,         // { regionIdx, edgeIdx, point:{x,y frac} } when cursor is over an edge of the selected polygon
-  sections: [],              // [{ id, name, display_order }] — proposal's bid sections (Phase 1B click-to-link target)
-  materials: [],             // [{ id, material_source, belgard_material:{...}|null, third_party_material:{...}|null, ... }] — Phase 1B.3 multi-material picker source
+  draftPolygon: null,
+  drag: null,
+  hoveredVertex: null,
+  cursorPx: null,
+  polygonDrag: null,
+  hoveredEdge: null,
+  sections: [],
+  materials: [],
+
+  // ── Phase 6.1: scale & calibration ─────────────────────────────────────
+  scale: null,        // { pixelsPerFoot, p1Frac, p2Frac, realDistanceInches, calibratedAt } | null
+  calibration: null,  // { step:'awaiting_p1'|'awaiting_p2'|'awaiting_distance', p1Frac?, p2Frac? }
+  wizard: false,      // true when ?wizard=1 in URL
 };
 
-// Distinct colors for region overlays — cycled by region index
 const REGION_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
   '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
@@ -59,62 +70,26 @@ const REGION_COLORS = [
 function colorForIndex(i) { return REGION_COLORS[i % REGION_COLORS.length]; }
 
 // ---------------------------------------------------------------------------
-// Undo / Redo stack
-//
-// We snapshot state.regions at every discrete user action. The snapshot is a
-// deep-cloned regions array (JSON round-trip — they're plain {x,y,name,...}
-// objects, no class instances or circular refs).
-//
-// Stack model:
-//   - past: snapshots BEFORE recent actions (oldest first). Bounded to UNDO_LIMIT.
-//   - future: snapshots AFTER actions that have been undone. Cleared on any
-//     fresh action (you can't redo after a new edit — same as VS Code, Figma).
-//
-// pushUndoSnapshot(label) is called at every commit point: vertex placed,
-// polygon closed, vertex/polygon drag finished, vertex/polygon/region deleted,
-// region renamed, sqft/lnft edited (debounced), edge insert, polygon translate,
-// section change, material toggle.
-// Save All does NOT push a snapshot (it's not a state change, just persistence).
-//
-// Saves don't clear the stack — Tim can save, then undo, then save again. The
-// CF Function bulk-upserts whatever's currently in state.regions, so next save
-// just persists the post-undo state.
+// Undo / Redo stack (unchanged)
 // ---------------------------------------------------------------------------
 const UNDO_LIMIT = 50;
-const undoStack = {
-  past: [],   // [{ regions: [...], label: '...' }]  oldest first
-  future: [], // [{ regions: [...], label: '...' }]  newest first (top-of-stack semantics)
-};
+const undoStack = { past: [], future: [] };
 
-/** Deep-clone the regions array. JSON round-trip is safe — no class instances. */
-function cloneRegions() {
-  return JSON.parse(JSON.stringify(state.regions));
-}
+function cloneRegions() { return JSON.parse(JSON.stringify(state.regions)); }
 
-/** Push the CURRENT state onto the undo stack, then clear the redo stack.
- *  Call BEFORE mutating state, so that undo can restore the pre-mutation snapshot.
- *  `label` is for status-bar feedback during undo/redo. */
 function pushUndoSnapshot(label) {
   undoStack.past.push({ regions: cloneRegions(), label });
-  if (undoStack.past.length > UNDO_LIMIT) {
-    undoStack.past.shift();  // drop oldest
-  }
-  undoStack.future = [];  // any fresh edit invalidates redo history
+  if (undoStack.past.length > UNDO_LIMIT) undoStack.past.shift();
+  undoStack.future = [];
 }
 
-/** Undo the most recent action. */
 function undo() {
-  if (undoStack.past.length === 0) {
-    setStatus('Nothing to undo');
-    return;
-  }
+  if (undoStack.past.length === 0) { setStatus('Nothing to undo'); return; }
   const currentLabel = undoStack.past[undoStack.past.length - 1].label;
   undoStack.future.push({ regions: cloneRegions(), label: currentLabel });
   const prev = undoStack.past.pop();
   state.regions = prev.regions;
-  if (state.selectedRegionIdx >= state.regions.length) {
-    state.selectedRegionIdx = -1;
-  }
+  if (state.selectedRegionIdx >= state.regions.length) state.selectedRegionIdx = -1;
   state.draftPolygon = null;
   state.cursorPx = null;
   state.drag = null;
@@ -126,18 +101,12 @@ function undo() {
   setStatus(`Undid: ${currentLabel}`);
 }
 
-/** Redo the most recently undone action. */
 function redo() {
-  if (undoStack.future.length === 0) {
-    setStatus('Nothing to redo');
-    return;
-  }
+  if (undoStack.future.length === 0) { setStatus('Nothing to redo'); return; }
   const next = undoStack.future.pop();
   undoStack.past.push({ regions: cloneRegions(), label: next.label });
   state.regions = next.regions;
-  if (state.selectedRegionIdx >= state.regions.length) {
-    state.selectedRegionIdx = -1;
-  }
+  if (state.selectedRegionIdx >= state.regions.length) state.selectedRegionIdx = -1;
   state.draftPolygon = null;
   state.cursorPx = null;
   state.drag = null;
@@ -149,9 +118,6 @@ function redo() {
   setStatus(`Redid: ${next.label}`);
 }
 
-/** Reset the undo stack — called once after a successful initial regions load.
- *  Without this, the very first edit would have an undo target of "empty regions",
- *  which would make Cmd+Z look like it deleted everything Tim just had loaded. */
 function resetUndoStack() {
   undoStack.past = [];
   undoStack.future = [];
@@ -176,11 +142,24 @@ const els = {
   modalBackdrop: document.getElementById('sm-modal-backdrop'),
   modalInput: document.getElementById('sm-modal-input'),
   modalOk: document.getElementById('sm-modal-ok'),
+  // Phase 6.1
+  btnSetScale: document.getElementById('sm-btn-set-scale'),
+  scaleIndicator: document.getElementById('sm-scale-indicator'),
+  scaleModalBackdrop: document.getElementById('sm-scale-modal-backdrop'),
+  scaleModalInput: document.getElementById('sm-scale-modal-input'),
+  scaleModalOk: document.getElementById('sm-scale-modal-ok'),
+  scaleModalCancel: document.getElementById('sm-scale-modal-cancel'),
+  scaleModalError: document.getElementById('sm-scale-modal-error'),
+  wizardCard: document.getElementById('sm-wizard-card'),
+  wizardStepLabel: document.getElementById('sm-wizard-step-label'),
+  wizardTitle: document.getElementById('sm-wizard-title'),
+  wizardDesc: document.getElementById('sm-wizard-desc'),
+  wizardClose: document.getElementById('sm-wizard-close'),
 };
 const ctx = els.canvas.getContext('2d');
 
 // ---------------------------------------------------------------------------
-// Toast helpers
+// Toast
 // ---------------------------------------------------------------------------
 function toast(message, kind = 'info', durationMs = 3000) {
   const el = document.createElement('div');
@@ -191,7 +170,7 @@ function toast(message, kind = 'info', durationMs = 3000) {
 }
 
 // ---------------------------------------------------------------------------
-// API calls
+// API
 // ---------------------------------------------------------------------------
 async function apiGetRegions(proposalId) {
   const r = await fetch(`/api/site-map-regions?proposal_id=${proposalId}`);
@@ -200,9 +179,6 @@ async function apiGetRegions(proposalId) {
 }
 
 async function apiSaveRegions(proposalId, regions) {
-  // Strip the local-only _color field before sending. Everything else
-  // (including Phase 1B.3 `materials` array) rides through unchanged so
-  // the CF Function can reconcile proposal_region_materials.
   const cleaned = regions.map(({ _color, ...r }) => r);
   const r = await fetch('/api/site-map-regions', {
     method: 'POST',
@@ -217,11 +193,19 @@ async function apiUploadBackdrop(proposalId, file) {
   const fd = new FormData();
   fd.append('proposal_id', proposalId);
   fd.append('file', file);
-  const r = await fetch('/api/site-map-backdrop-upload', {
-    method: 'POST',
-    body: fd,
-  });
+  const r = await fetch('/api/site-map-backdrop-upload', { method: 'POST', body: fd });
   if (!r.ok) throw new Error(`Upload failed: ${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+// Phase 6.1
+async function apiSaveScale(proposalId, scale) {
+  const r = await fetch('/api/site-map-scale', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ proposal_id: proposalId, scale }),
+  });
+  if (!r.ok) throw new Error(`Scale save failed: ${r.status} ${await r.text()}`);
   return r.json();
 }
 
@@ -233,7 +217,7 @@ function loadBackdropImage(url) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = (e) => reject(new Error('Image load failed: ' + url));
+    img.onerror = () => reject(new Error('Image load failed: ' + url));
     img.src = url;
   });
 }
@@ -244,6 +228,8 @@ async function setBackdrop(backdrop) {
     state.backdropImg = null;
     els.empty.style.display = 'flex';
     els.canvasInner.style.display = 'none';
+    refreshScaleIndicator();
+    refreshWizardCard();
     return;
   }
   state.backdrop = {
@@ -252,39 +238,32 @@ async function setBackdrop(backdrop) {
     height: backdrop.site_plan_backdrop_height,
   };
   state.backdropImg = await loadBackdropImage(state.backdrop.url);
-
   els.canvas.width = state.backdrop.width;
   els.canvas.height = state.backdrop.height;
   els.empty.style.display = 'none';
   els.canvasInner.style.display = 'block';
+  refreshScaleIndicator();
+  refreshWizardCard();
   redraw();
 }
 
 // ---------------------------------------------------------------------------
-// Coordinate translation: canvas pixels ↔ fractional [0..1]
+// Coordinate translation
 // ---------------------------------------------------------------------------
 function eventToCanvasPx(e) {
   const rect = els.canvas.getBoundingClientRect();
   const scaleX = els.canvas.width / rect.width;
   const scaleY = els.canvas.height / rect.height;
-  return {
-    x: (e.clientX - rect.left) * scaleX,
-    y: (e.clientY - rect.top) * scaleY,
-  };
+  return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
 }
-function pxToFrac(px) {
-  return { x: px.x / els.canvas.width, y: px.y / els.canvas.height };
-}
-function fracToPx(frac) {
-  return { x: frac.x * els.canvas.width, y: frac.y * els.canvas.height };
-}
+function pxToFrac(px) { return { x: px.x / els.canvas.width, y: px.y / els.canvas.height }; }
+function fracToPx(frac) { return { x: frac.x * els.canvas.width, y: frac.y * els.canvas.height }; }
 
 // ---------------------------------------------------------------------------
 // Hit-testing
 // ---------------------------------------------------------------------------
 const VERTEX_RADIUS_PX = 8;
 
-/** Returns { regionIdx, vertexIdx } if the canvas-pixel point is on a vertex, else null. */
 function hitTestVertex(px) {
   for (let ri = state.regions.length - 1; ri >= 0; ri--) {
     const r = state.regions[ri];
@@ -299,8 +278,6 @@ function hitTestVertex(px) {
   return null;
 }
 
-/** Returns regionIdx if the canvas-pixel point is inside any polygon, else -1.
- *  Iterates topmost (last in array) first so click selects the topmost polygon. */
 function hitTestPolygon(px) {
   for (let ri = state.regions.length - 1; ri >= 0; ri--) {
     if (pointInPolygon(px, state.regions[ri].polygon)) return ri;
@@ -308,12 +285,6 @@ function hitTestPolygon(px) {
   return -1;
 }
 
-/** Returns { regionIdx, edgeIdx, point:{x,y fractional} } if the canvas-pixel
- *  point is within EDGE_HIT_TOLERANCE_PX of any edge of the SELECTED polygon
- *  (only — checking all polygons would conflict with interior-drag and vertex-drag).
- *  edgeIdx is the index of the vertex BEFORE the edge (edge runs from vertex
- *  edgeIdx to edgeIdx+1, with wraparound). point is where the new vertex would
- *  be inserted (the foot of perpendicular from cursor to edge, clamped to segment). */
 const EDGE_HIT_TOLERANCE_PX = 8;
 function hitTestEdge(px) {
   if (state.selectedRegionIdx === -1) return null;
@@ -326,17 +297,12 @@ function hitTestEdge(px) {
     if (!foot) continue;
     const dx = foot.x - px.x, dy = foot.y - px.y;
     if (dx * dx + dy * dy <= EDGE_HIT_TOLERANCE_PX * EDGE_HIT_TOLERANCE_PX) {
-      return {
-        regionIdx: state.selectedRegionIdx,
-        edgeIdx: i,
-        point: pxToFrac(foot),
-      };
+      return { regionIdx: state.selectedRegionIdx, edgeIdx: i, point: pxToFrac(foot) };
     }
   }
   return null;
 }
 
-/** Foot of perpendicular from p to segment [a,b], clamped to the segment. */
 function pointOnSegment(p, a, b) {
   const abx = b.x - a.x, aby = b.y - a.y;
   const lenSq = abx * abx + aby * aby;
@@ -346,7 +312,6 @@ function pointOnSegment(p, a, b) {
   return { x: a.x + t * abx, y: a.y + t * aby };
 }
 
-/** Ray-casting point-in-polygon. polygon is array of {x,y} fractions. */
 function pointInPolygon(px, polygon) {
   const x = px.x, y = px.y;
   let inside = false;
@@ -361,6 +326,194 @@ function pointInPolygon(px, polygon) {
   return inside;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 6.1: Length parsing, formatting, polygon area/perimeter
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Parse a user-entered length string into inches.
+ * Supports (in priority order):
+ *   "60' 10\""    feet+inches with marks (Cam To Plan native)
+ *   "60'10\""     same, no space
+ *   "60' 10 3/4\"" feet+inches with fraction
+ *   "60'"          feet only with mark
+ *   "60.83'"       decimal feet with mark
+ *   "60 ft 10 in"  verbose
+ *   "60 ft"        verbose feet only
+ *   "729\""        inches with mark
+ *   "729 in"       inches verbose
+ *   "729"          ambiguous (rejected unless quoted/labeled)
+ * Returns positive number in inches, or NaN if unparseable.
+ */
+function parseLengthToInches(input) {
+  if (typeof input !== 'string') return NaN;
+  const s = input.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!s) return NaN;
+
+  // Helper: parse fractional inch like "10", "10.5", "10 3/4", or "10-3/4"
+  function parseInchPart(str) {
+    const m = str.trim().match(/^(\d+)(?:[ -](\d+)\/(\d+))?$/);
+    if (m) {
+      const whole = parseInt(m[1], 10);
+      if (m[2] && m[3]) {
+        const num = parseInt(m[2], 10);
+        const den = parseInt(m[3], 10);
+        if (den > 0) return whole + (num / den);
+      }
+      return whole;
+    }
+    const f = parseFloat(str);
+    return isNaN(f) ? NaN : f;
+  }
+
+  // Pattern 1: "60' 10 3/4\"" or "60' 10\"" or "60'10\""
+  let m = s.match(/^(-?\d+(?:\.\d+)?)\s*'\s*(\d+(?:[ -]\d+\/\d+)?(?:\.\d+)?)\s*"$/);
+  if (m) {
+    const ft = parseFloat(m[1]);
+    const inches = parseInchPart(m[2]);
+    if (!isNaN(ft) && !isNaN(inches)) return ft * 12 + inches;
+  }
+
+  // Pattern 2: "60'" or "60.83'"
+  m = s.match(/^(-?\d+(?:\.\d+)?)\s*'$/);
+  if (m) {
+    const ft = parseFloat(m[1]);
+    if (!isNaN(ft)) return ft * 12;
+  }
+
+  // Pattern 3: "60 ft 10 in" or "60 ft" or "10 in"
+  m = s.match(/^(?:(-?\d+(?:\.\d+)?)\s*(?:ft|feet|foot))?\s*(?:(-?\d+(?:[ -]\d+\/\d+)?(?:\.\d+)?)\s*(?:in|inch|inches|"))?$/);
+  if (m && (m[1] || m[2])) {
+    const ft = m[1] ? parseFloat(m[1]) : 0;
+    const inches = m[2] ? parseInchPart(m[2]) : 0;
+    if (!isNaN(ft) && !isNaN(inches) && (ft > 0 || inches > 0)) return ft * 12 + inches;
+  }
+
+  // Pattern 4: bare inches with mark, "729\""
+  m = s.match(/^(-?\d+(?:[ -]\d+\/\d+)?(?:\.\d+)?)\s*"$/);
+  if (m) {
+    const inches = parseInchPart(m[1]);
+    if (!isNaN(inches)) return inches;
+  }
+
+  // Pattern 5: "729 in" / "729 inches"
+  m = s.match(/^(-?\d+(?:[ -]\d+\/\d+)?(?:\.\d+)?)\s*(?:in|inch|inches)$/);
+  if (m) {
+    const inches = parseInchPart(m[1]);
+    if (!isNaN(inches)) return inches;
+  }
+
+  return NaN;
+}
+
+/**
+ * Format inches as a feet'inches" string, rounded to nearest 1/4 inch.
+ * 0     → "0\""
+ * 12    → "1' 0\""
+ * 730   → "60' 10\""
+ * 730.5 → "60' 10 1/2\""
+ * 730.25 → "60' 10 1/4\""
+ */
+function formatInchesToString(inches) {
+  if (!Number.isFinite(inches) || inches < 0) return '—';
+  // Round to nearest 1/4 inch
+  const quartersTotal = Math.round(inches * 4);
+  const totalInches = quartersTotal / 4;
+  const ft = Math.floor(totalInches / 12);
+  const remInches = totalInches - ft * 12;
+  const wholeInches = Math.floor(remInches);
+  const fracQuarters = Math.round((remInches - wholeInches) * 4);
+
+  let inchPart;
+  if (fracQuarters === 0) {
+    inchPart = `${wholeInches}"`;
+  } else if (fracQuarters === 2) {
+    inchPart = `${wholeInches} 1/2"`;
+  } else if (fracQuarters === 1) {
+    inchPart = `${wholeInches} 1/4"`;
+  } else if (fracQuarters === 3) {
+    inchPart = `${wholeInches} 3/4"`;
+  } else {
+    // fracQuarters === 4 means we should have rolled over already, but be safe
+    inchPart = `${wholeInches + 1}"`;
+  }
+
+  if (ft === 0) return inchPart;
+  if (wholeInches === 0 && fracQuarters === 0) return `${ft}'`;
+  return `${ft}' ${inchPart}`;
+}
+
+/** Distance between two points in canvas pixels. */
+function distancePx(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/** Distance between two fractional points, returned in canvas pixels. */
+function distanceFracInPx(p1Frac, p2Frac) {
+  return distancePx(fracToPx(p1Frac), fracToPx(p2Frac));
+}
+
+/** Edge length in inches, given current scale. NaN if not calibrated. */
+function edgeLengthInches(p1Frac, p2Frac) {
+  if (!state.scale || !state.scale.pixelsPerFoot) return NaN;
+  const px = distanceFracInPx(p1Frac, p2Frac);
+  return (px / state.scale.pixelsPerFoot) * 12;
+}
+
+/**
+ * Polygon area in square feet via shoelace formula in pixel space, then
+ * converted by dividing by pixelsPerFoot². Returns NaN if not calibrated.
+ */
+function polygonAreaSqft(polygonFrac) {
+  if (!state.scale || !state.scale.pixelsPerFoot) return NaN;
+  if (!Array.isArray(polygonFrac) || polygonFrac.length < 3) return NaN;
+  let sumPx = 0;
+  for (let i = 0; i < polygonFrac.length; i++) {
+    const a = fracToPx(polygonFrac[i]);
+    const b = fracToPx(polygonFrac[(i + 1) % polygonFrac.length]);
+    sumPx += a.x * b.y - b.x * a.y;
+  }
+  const areaPxSq = Math.abs(sumPx) / 2;
+  const ppf = state.scale.pixelsPerFoot;
+  return areaPxSq / (ppf * ppf);
+}
+
+/**
+ * Polygon perimeter in linear feet. Returns NaN if not calibrated.
+ * (Not auto-populated into area_lnft per Sprint 1 scope, but exposed in
+ * case the side panel grows a "perimeter hint" UI later.)
+ */
+function polygonPerimeterFeet(polygonFrac) {
+  if (!state.scale || !state.scale.pixelsPerFoot) return NaN;
+  if (!Array.isArray(polygonFrac) || polygonFrac.length < 2) return NaN;
+  let perimPx = 0;
+  for (let i = 0; i < polygonFrac.length; i++) {
+    const a = fracToPx(polygonFrac[i]);
+    const b = fracToPx(polygonFrac[(i + 1) % polygonFrac.length]);
+    perimPx += distancePx(a, b);
+  }
+  return perimPx / state.scale.pixelsPerFoot;
+}
+
+/**
+ * Recompute auto-derivable fields on a region when the polygon shape
+ * changes. Called from polygon-close, vertex-move-end, vertex-insert,
+ * and vertex-delete commit points. Only runs if scale is set.
+ *
+ * Behavior: always overwrites area_sqft. Tim can manually edit after,
+ * and the field stays manual until the next polygon shape change.
+ * Per Sprint 1 scope: area_lnft is NOT auto-populated (semantics differ
+ * by region type — wall vs surface — and perimeter ≠ wall length).
+ */
+function recomputeRegionMeasurements(region) {
+  if (!state.scale || !state.scale.pixelsPerFoot) return;
+  const sqft = polygonAreaSqft(region.polygon);
+  if (Number.isFinite(sqft) && sqft >= 0) {
+    region.area_sqft = Math.round(sqft * 100) / 100;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
@@ -373,9 +526,7 @@ function redraw() {
     drawPolygon(state.regions[i], i, i === state.selectedRegionIdx);
   }
 
-  // Edge-insert indicator: a "+" at the cursor's foot-of-perpendicular on the
-  // hovered edge of the selected polygon, signalling "click here to insert vertex"
-  if (state.hoveredEdge && !state.draftPolygon && !state.drag && !state.polygonDrag) {
+  if (state.hoveredEdge && !state.draftPolygon && !state.drag && !state.polygonDrag && !state.calibration) {
     const px = fracToPx(state.hoveredEdge.point);
     ctx.save();
     ctx.beginPath();
@@ -399,6 +550,11 @@ function redraw() {
   if (state.draftPolygon && state.draftPolygon.points.length > 0) {
     drawDraft(state.draftPolygon);
   }
+
+  // Phase 6.1: in-progress calibration capture
+  if (state.calibration) {
+    drawCalibrationPreview();
+  }
 }
 
 function drawPolygon(region, idx, isSelected) {
@@ -418,7 +574,6 @@ function drawPolygon(region, idx, isSelected) {
 
   ctx.fillStyle = hexToRgba(color, isSelected ? 0.35 : 0.20);
   ctx.fill();
-
   ctx.lineWidth = isSelected ? 3 : 2;
   ctx.strokeStyle = color;
   ctx.stroke();
@@ -453,7 +608,43 @@ function drawPolygon(region, idx, isSelected) {
   ctx.textBaseline = 'middle';
   ctx.fillText(label, c.x, c.y);
 
+  // Phase 6.1: edge length labels when scale is set. Filter to edges ≥ 12"
+  // to keep cluttered vertex-cloud polygons (e.g. organic Cam To Plan traces)
+  // readable. Always-on default per Sprint 1 decision #3.
+  if (state.scale && state.scale.pixelsPerFoot) {
+    drawEdgeLabels(pts, color);
+  }
+
   ctx.restore();
+}
+
+function drawEdgeLabels(pts, color) {
+  if (pts.length < 2) return;
+  ctx.font = '600 11px DM Sans, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (let i = 0; i < pts.length; i++) {
+    const a = fracToPx(pts[i]);
+    const b = fracToPx(pts[(i + 1) % pts.length]);
+    const inches = edgeLengthInches(pts[i], pts[(i + 1) % pts.length]);
+    if (!Number.isFinite(inches) || inches < 12) continue; // hide tiny edges
+
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const text = formatInchesToString(inches);
+    const metrics = ctx.measureText(text);
+    const padX = 4, padY = 2;
+    const w = metrics.width + padX * 2;
+    const h = 14 + padY * 2;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.fillRect(mid.x - w / 2, mid.y - h / 2, w, h);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = color;
+    ctx.strokeRect(mid.x - w / 2, mid.y - h / 2, w, h);
+    ctx.fillStyle = '#353535';
+    ctx.fillText(text, mid.x, mid.y);
+  }
 }
 
 function drawDraft(draft) {
@@ -467,11 +658,9 @@ function drawDraft(draft) {
     const p = fracToPx(pts[i]);
     ctx.lineTo(p.x, p.y);
   }
-
   ctx.lineWidth = 8;
   ctx.strokeStyle = 'rgba(255,255,255,0.9)';
   ctx.stroke();
-
   ctx.lineWidth = 4;
   ctx.strokeStyle = '#dc2626';
   ctx.setLineDash([12, 6]);
@@ -506,6 +695,66 @@ function drawDraft(draft) {
   ctx.restore();
 }
 
+// Phase 6.1: visualize the calibration in progress
+function drawCalibrationPreview() {
+  ctx.save();
+  if (state.calibration.p1Frac) {
+    const p1 = fracToPx(state.calibration.p1Frac);
+    ctx.beginPath();
+    ctx.arc(p1.x, p1.y, 10, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#5d7e69';
+    ctx.stroke();
+    ctx.fillStyle = '#5d7e69';
+    ctx.font = 'bold 12px DM Sans';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('1', p1.x, p1.y);
+  }
+  if (state.calibration.p2Frac) {
+    const p1 = fracToPx(state.calibration.p1Frac);
+    const p2 = fracToPx(state.calibration.p2Frac);
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#5d7e69';
+    ctx.setLineDash([10, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(p2.x, p2.y, 10, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#5d7e69';
+    ctx.stroke();
+    ctx.fillStyle = '#5d7e69';
+    ctx.font = 'bold 12px DM Sans';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('2', p2.x, p2.y);
+  }
+  if (state.calibration.p1Frac && !state.calibration.p2Frac && state.cursorPx) {
+    const p1 = fracToPx(state.calibration.p1Frac);
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(state.cursorPx.x, state.cursorPx.y);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(93, 126, 105, 0.5)';
+    ctx.setLineDash([10, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+
 function polygonCentroidPx(pts) {
   let sx = 0, sy = 0;
   for (const p of pts) {
@@ -522,6 +771,149 @@ function hexToRgba(hex, a) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 6.1: Scale calibration mode
+// ═══════════════════════════════════════════════════════════════════════════
+
+function enterCalibrationMode() {
+  if (!state.backdropImg) {
+    toast('Upload a backdrop image first', 'error');
+    return;
+  }
+  if (state.draftPolygon) {
+    toast('Finish drawing the current polygon first (Esc to cancel)', 'error');
+    return;
+  }
+  if (state.scale) {
+    if (!confirm('Replace the current calibration?\n\nAll edge lengths and auto-computed areas will use the new scale.')) {
+      return;
+    }
+  }
+  state.calibration = { step: 'awaiting_p1', p1Frac: null, p2Frac: null };
+  selectRegion(-1);
+  setStatus('Tap the FIRST point of a measured distance (e.g. corner of a known edge)');
+  document.body.style.cursor = 'crosshair';
+  redraw();
+}
+
+function exitCalibrationMode() {
+  state.calibration = null;
+  state.cursorPx = null;
+  document.body.style.cursor = '';
+  setStatus('Click to start drawing a polygon. Double-click to close.');
+  redraw();
+}
+
+function openScaleEntryModal() {
+  els.scaleModalError.textContent = '';
+  els.scaleModalInput.value = '';
+  els.scaleModalBackdrop.style.display = 'flex';
+  setTimeout(() => els.scaleModalInput.focus(), 50);
+}
+
+function closeScaleEntryModal() {
+  els.scaleModalBackdrop.style.display = 'none';
+}
+
+async function commitCalibration(realDistanceInches) {
+  const cal = state.calibration;
+  if (!cal || !cal.p1Frac || !cal.p2Frac) return;
+  const distPx = distanceFracInPx(cal.p1Frac, cal.p2Frac);
+  if (distPx <= 0) {
+    toast('Calibration points are at the same location', 'error');
+    return;
+  }
+  const pixelsPerInch = distPx / realDistanceInches;
+  const pixelsPerFoot = pixelsPerInch * 12;
+
+  const newScale = {
+    pixelsPerFoot,
+    p1Frac: cal.p1Frac,
+    p2Frac: cal.p2Frac,
+    realDistanceInches,
+    calibratedAt: new Date().toISOString(),
+  };
+
+  // Persist immediately — calibration is one-shot, not iterative, so we
+  // save without waiting for the user to click "Save All" on regions.
+  try {
+    await apiSaveScale(state.proposalId, newScale);
+  } catch (err) {
+    toast('Could not save scale: ' + err.message, 'error', 6000);
+    return;
+  }
+
+  state.scale = newScale;
+  state.calibration = null;
+  document.body.style.cursor = '';
+
+  // Recompute area for any existing closed polygons now that we have scale
+  for (const r of state.regions) {
+    recomputeRegionMeasurements(r);
+  }
+
+  refreshScaleIndicator();
+  refreshSidePanel();
+  refreshWizardCard();
+  redraw();
+  toast(`Scale set: ${pixelsPerFoot.toFixed(2)} px/ft`, 'success');
+  setStatus(`Scale calibrated. ${formatInchesToString(realDistanceInches)} = ${distPx.toFixed(0)}px.`);
+}
+
+function refreshScaleIndicator() {
+  if (!els.scaleIndicator) return;
+  if (state.scale && state.scale.pixelsPerFoot) {
+    const ppf = state.scale.pixelsPerFoot.toFixed(2);
+    els.scaleIndicator.textContent = `Scale: ${ppf} px/ft`;
+    els.scaleIndicator.classList.add('sm-scale-set');
+    els.scaleIndicator.classList.remove('sm-scale-unset');
+    els.btnSetScale.textContent = 'Re-calibrate';
+  } else {
+    els.scaleIndicator.textContent = 'Scale: not set';
+    els.scaleIndicator.classList.add('sm-scale-unset');
+    els.scaleIndicator.classList.remove('sm-scale-set');
+    els.btnSetScale.textContent = 'Set Scale';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 6.1: Wizard hint card
+// ═══════════════════════════════════════════════════════════════════════════
+
+let wizardDismissed = false;
+
+function refreshWizardCard() {
+  if (!els.wizardCard) return;
+  if (!state.wizard || wizardDismissed) {
+    els.wizardCard.style.display = 'none';
+    return;
+  }
+
+  let step, title, desc;
+  if (!state.backdrop) {
+    step = 'Step 1 of 3';
+    title = 'Upload your Cam To Plan screenshot';
+    desc = 'Click "Upload Backdrop…" in the header. AirDrop the screenshot from your iPad if needed.';
+  } else if (!state.scale) {
+    step = 'Step 2 of 3';
+    title = 'Calibrate the scale';
+    desc = 'Click "Set Scale" then tap the two endpoints of any measured edge from your screenshot. Type the real-world distance (e.g. "60\' 10\\""). All future polygons will measure correctly.';
+  } else if (state.regions.length === 0) {
+    step = 'Step 3 of 3';
+    title = 'Trace the property boundary';
+    desc = 'Click on the canvas to add vertices around the perimeter. Double-click the last vertex to close the polygon. Area auto-computes in sqft.';
+  } else {
+    // All steps complete — auto-hide the card.
+    els.wizardCard.style.display = 'none';
+    return;
+  }
+
+  els.wizardStepLabel.textContent = step;
+  els.wizardTitle.textContent = title;
+  els.wizardDesc.textContent = desc;
+  els.wizardCard.style.display = 'block';
+}
+
 // ---------------------------------------------------------------------------
 // Mouse / keyboard handlers
 // ---------------------------------------------------------------------------
@@ -531,6 +923,7 @@ let DRAG_SUPPRESSES_CLICK = false;
 els.canvas.addEventListener('mousedown', (e) => {
   if (!state.backdropImg) return;
   if (state.draftPolygon) return;
+  if (state.calibration) return; // calibration uses click-to-place, not drag
 
   const px = eventToCanvasPx(e);
 
@@ -556,6 +949,8 @@ els.canvas.addEventListener('mousedown', (e) => {
       els.canvas.classList.add('sm-cursor-grabbing');
       DRAG_SUPPRESSES_CLICK = true;
       els.btnSave.disabled = false;
+      // Phase 6.1: vertex insert mutates polygon shape
+      recomputeRegionMeasurements(r);
       redraw();
       e.preventDefault();
       return;
@@ -578,6 +973,12 @@ els.canvas.addEventListener('mousedown', (e) => {
 els.canvas.addEventListener('mousemove', (e) => {
   if (!state.backdropImg) return;
   const px = eventToCanvasPx(e);
+
+  if (state.calibration) {
+    state.cursorPx = px;
+    redraw();
+    return;
+  }
 
   if (state.drag) {
     const frac = pxToFrac(px);
@@ -628,16 +1029,25 @@ els.canvas.addEventListener('mousemove', (e) => {
 
 window.addEventListener('mouseup', () => {
   let wasDragging = false;
+  let movedRegionIdx = -1;
   if (state.drag) {
+    movedRegionIdx = state.drag.regionIdx;
     state.drag = null;
     wasDragging = true;
   }
   if (state.polygonDrag) {
+    // Pure translate doesn't change shape — area unchanged. Skip recompute.
     state.polygonDrag = null;
     wasDragging = true;
   }
   if (wasDragging) {
     els.canvas.classList.remove('sm-cursor-grabbing');
+    // Phase 6.1: vertex move/insert finalized → polygon shape changed → recompute area
+    if (movedRegionIdx >= 0 && movedRegionIdx < state.regions.length) {
+      recomputeRegionMeasurements(state.regions[movedRegionIdx]);
+      refreshSidePanel();
+      redraw();
+    }
   }
 });
 
@@ -650,6 +1060,26 @@ els.canvas.addEventListener('click', (e) => {
   }
 
   const px = eventToCanvasPx(e);
+
+  // Phase 6.1: calibration takes priority over normal click handling
+  if (state.calibration) {
+    if (state.calibration.step === 'awaiting_p1') {
+      state.calibration.p1Frac = pxToFrac(px);
+      state.calibration.step = 'awaiting_p2';
+      setStatus('Tap the SECOND point — together they should match a known measurement (e.g. 60\' 10")');
+      redraw();
+      return;
+    }
+    if (state.calibration.step === 'awaiting_p2') {
+      state.calibration.p2Frac = pxToFrac(px);
+      state.calibration.step = 'awaiting_distance';
+      setStatus('Now enter the real-world distance between those two points.');
+      redraw();
+      openScaleEntryModal();
+      return;
+    }
+    return;
+  }
 
   if (state.draftPolygon) {
     state.draftPolygon.points.push(pxToFrac(px));
@@ -692,12 +1122,15 @@ els.canvas.addEventListener('dblclick', (e) => {
     materials: [],
     _color: colorForIndex(state.regions.length),
   };
+  // Phase 6.1: new polygon → compute area immediately if scale set
+  recomputeRegionMeasurements(newRegion);
   state.regions.push(newRegion);
   state.draftPolygon = null;
   state.cursorPx = null;
   selectRegion(state.regions.length - 1);
   setStatus(`Polygon committed. ${state.regions.length} region(s).`);
   refreshSidePanel();
+  refreshWizardCard();
   redraw();
   els.btnSave.disabled = false;
 });
@@ -715,6 +1148,9 @@ els.canvas.addEventListener('contextmenu', (e) => {
   }
   pushUndoSnapshot('delete vertex');
   r.polygon.splice(hit.vertexIdx, 1);
+  // Phase 6.1: vertex delete mutates polygon shape
+  recomputeRegionMeasurements(r);
+  refreshSidePanel();
   redraw();
   els.btnSave.disabled = false;
 });
@@ -724,7 +1160,7 @@ els.canvas.addEventListener('mouseleave', () => {
     state.hoveredEdge = null;
     redraw();
   }
-  if (state.cursorPx && state.draftPolygon) {
+  if (state.cursorPx && (state.draftPolygon || state.calibration)) {
     state.cursorPx = null;
     redraw();
   }
@@ -735,31 +1171,30 @@ document.addEventListener('keydown', (e) => {
     if (document.activeElement && (
       document.activeElement.tagName === 'INPUT' ||
       document.activeElement.tagName === 'TEXTAREA'
-    )) {
-      return;
-    }
+    )) return;
     e.preventDefault();
-    if (e.shiftKey) {
-      redo();
-    } else {
-      undo();
-    }
+    if (e.shiftKey) redo(); else undo();
     return;
   }
-  if (e.key === 'Escape' && state.draftPolygon) {
-    state.draftPolygon = null;
-    state.cursorPx = null;
-    setStatus('Drawing cancelled');
-    redraw();
-    return;
+  if (e.key === 'Escape') {
+    // Phase 6.1: Esc cancels calibration too
+    if (state.calibration) {
+      exitCalibrationMode();
+      return;
+    }
+    if (state.draftPolygon) {
+      state.draftPolygon = null;
+      state.cursorPx = null;
+      setStatus('Drawing cancelled');
+      redraw();
+      return;
+    }
   }
   if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedRegionIdx !== -1) {
     if (document.activeElement && (
       document.activeElement.tagName === 'INPUT' ||
       document.activeElement.tagName === 'TEXTAREA'
-    )) {
-      return;
-    }
+    )) return;
     e.preventDefault();
     deleteRegion(state.selectedRegionIdx);
   }
@@ -777,13 +1212,14 @@ function deleteRegion(idx) {
     state.selectedRegionIdx--;
   }
   refreshSidePanel();
+  refreshWizardCard();
   redraw();
   els.btnSave.disabled = false;
   setStatus(`Region deleted. ${state.regions.length} region(s).`);
 }
 
 // ---------------------------------------------------------------------------
-// Phase 1B.3 — material display helpers
+// Material display helpers (unchanged)
 // ---------------------------------------------------------------------------
 function materialDisplayName(m) {
   if (!m) return 'Material';
@@ -829,7 +1265,7 @@ function materialThumbUrl(m) {
 }
 
 // ---------------------------------------------------------------------------
-// Side panel
+// Side panel (unchanged except for tiny scale-aware area placeholder hint)
 // ---------------------------------------------------------------------------
 function refreshSidePanel() {
   els.regionCount.textContent = state.regions.length;
@@ -878,6 +1314,9 @@ function refreshSidePanel() {
       materialsBlock = `<div class="sm-material-pills">${pills}</div>`;
     }
 
+    // Phase 6.1: when scale is set, show "(auto)" hint next to SQFT label
+    const sqftLabel = state.scale ? 'SQFT <span style="color:#5d7e69;font-weight:600;">(auto)</span>' : 'SQFT';
+
     card.innerHTML = `
       <div class="sm-region-card-row">
         <div class="sm-region-swatch" style="background:${r._color || colorForIndex(idx)};"></div>
@@ -885,7 +1324,7 @@ function refreshSidePanel() {
       </div>
       <div class="sm-region-card-fields">
         <div>
-          <label>SQFT</label>
+          <label>${sqftLabel}</label>
           <input type="number" class="sm-input-sqft" placeholder="0" min="0" step="0.01" value="${r.area_sqft ?? ''}" />
         </div>
         <div>
@@ -981,6 +1420,7 @@ function refreshSidePanel() {
       if (state.selectedRegionIdx === idx) state.selectedRegionIdx = -1;
       else if (state.selectedRegionIdx > idx) state.selectedRegionIdx--;
       refreshSidePanel();
+      refreshWizardCard();
       redraw();
       els.btnSave.disabled = false;
     });
@@ -1001,12 +1441,10 @@ function escapeHtml(s) {
   }[c]));
 }
 
-function setStatus(msg) {
-  els.status.textContent = msg;
-}
+function setStatus(msg) { els.status.textContent = msg; }
 
 // ---------------------------------------------------------------------------
-// Save
+// Save (unchanged)
 // ---------------------------------------------------------------------------
 async function saveAll() {
   if (state.draftPolygon) {
@@ -1038,15 +1476,12 @@ async function saveAll() {
   }
 }
 
-els.btnSave.addEventListener('click', () => {
-  saveAll().catch(() => {});
-});
-
+els.btnSave.addEventListener('click', () => { saveAll().catch(() => {}); });
 window.saveSiteMap = saveAll;
 window.hasUnsavedSiteMapChanges = () => !els.btnSave.disabled;
 
 // ---------------------------------------------------------------------------
-// Upload backdrop
+// Upload backdrop (unchanged)
 // ---------------------------------------------------------------------------
 els.btnUpload.addEventListener('click', () => els.fileInput.click());
 els.fileInput.addEventListener('change', async (e) => {
@@ -1077,7 +1512,7 @@ els.fileInput.addEventListener('change', async (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// "+ New polygon" button
+// "+ New polygon" button (unchanged)
 // ---------------------------------------------------------------------------
 els.btnAddRegion.addEventListener('click', () => {
   if (!state.backdropImg) {
@@ -1089,11 +1524,58 @@ els.btnAddRegion.addEventListener('click', () => {
   setStatus('Click on the canvas to add the first vertex');
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 6.1: Set Scale button + scale modal wiring + wizard close
+// ═══════════════════════════════════════════════════════════════════════════
+
+if (els.btnSetScale) {
+  els.btnSetScale.addEventListener('click', () => enterCalibrationMode());
+}
+
+if (els.scaleModalOk) {
+  els.scaleModalOk.addEventListener('click', async () => {
+    const raw = els.scaleModalInput.value;
+    const inches = parseLengthToInches(raw);
+    if (!Number.isFinite(inches) || inches <= 0) {
+      els.scaleModalError.textContent = 'Could not parse. Try formats like 60\' 10", 60.83\', or 729".';
+      return;
+    }
+    closeScaleEntryModal();
+    await commitCalibration(inches);
+  });
+}
+if (els.scaleModalCancel) {
+  els.scaleModalCancel.addEventListener('click', () => {
+    closeScaleEntryModal();
+    exitCalibrationMode();
+    setStatus('Calibration cancelled');
+  });
+}
+if (els.scaleModalInput) {
+  els.scaleModalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      els.scaleModalOk.click();
+    } else if (e.key === 'Escape') {
+      els.scaleModalCancel.click();
+    }
+  });
+}
+if (els.wizardClose) {
+  els.wizardClose.addEventListener('click', () => {
+    wizardDismissed = true;
+    refreshWizardCard();
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 async function boot() {
   const url = new URL(window.location.href);
+  // Phase 6.1: wizard mode flag
+  state.wizard = url.searchParams.get('wizard') === '1';
+
   let proposalId = url.searchParams.get('proposal_id');
   if (!proposalId) {
     proposalId = await promptForProposalId();
@@ -1117,8 +1599,12 @@ async function boot() {
     });
     state.sections = data.sections || [];
     state.materials = data.materials || [];
+    // Phase 6.1: scale persisted on proposals row
+    state.scale = data.scale || null;
     await setBackdrop(data.backdrop);
+    refreshScaleIndicator();
     refreshSidePanel();
+    refreshWizardCard();
     if (state.regions.length > 0) {
       setStatus(`${state.regions.length} region(s) loaded.`);
     }
