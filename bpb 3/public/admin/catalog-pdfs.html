@@ -3,30 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Catalog PDFs · Proposal Builder</title>
-<link rel="stylesheet" href="/styles.css">
+<title>Catalog PDFs · Admin · Bayside Proposal Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin-shell.css">
 <style>
-  /* Phase 3B.2 admin page styles. Class prefix .cp- (Catalog PDFs).
-     Mirrors the .bs- visual language from belgard-sync.html so the two
-     admin tools feel like a coherent suite. */
-  body { background: #faf8f3; }
-
-  .cp-shell { max-width: 1100px; margin: 0 auto; padding: 32px 28px 96px; }
-
-  .cp-header {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid #e5e5e5;
-  }
-  .cp-header h1 { font-size: 26px; font-weight: 600; color: #1a1f2e; margin: 0; }
-  .cp-header .cp-eyebrow {
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: #5d7e69; font-weight: 700; margin-bottom: 6px;
-  }
-  .cp-header .cp-sub {
-    font-size: 13px; color: #666; margin-top: 6px; line-height: 1.5; max-width: 640px;
-  }
-  .cp-back-link { font-size: 13px; color: #666; text-decoration: none; }
-  .cp-back-link:hover { color: #1a1f2e; }
+  /* Page-specific styles only — chrome lives in admin-shell.css.
+     All page classes prefixed .cp- (Catalog PDFs). Mirrors the .bs- visual
+     language from belgard-sync.html so the two admin tools feel coherent. */
 
   .cp-panel {
     background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
@@ -114,7 +97,7 @@
   .cp-msg-success { background: #ecf1ed; border: 1px solid #c9d3cb; color: #2d5a3a; }
   .cp-msg-info { background: #e8eef5; border: 1px solid #c4d2e1; color: #2d4a7a; }
 
-  /* ─── Extraction Modal (new in Session 2) ─────────────────────────── */
+  /* ─── Extraction Modal ─────────────────────────────────────────────── */
   .cp-modal-backdrop {
     position: fixed; inset: 0; background: rgba(26, 31, 46, 0.55);
     display: flex; align-items: center; justify-content: center;
@@ -131,7 +114,10 @@
     display: flex; justify-content: space-between; align-items: center;
   }
   .cp-modal-header h2 { font-size: 18px; font-weight: 600; margin: 0; color: #1a1f2e; }
-  .cp-modal-header .cp-eyebrow { margin-bottom: 4px; }
+  .cp-modal-header .cp-modal-eyebrow {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #5d7e69; font-weight: 700; margin-bottom: 4px;
+  }
   .cp-modal-close {
     background: transparent; border: none; font-size: 24px; cursor: pointer;
     color: #888; line-height: 1; padding: 4px 10px; border-radius: 6px;
@@ -169,7 +155,7 @@
     background: #ecf1ed; border-color: #c9d3cb; color: #1a1f2e;
   }
   .cp-product-item .cp-product-page {
-    font-size: 11px; color: #888; font-family: 'SF Mono', Menlo, monospace;
+    font-size: 11px; color: #888; font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
   }
 
   /* Right: results panel */
@@ -190,7 +176,7 @@
   .cp-json-output {
     background: #1a1f2e; color: #c4d2e1;
     border-radius: 8px; padding: 14px 16px;
-    font-family: 'SF Mono', Menlo, ui-monospace, monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, ui-monospace, monospace;
     font-size: 11px; line-height: 1.6;
     overflow-x: auto; white-space: pre;
     max-height: 380px; overflow-y: auto;
@@ -208,19 +194,34 @@
 </head>
 <body>
 
-<div class="cp-shell">
-  <header class="cp-header">
-    <div>
-      <div class="cp-eyebrow">Admin tool</div>
-      <h1>Catalog PDFs</h1>
-      <p class="cp-sub">
-        Manage the manufacturer catalog PDFs that the swatch extractor reads from.
-        Belgard's PCG is registered automatically; upload Techo-Bloc, Keystone,
-        and other manufacturer catalogs here.
-      </p>
+<!-- Shared admin chrome (topbar + tab strip) — rendered by admin-shell.js -->
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge is-loading" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
     </div>
-    <a href="/dashboard.html" class="cp-back-link">← Back to dashboard</a>
-  </header>
+  </div>
+</header>
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections"></nav>
+
+<main class="ash-shell">
+  <div class="ash-intro">
+    <div class="ash-eyebrow">Catalog · Catalog PDFs</div>
+    <h1 class="ash-title">Catalog PDFs</h1>
+    <p class="ash-lede">
+      Manage the manufacturer catalog PDFs that the swatch extractor reads from.
+      Belgard's PCG is registered automatically; upload Techo-Bloc, Keystone,
+      and other manufacturer catalogs here.
+    </p>
+  </div>
 
   <!-- Upload panel -->
   <section class="cp-panel" id="cpUploadPanel">
@@ -286,14 +287,14 @@
       <div class="cp-empty">Loading…</div>
     </div>
   </section>
-</div>
+</main>
 
-<!-- ─── Extraction Modal (Session 2) ───────────────────────────────────── -->
+<!-- ─── Extraction Modal ────────────────────────────────────────────────── -->
 <div id="cpExtractModal" class="cp-modal-backdrop" style="display:none;">
   <div class="cp-modal" role="dialog" aria-modal="true" aria-labelledby="cpExtractModalTitle">
     <div class="cp-modal-header">
       <div>
-        <div class="cp-eyebrow">Test extraction</div>
+        <div class="cp-modal-eyebrow">Test extraction</div>
         <h2 id="cpExtractModalTitle">Extract swatches from PDF</h2>
       </div>
       <button id="cpExtractClose" class="cp-modal-close" aria-label="Close">×</button>
@@ -328,6 +329,10 @@
   </div>
 </div>
 
+<!-- Render the shared shell chrome (topbar role badge + tab strip) -->
+<script type="module" src="/admin/admin-shell.js"></script>
+
+<!-- Page-specific logic — designer-accessible, no master gate needed -->
 <script type="module" src="/js/admin-catalog-pdfs.js"></script>
 
 </body>
