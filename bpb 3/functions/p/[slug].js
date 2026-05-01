@@ -8,12 +8,31 @@
 // The overlay self-deactivates when the viewer isn't a signed-in homeowner
 // who owns this proposal — public viewing is identical.
 //
+// Phase 5C: also injects /js/proposal-tracker.js with proposal metadata as
+// data-* attributes so anonymous engagement events are captured. Tracker
+// self-loads via this server-side injection so no publish.js change was
+// needed and every existing snapshot gets the tracker on next view (no
+// backfill required).
+//
 // Environment variables (set in CF Pages → Settings → Environment variables):
 //   SUPABASE_URL       — e.g. https://gfgbypcnxkschnfsitfb.supabase.co
 //   SUPABASE_ANON_KEY  — same anon key used by the front end
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CUSTOMIZE_SCRIPT_TAG = '<script src="/p-customize.js" defer></script>';
+
+function buildTrackerTag(proposalId, publishedId, slug) {
+  // Phase 5C: marker attribute `data-bpb-tracker` lets the tracker module
+  // find its own script tag (document.currentScript is null in modules).
+  const safeProp = escapeAttr(proposalId || '');
+  const safePub  = escapeAttr(publishedId || '');
+  const safeSlug = escapeAttr(slug || '');
+  return '<script type="module" src="/js/proposal-tracker.js"'
+    + ' data-bpb-tracker'
+    + ` data-proposal-id="${safeProp}"`
+    + ` data-published-id="${safePub}"`
+    + ` data-slug="${safeSlug}"></script>`;
+}
 
 export async function onRequestGet(context) {
   const { slug } = context.params;
@@ -31,9 +50,11 @@ export async function onRequestGet(context) {
     return htmlError(400, 'Invalid URL', 'No slug in request.');
   }
 
+  // Phase 5C: also select id (= published_proposals row PK) and proposal_id
+  // so we can pass both into the tracker as data-* attributes.
   const endpoint = `${SUPABASE_URL}/rest/v1/published_proposals`
     + `?slug=eq.${encodeURIComponent(slug)}`
-    + `&select=html_snapshot,title,published_at`
+    + `&select=html_snapshot,title,published_at,id,proposal_id`
     + `&limit=1`;
 
   let res;
@@ -76,13 +97,16 @@ export async function onRequestGet(context) {
       'This proposal has no stored HTML snapshot.');
   }
 
-  // Phase 4.1 Sprint B1: inject the customization overlay script.
-  // Self-deactivates if viewer isn't authorized — safe for public viewing.
-  // `defer` ensures snapshot renders without blocking on script download.
+  // Phase 5C tracker tag — injected first so page_view fires as early as
+  // possible. Phase 4.1 customize tag — second; self-deactivates if viewer
+  // isn't authorized so it's safe for public viewing.
+  const trackerTag = buildTrackerTag(row.proposal_id, row.id, slug);
+  const inject = `${trackerTag}\n${CUSTOMIZE_SCRIPT_TAG}`;
+
   if (html.includes('</body>')) {
-    html = html.replace('</body>', `${CUSTOMIZE_SCRIPT_TAG}\n</body>`);
+    html = html.replace('</body>', `${inject}\n</body>`);
   } else {
-    html = html + '\n' + CUSTOMIZE_SCRIPT_TAG;
+    html = html + '\n' + inject;
   }
 
   return new Response(html, {
@@ -151,3 +175,5 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+
+function escapeAttr(str) { return escapeHtml(str); }
