@@ -380,14 +380,6 @@
   </div>
 </main>
 
-<!--
-  Legacy #signOutBtn placeholder. The pre-Phase-5A clients page had a
-  signOutBtn in the topbar that admin-clients.js binds a click listener to.
-  The new shared shell uses #ashSignOutBtn instead. We keep a hidden stub
-  here so admin-clients.js doesn't TypeError on getElementById('signOutBtn').
-  Remove this when we migrate admin-clients.js itself in Phase 5B.
--->
-<button id="signOutBtn" type="button" hidden aria-hidden="true" style="display:none"></button>
 <script type="module" src="/admin/admin-shell.js"></script>
 <script type="module" src="/admin/admin-clients.js"></script>
 
