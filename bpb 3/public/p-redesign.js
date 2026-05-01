@@ -449,4 +449,380 @@
   function handlePrint() {
     ensurePrintNotesArea();
     document.body.classList.add('bpc-redesign-printing');
-    // Defer so the
+    // Defer so the class change applies before the print dialog opens
+    setTimeout(() => {
+      window.print();
+      // Clean up shortly after the print dialog closes (or is dismissed)
+      setTimeout(() => document.body.classList.remove('bpc-redesign-printing'), 800);
+    }, 80);
+  }
+
+  // ── Overlay ───────────────────────────────────────────────────────────
+  function openOverlay() {
+    if (overlayEl) return;
+    const info = getSiteMapInfo();
+    if (!info || !info.url) {
+      alert('Could not find your site map. Please refresh and try again.');
+      return;
+    }
+
+    // Reset state
+    draw.strokes = [];
+    draw.currentColor = '#dc2626';
+    draw.currentStroke = null;
+    draw.isDrawing = false;
+    pickedPhoto = null;
+
+    overlayEl = document.createElement('div');
+    overlayEl.className = 'bpc-redesign-overlay';
+    overlayEl.setAttribute('role', 'dialog');
+    overlayEl.setAttribute('aria-modal', 'true');
+
+    overlayEl.innerHTML = renderOverlayHtml(info);
+    document.body.appendChild(overlayEl);
+
+    // Wire references
+    canvasBgEl = overlayEl.querySelector('.bpc-redesign-canvas-bg');
+    svgEl = overlayEl.querySelector('.bpc-redesign-canvas');
+    toolbarEl = overlayEl.querySelector('.bpc-redesign-toolbar');
+    photoPreviewEl = overlayEl.querySelector('.bpc-redesign-photo-preview');
+    noteTextareaEl = overlayEl.querySelector('.bpc-redesign-note');
+    submitBtnEl = overlayEl.querySelector('.bpc-redesign-submit-btn');
+    submitStatusEl = overlayEl.querySelector('.bpc-redesign-submit-status');
+
+    // Set SVG viewBox to image natural dimensions (or 1000×750 fallback)
+    const w = info.width || 1000;
+    const h = info.height || 750;
+    svgEl.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+
+    // Wire handlers
+    overlayEl.querySelector('.bpc-redesign-overlay-close').addEventListener('click', closeOverlay);
+    document.addEventListener('keydown', onEscClose);
+
+    toolbarEl.querySelectorAll('[data-color]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        draw.currentColor = btn.getAttribute('data-color');
+        toolbarEl.querySelectorAll('[data-color]').forEach((b) =>
+          b.classList.toggle('bpc-redesign-tool--active', b === btn));
+      });
+    });
+    toolbarEl.querySelector('[data-action="undo"]').addEventListener('click', undoStroke);
+    toolbarEl.querySelector('[data-action="clear"]').addEventListener('click', clearStrokes);
+    const photoInput = toolbarEl.querySelector('.bpc-redesign-photo-input');
+    toolbarEl.querySelector('[data-action="pickphoto"]').addEventListener('click', () => photoInput.click());
+    photoInput.addEventListener('change', onPhotoPicked);
+
+    photoPreviewEl.querySelector('.bpc-redesign-photo-preview-clear').addEventListener('click', clearPhoto);
+
+    submitBtnEl.addEventListener('click', submitRedesign);
+    noteTextareaEl.addEventListener('input', updateSubmitButton);
+
+    // Drawing pointer events
+    svgEl.addEventListener('pointerdown', onPointerDown);
+    svgEl.addEventListener('pointermove', onPointerMove);
+    svgEl.addEventListener('pointerup', onPointerUp);
+    svgEl.addEventListener('pointerleave', onPointerUp);
+
+    updateSubmitButton();
+  }
+
+  function renderOverlayHtml(info) {
+    return (
+      '<div class="bpc-redesign-overlay-header">' +
+        '<h2>Suggest design changes</h2>' +
+        '<button type="button" class="bpc-redesign-overlay-close" aria-label="Close">✕</button>' +
+      '</div>' +
+      '<div class="bpc-redesign-overlay-body">' +
+        '<div class="bpc-redesign-canvas-wrap">' +
+          '<img class="bpc-redesign-canvas-bg" src="' + escapeHtml(info.url) + '" alt="Site map">' +
+          '<svg class="bpc-redesign-canvas" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>' +
+        '</div>' +
+        '<div class="bpc-redesign-toolbar">' +
+          '<button type="button" class="bpc-redesign-tool bpc-redesign-tool--active" data-color="#dc2626" title="Red"><span class="bpc-redesign-color-swatch" style="background:#dc2626"></span></button>' +
+          '<button type="button" class="bpc-redesign-tool" data-color="#1d4ed8" title="Blue"><span class="bpc-redesign-color-swatch" style="background:#1d4ed8"></span></button>' +
+          '<button type="button" class="bpc-redesign-tool" data-color="#15803d" title="Green"><span class="bpc-redesign-color-swatch" style="background:#15803d"></span></button>' +
+          '<div class="bpc-redesign-toolbar-divider"></div>' +
+          '<button type="button" class="bpc-redesign-tool-text" data-action="undo">↶ Undo</button>' +
+          '<button type="button" class="bpc-redesign-tool-text" data-action="clear">Clear</button>' +
+          '<div class="bpc-redesign-toolbar-divider"></div>' +
+          '<button type="button" class="bpc-redesign-tool-text" data-action="pickphoto">📷 Or attach photo of paper markup</button>' +
+          '<input type="file" class="bpc-redesign-photo-input" accept="image/jpeg,image/png,image/heic,image/heif,image/webp">' +
+        '</div>' +
+        '<div class="bpc-redesign-photo-preview" hidden>' +
+          '<img alt="Photo preview">' +
+          '<button type="button" class="bpc-redesign-photo-preview-clear" aria-label="Remove photo">✕</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="bpc-redesign-overlay-footer">' +
+        '<div class="bpc-redesign-footer-row">' +
+          '<textarea class="bpc-redesign-note" placeholder="Add a note for your designer (optional). Tell them what you\'d like to change."></textarea>' +
+          '<button type="button" class="bpc-redesign-submit-btn" disabled>Send to designer</button>' +
+        '</div>' +
+        '<div class="bpc-redesign-submit-status"></div>' +
+      '</div>'
+    );
+  }
+
+  function closeOverlay() {
+    if (!overlayEl) return;
+    // Confirm if there's unsaved work
+    const hasWork = draw.strokes.length > 0 || pickedPhoto || (noteTextareaEl && noteTextareaEl.value.trim());
+    if (hasWork && !confirm('Discard your design change request?')) return;
+    overlayEl.remove();
+    overlayEl = null;
+    document.removeEventListener('keydown', onEscClose);
+    if (pickedPhoto && pickedPhoto.previewUrl) URL.revokeObjectURL(pickedPhoto.previewUrl);
+    pickedPhoto = null;
+    draw.strokes = [];
+    draw.currentStroke = null;
+  }
+
+  function onEscClose(e) { if (e.key === 'Escape') closeOverlay(); }
+
+  // ── Drawing ───────────────────────────────────────────────────────────
+  function svgPointFromEvent(e) {
+    const rect = svgEl.getBoundingClientRect();
+    const vb = svgEl.viewBox.baseVal;
+    const x = ((e.clientX - rect.left) / rect.width) * vb.width;
+    const y = ((e.clientY - rect.top) / rect.height) * vb.height;
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+
+  function onPointerDown(e) {
+    if (pickedPhoto) {
+      // Photo and digital markup are mutually exclusive
+      alert('You\'ve attached a photo. Remove it first to draw on the site map.');
+      return;
+    }
+    e.preventDefault();
+    if (svgEl.setPointerCapture) {
+      try { svgEl.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+    draw.isDrawing = true;
+    const p = svgPointFromEvent(e);
+    draw.currentStroke = { color: draw.currentColor, points: [p] };
+    draw.strokes.push(draw.currentStroke);
+    redrawStrokes();
+    updateSubmitButton();
+  }
+  function onPointerMove(e) {
+    if (!draw.isDrawing || !draw.currentStroke) return;
+    e.preventDefault();
+    const p = svgPointFromEvent(e);
+    const prev = draw.currentStroke.points[draw.currentStroke.points.length - 1];
+    // Throttle: only add if moved at least 2 SVG units
+    const dx = p.x - prev.x, dy = p.y - prev.y;
+    if (dx * dx + dy * dy < 4) return;
+    draw.currentStroke.points.push(p);
+    redrawStrokes();
+  }
+  function onPointerUp(e) {
+    if (!draw.isDrawing) return;
+    draw.isDrawing = false;
+    // Drop strokes with only 1 point (taps) — they're not visible anyway
+    if (draw.currentStroke && draw.currentStroke.points.length < 2) {
+      draw.strokes.pop();
+    }
+    draw.currentStroke = null;
+    redrawStrokes();
+  }
+
+  function redrawStrokes() {
+    if (!svgEl) return;
+    const vb = svgEl.viewBox.baseVal;
+    const strokeWidth = Math.max(2, Math.round(vb.width / 200));
+    const parts = draw.strokes.map((s) => {
+      if (s.points.length < 2) return '';
+      const d = s.points.map(p => p.x + ',' + p.y).join(' ');
+      return '<polyline points="' + d + '" stroke="' + s.color + '" fill="none" stroke-width="' + strokeWidth + '" stroke-linecap="round" stroke-linejoin="round"/>';
+    }).join('');
+    svgEl.innerHTML = parts;
+  }
+
+  function undoStroke() {
+    if (draw.strokes.length === 0) return;
+    draw.strokes.pop();
+    redrawStrokes();
+    updateSubmitButton();
+  }
+
+  function clearStrokes() {
+    if (draw.strokes.length === 0) return;
+    if (!confirm('Clear all your drawing?')) return;
+    draw.strokes = [];
+    draw.currentStroke = null;
+    redrawStrokes();
+    updateSubmitButton();
+  }
+
+  // ── Photo upload (with HEIC handling via canvas) ──────────────────────
+  async function onPhotoPicked(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // allow re-pick same file later
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      alert('Photo too large (>15MB). Try a smaller one.');
+      return;
+    }
+    if (draw.strokes.length > 0) {
+      if (!confirm('Replace your digital drawing with this photo?')) return;
+      draw.strokes = [];
+      redrawStrokes();
+    }
+    submitStatusEl.textContent = 'Processing photo…';
+    try {
+      const resized = await resizeAndConvertToJpeg(file, 1800);
+      if (pickedPhoto && pickedPhoto.previewUrl) URL.revokeObjectURL(pickedPhoto.previewUrl);
+      const previewUrl = URL.createObjectURL(resized);
+      pickedPhoto = { blob: resized, previewUrl };
+      photoPreviewEl.querySelector('img').src = previewUrl;
+      photoPreviewEl.hidden = false;
+      submitStatusEl.textContent = '';
+      updateSubmitButton();
+    } catch (err) {
+      submitStatusEl.textContent = 'Could not process photo: ' + (err && err.message || 'unknown');
+      submitStatusEl.classList.add('bpc-redesign-submit-status--error');
+    }
+  }
+
+  /**
+   * Resize file → canvas → JPEG blob. Uses createImageBitmap which handles
+   * HEIC natively on Safari. Max long edge defaults to 1800px so uploaded
+   * photos stay under 1MB after JPEG-85% compression.
+   */
+  async function resizeAndConvertToJpeg(file, maxEdge) {
+    const bitmap = await createImageBitmap(file);
+    const ratio = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * ratio);
+    const h = Math.round(bitmap.height * ratio);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close && bitmap.close();
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Could not encode image'));
+      }, 'image/jpeg', 0.85);
+    });
+  }
+
+  function clearPhoto() {
+    if (pickedPhoto && pickedPhoto.previewUrl) URL.revokeObjectURL(pickedPhoto.previewUrl);
+    pickedPhoto = null;
+    photoPreviewEl.hidden = true;
+    photoPreviewEl.querySelector('img').src = '';
+    updateSubmitButton();
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────
+  function updateSubmitButton() {
+    if (!submitBtnEl) return;
+    const hasContent = draw.strokes.length > 0 || pickedPhoto || (noteTextareaEl && noteTextareaEl.value.trim().length > 0);
+    submitBtnEl.disabled = !hasContent;
+    if (submitStatusEl && submitStatusEl.classList.contains('bpc-redesign-submit-status--error')) {
+      // Clear stale errors when user makes new progress
+      if (hasContent) {
+        submitStatusEl.textContent = '';
+        submitStatusEl.classList.remove('bpc-redesign-submit-status--error');
+      }
+    }
+  }
+
+  async function submitRedesign() {
+    const slug = getSlugFromPath();
+    const token = getAuthToken();
+    if (!slug || !token) {
+      submitStatusEl.textContent = 'You need to be signed in to submit. Refresh and try again.';
+      submitStatusEl.classList.add('bpc-redesign-submit-status--error');
+      return;
+    }
+    submitBtnEl.disabled = true;
+    submitBtnEl.textContent = 'Sending…';
+    submitStatusEl.textContent = '';
+    submitStatusEl.classList.remove('bpc-redesign-submit-status--error', 'bpc-redesign-submit-status--success');
+
+    try {
+      const info = getSiteMapInfo();
+      const fd = new FormData();
+      fd.append('slug', slug);
+      const note = (noteTextareaEl.value || '').trim();
+      if (note) fd.append('homeowner_note', note);
+      if (info && info.url) fd.append('site_map_url', info.url);
+      if (info && info.width) fd.append('site_map_width', String(info.width));
+      if (info && info.height) fd.append('site_map_height', String(info.height));
+      if (draw.strokes.length > 0) {
+        fd.append('markup_svg', serializeStrokesToSvg(info));
+      }
+      if (pickedPhoto && pickedPhoto.blob) {
+        fd.append('photo', pickedPhoto.blob, 'markup.jpg');
+      }
+
+      const resp = await fetch(API_REDESIGN, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: fd,
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        submitStatusEl.textContent = 'Could not send: ' + (result.error || ('HTTP ' + resp.status));
+        submitStatusEl.classList.add('bpc-redesign-submit-status--error');
+        submitBtnEl.disabled = false;
+        submitBtnEl.textContent = 'Send to designer';
+        return;
+      }
+
+      // Success — show inline confirmation, close on next click
+      submitBtnEl.textContent = 'Sent ✓';
+      submitStatusEl.textContent = result.email_sent
+        ? 'Sent to your designer. They\'ll review and follow up.'
+        : 'Submitted. Your designer will see this in the queue.';
+      submitStatusEl.classList.add('bpc-redesign-submit-status--success');
+
+      // Auto-close after 2.5s
+      setTimeout(() => {
+        // Force-clear so confirm() doesn't fire on close
+        draw.strokes = [];
+        if (pickedPhoto && pickedPhoto.previewUrl) URL.revokeObjectURL(pickedPhoto.previewUrl);
+        pickedPhoto = null;
+        if (noteTextareaEl) noteTextareaEl.value = '';
+        closeOverlay();
+      }, 2500);
+
+    } catch (err) {
+      submitStatusEl.textContent = 'Network error: ' + (err && err.message || 'unknown');
+      submitStatusEl.classList.add('bpc-redesign-submit-status--error');
+      submitBtnEl.disabled = false;
+      submitBtnEl.textContent = 'Send to designer';
+    }
+  }
+
+  function serializeStrokesToSvg(info) {
+    const w = (info && info.width) || 1000;
+    const h = (info && info.height) || 750;
+    const strokeWidth = Math.max(2, Math.round(w / 200));
+    const polylines = draw.strokes
+      .filter(s => s.points.length >= 2)
+      .map((s) => {
+        const d = s.points.map(p => p.x + ',' + p.y).join(' ');
+        return '<polyline points="' + d + '" stroke="' + s.color + '" fill="none" stroke-width="' + strokeWidth + '" stroke-linecap="round" stroke-linejoin="round"/>';
+      })
+      .join('');
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '">' + polylines + '</svg>';
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────
+  function init() {
+    injectStyles();
+    renderFab();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
