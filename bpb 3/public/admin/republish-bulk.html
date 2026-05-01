@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bulk Republish · Bayside Proposal Builder</title>
+  <title>Bulk Republish · Admin · Bayside Proposal Builder</title>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin-shell.css">
   <style>
+    /* Page-specific styles only — chrome lives in admin-shell.css */
     :root {
       --green: #5d7e69;
       --green-dark: #4a6654;
@@ -19,76 +21,6 @@
       --danger: #b04040;
       --warn: #b88030;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--charcoal);
-      background: #fafafa;
-      line-height: 1.6;
-      font-size: 15px;
-      min-height: 100vh;
-    }
-    a { color: var(--green-dark); }
-
-    .admin-header {
-      background: #fff;
-      border-bottom: 1px solid var(--border);
-      padding: 18px 32px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .admin-header h1 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--navy);
-    }
-    .admin-header nav a {
-      font-size: 13px;
-      text-decoration: none;
-      color: var(--muted);
-      margin-right: 18px;
-    }
-    .admin-header nav a:hover { color: var(--green-dark); }
-
-    .shell {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px;
-    }
-
-    .intro { margin-bottom: 24px; }
-    .eyebrow {
-      font-size: 11px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--green);
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    .intro h2 {
-      font-size: 28px;
-      font-weight: 600;
-      color: var(--navy);
-      margin-bottom: 10px;
-      letter-spacing: -0.01em;
-    }
-    .intro p {
-      color: var(--muted);
-      max-width: 760px;
-      font-size: 15px;
-    }
-    .intro-help {
-      margin-top: 14px;
-      padding: 14px 18px;
-      background: var(--green-soft);
-      border-left: 3px solid var(--green);
-      border-radius: 4px;
-      font-size: 13px;
-      color: var(--charcoal);
-      line-height: 1.6;
-    }
-    .intro-help strong { color: var(--navy); }
 
     .controls {
       background: #fff;
@@ -279,46 +211,66 @@
   </style>
 </head>
 <body>
-  <header class="admin-header">
-    <h1>Bulk Republish</h1>
-    <nav>
-      <a href="/admin/">← Admin home</a>
-      <a href="/dashboard">Dashboard</a>
-    </nav>
-  </header>
 
-  <div class="shell">
-    <div class="intro">
-      <div class="eyebrow">Maintenance</div>
-      <h2>Republish bids to pull in new swatches</h2>
-      <p>Already-published bids are immutable HTML snapshots — new material swatches in the catalog don't reach them automatically. Select bids below and republish to bake the new swatches into a fresh snapshot. Old snapshots stay in place; each republish creates a new version slug.</p>
-      <div class="intro-help">
-        <strong>How it works:</strong> Each republish runs the same flow as clicking "Publish new version" in the editor — pulls fresh data from the catalog, generates HTML, writes a new <code>published_proposals</code> row. Bids are processed one at a time. Plan ~5–10 seconds per bid; don't close this tab while it's running.
-      </div>
+<!-- Shared admin chrome (topbar + tab strip) — rendered by admin-shell.js -->
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge is-loading" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
     </div>
+  </div>
+</header>
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections"></nav>
 
-    <div class="controls">
-      <div class="left">
-        <button type="button" id="selectAllBtn" class="btn btn-ghost">Select all</button>
-        <button type="button" id="selectNoneBtn" class="btn btn-ghost">Clear</button>
-        <span class="counter" id="counter">loading…</span>
-      </div>
-      <div class="right">
-        <button type="button" id="republishBtn" class="btn btn-primary" disabled>Republish selected</button>
-      </div>
-    </div>
-
-    <div id="statusBanner" class="status-banner"></div>
-
-    <div id="results">
-      <div class="loading"><span class="spinner"></span>Loading published bids…</div>
+<main class="ash-shell">
+  <div class="ash-intro">
+    <div class="ash-eyebrow">Tools · Bulk republish</div>
+    <h1 class="ash-title">Republish bids to pull in new swatches</h1>
+    <p class="ash-lede">
+      Already-published bids are immutable HTML snapshots — new material swatches in the catalog don't reach them
+      automatically. Select bids below and republish to bake the new swatches into a fresh snapshot. Old snapshots
+      stay in place; each republish creates a new version slug.
+    </p>
+    <div style="margin-top:14px;padding:14px 18px;background:var(--green-soft);border-left:3px solid var(--green);border-radius:4px;font-size:13px;color:var(--charcoal);line-height:1.6;">
+      <strong style="color:var(--navy);">How it works:</strong> Each republish runs the same flow as clicking "Publish new version" in the editor — pulls fresh data from the catalog, generates HTML, writes a new <code style="background:var(--cream);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;">published_proposals</code> row. Bids are processed one at a time. Plan ~5–10 seconds per bid; don't close this tab while it's running.
     </div>
   </div>
 
-  <!-- Hidden mount point for publish module. Offscreen via CSS so the module
-       can render its UI without blocking interaction with this page. -->
-  <div id="publishMount"></div>
+  <div class="controls">
+    <div class="left">
+      <button type="button" id="selectAllBtn" class="btn btn-ghost">Select all</button>
+      <button type="button" id="selectNoneBtn" class="btn btn-ghost">Clear</button>
+      <span class="counter" id="counter">loading…</span>
+    </div>
+    <div class="right">
+      <button type="button" id="republishBtn" class="btn btn-primary" disabled>Republish selected</button>
+    </div>
+  </div>
 
-  <script type="module" src="/admin/republish-bulk.js"></script>
+  <div id="statusBanner" class="status-banner"></div>
+
+  <div id="results">
+    <div class="loading"><span class="spinner"></span>Loading published bids…</div>
+  </div>
+</main>
+
+<!-- Hidden mount point for publish module. Offscreen via CSS so the module
+     can render its UI without blocking interaction with this page. -->
+<div id="publishMount"></div>
+
+<!-- Render the shared shell chrome (topbar role badge + tab strip) -->
+<script type="module" src="/admin/admin-shell.js"></script>
+
+<!-- Page-specific logic (already has master URL gate from Phase 5B P2 Batch 1) -->
+<script type="module" src="/admin/republish-bulk.js"></script>
+
 </body>
 </html>
