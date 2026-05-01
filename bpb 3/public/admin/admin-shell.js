@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /admin/admin-shell.js — Phase 5A + 5B Part 1 + 5C
+// /admin/admin-shell.js — Phase 5A + 5B Part 1 + 5C + Phase 4 closeout
 //
 // The master admin shell. Renders:
 //   1. The role badge + email in the topbar
@@ -10,6 +10,9 @@
 // 5B Part 1: added Designers tab (master-only) + new 'team' group.
 // 5C: added Events tab (designer-accessible) + new 'analytics' group;
 //     groundwork for the 5D dashboards that will live in the same group.
+// Phase 4 closeout: added Substitutions tab (designer-accessible) into
+//     the existing 'operations' group — review pending homeowner material
+//     swap requests submitted from published proposals.
 //
 // Adding a future admin tool:
 //   1. Add an entry to TABS below
@@ -56,6 +59,15 @@ const TABS = [
     group: 'operations',
     icon: '👤',
     description: 'Add, edit, and invite homeowner clients. Assign proposals, manage referrals, send login links.',
+  },
+  {
+    id: 'substitutions',
+    label: 'Substitutions',
+    href: '/admin/substitutions.html',
+    role: 'designer',
+    group: 'operations',
+    icon: '↺',
+    description: 'Review homeowner material swap requests submitted from published proposals. Approve, reject, or mark applied.',
   },
   {
     id: 'create-homeowner',
