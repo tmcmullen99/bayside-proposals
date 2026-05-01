@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /admin/admin-shell.js — Phase 5A + 5B Part 1 + 5C + Phase 4 closeout + 5F + 6.2
+// /admin/admin-shell.js — Phase 5A + 5B Part 1 + 5C + Phase 4 closeout + 5F + 6.2 + 6.3A
 //
 // The master admin shell. Renders:
 //   1. The role badge + email in the topbar
@@ -8,14 +8,14 @@
 //      pages — those swap in their own content)
 //
 // 5B Part 1: added Designers tab (master-only) + new 'team' group.
-// 5C: added Events tab (designer-accessible) + new 'analytics' group;
-//     groundwork for the 5D dashboards that will live in the same group.
-// Phase 4 closeout: added Substitutions tab (designer-accessible) into
-//     the existing 'operations' group.
-// 5F.3: added Notifications tab (designer-accessible) to 'analytics' group
-//     for managing first-view + daily digest preferences.
-// Phase 6.2: added Redesigns tab (designer-accessible) to 'operations' group
-//     for client-submitted geometric design change requests.
+// 5C: added Events tab (designer-accessible) + new 'analytics' group.
+// Phase 4 closeout: added Substitutions tab into 'operations'.
+// 5F.3: added Notifications tab to 'analytics'.
+// Phase 6.2: added Redesigns tab to 'operations'.
+// Phase 6.3A: added Pipeline tab as the FIRST entry in 'operations' so it's
+//     the natural landing for daily work — central command center showing
+//     every proposal with computed funnel stage, last activity, and quick
+//     links into engagement / substitutions / redesigns queues.
 //
 // Adding a future admin tool:
 //   1. Add an entry to TABS below
@@ -38,7 +38,16 @@ const TABS = [
     hideFromLanding: true,
   },
 
-  // Operations
+  // Operations — Pipeline first; it's the daily command center
+  {
+    id: 'pipeline',
+    label: 'Pipeline',
+    href: '/admin/pipeline.html',
+    role: 'designer',
+    group: 'operations',
+    icon: '◉',
+    description: 'Every proposal in one place. Computed funnel stage, last activity, pending substitutions and redesigns, with quick links into every other admin view.',
+  },
   {
     id: 'clients',
     label: 'Clients',
