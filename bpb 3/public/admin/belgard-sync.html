@@ -3,47 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Belgard Catalog Sync · Proposal Builder</title>
-<link rel="stylesheet" href="/styles.css">
+<title>Belgard Sync · Admin · Bayside Proposal Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin-shell.css">
 <style>
-  /* Admin-page-specific styles. Kept inline so we don't bloat the shared
-     styles.css with admin-only rules. All classes prefixed .bs- (Belgard Sync). */
-  body { background: #faf8f3; }
-
-  .bs-shell {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 32px 28px 96px;
-  }
-
-  .bs-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 28px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #e5e5e5;
-  }
-  .bs-header h1 {
-    font-size: 26px;
-    font-weight: 600;
-    color: #1a1f2e;
-    margin: 0;
-  }
-  .bs-header .bs-eyebrow {
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #5d7e69;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-  .bs-back-link {
-    font-size: 13px;
-    color: #666;
-    text-decoration: none;
-  }
-  .bs-back-link:hover { color: #1a1f2e; }
+  /* Page-specific styles only — chrome lives in admin-shell.css.
+     All page classes prefixed .bs- (Belgard Sync). */
 
   /* Stats strip */
   .bs-stats {
@@ -129,6 +94,7 @@
     font-size: 14px;
     cursor: pointer;
     transition: background 0.15s;
+    font-family: inherit;
   }
   .bs-btn-primary { background: #5d7e69; color: #fff; }
   .bs-btn-primary:hover { background: #4a6654; }
@@ -172,7 +138,7 @@
     margin-top: 10px;
     max-height: 120px;
     overflow-y: auto;
-    font-family: 'SF Mono', Menlo, monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
     line-height: 1.5;
   }
   .bs-progress-log-entry-error { color: #b04040; }
@@ -287,14 +253,35 @@
 </head>
 <body>
 
-<div class="bs-shell">
-  <header class="bs-header">
-    <div>
-      <div class="bs-eyebrow">Admin tool</div>
-      <h1>Belgard catalog sync</h1>
+<!-- Shared admin chrome (topbar + tab strip) — rendered by admin-shell.js -->
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge is-loading" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
     </div>
-    <a href="/dashboard.html" class="bs-back-link">← Back to dashboard</a>
-  </header>
+  </div>
+</header>
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections"></nav>
+
+<main class="ash-shell">
+  <div class="ash-intro">
+    <div class="ash-eyebrow">Catalog · Belgard sync</div>
+    <h1 class="ash-title">Belgard catalog sync</h1>
+    <p class="ash-lede">
+      Refresh the Belgard materials catalog from the manufacturer. Master-only — high blast radius.
+      Discovers products from each Belgard category page, matches to local catalog rows by name, and writes
+      <code style="background:var(--cream,#faf8f3);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;">primary_image_url</code> only where it's currently NULL.
+      Existing imagery is never overwritten.
+    </p>
+  </div>
 
   <!-- Stats strip (populated after catalog count loads) -->
   <div class="bs-stats" id="bsStats">
@@ -361,8 +348,12 @@
     <p class="bs-panel-sub" id="bsDoneSummary"></p>
     <button id="bsDoneReload" class="bs-btn bs-btn-secondary">Run another sync</button>
   </section>
-</div>
+</main>
 
+<!-- Render the shared shell chrome (topbar role badge + tab strip) -->
+<script type="module" src="/admin/admin-shell.js"></script>
+
+<!-- Page-specific logic (already has master URL gate from Phase 5B P2 Batch 1) -->
 <script type="module" src="/js/admin-belgard-sync.js"></script>
 
 </body>
