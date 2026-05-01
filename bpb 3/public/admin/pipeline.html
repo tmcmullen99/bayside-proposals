@@ -119,6 +119,132 @@
     }
     .pl-refresh-btn:hover { border-color: var(--green); color: var(--green-dark); }
 
+    /* Bulk follow-up panel — visible when filter=cold and there are cold rows */
+    .pl-bulk-panel {
+      background: linear-gradient(135deg, #fff 0%, var(--cold-soft) 100%);
+      border: 1px solid #d8c8a8;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+      display: none;
+    }
+    .pl-bulk-panel.is-visible { display: block; }
+    .pl-bulk-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .pl-bulk-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--navy);
+    }
+    .pl-bulk-title strong { color: var(--cold-fg); }
+    .pl-bulk-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .pl-bulk-select-all,
+    .pl-bulk-send-btn {
+      padding: 8px 14px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .pl-bulk-select-all {
+      background: #fff;
+      color: var(--charcoal);
+      border-color: var(--border);
+    }
+    .pl-bulk-select-all:hover { border-color: var(--cold-fg); }
+    .pl-bulk-send-btn {
+      background: var(--green);
+      color: #fff;
+    }
+    .pl-bulk-send-btn:hover:not(:disabled) { background: var(--green-dark); }
+    .pl-bulk-send-btn:disabled {
+      background: #b8c8bd;
+      cursor: not-allowed;
+    }
+    .pl-bulk-checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .pl-bulk-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .pl-bulk-item input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+    .pl-bulk-item-address {
+      flex: 1;
+      color: var(--charcoal);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pl-bulk-item-meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      flex-shrink: 0;
+    }
+    .pl-bulk-template {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      align-items: center;
+    }
+    .pl-bulk-template-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    .pl-bulk-template-chip {
+      padding: 5px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--charcoal);
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .pl-bulk-template-chip:hover { border-color: var(--green); }
+    .pl-bulk-template-chip.is-active {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+
     /* Proposal list */
     .pl-list {
       display: flex;
@@ -138,6 +264,10 @@
     }
     .pl-row.is-cold {
       border-color: #d8c8a8;
+    }
+    .pl-row.is-followed-up {
+      border-color: var(--info-fg);
+      background: #f8fbff;
     }
 
     .pl-row-summary {
@@ -237,6 +367,7 @@
     .pl-badge-views   { background: #f0f0f0; color: var(--muted); }
     .pl-badge-subs    { background: var(--warn-soft); color: var(--warn-fg); }
     .pl-badge-redesigns { background: var(--info-soft); color: var(--info-fg); }
+    .pl-badge-followup { background: var(--info-soft); color: var(--info-fg); }
 
     .pl-row-chevron {
       color: var(--muted-soft);
@@ -283,6 +414,24 @@
     }
     .pl-meta-cell-value a:hover { text-decoration: underline; }
 
+    .pl-followup-history {
+      background: var(--info-soft);
+      border-left: 3px solid var(--info-fg);
+      border-radius: 0 6px 6px 0;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--info-fg);
+      line-height: 1.5;
+    }
+    .pl-followup-history-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
     .pl-actions {
       display: flex;
       flex-wrap: wrap;
@@ -313,6 +462,12 @@
       border-color: var(--green);
     }
     .pl-action.is-primary:hover { background: var(--green-dark); border-color: var(--green-dark); }
+    .pl-action.is-followup {
+      background: var(--info-soft);
+      color: var(--info-fg);
+      border-color: #c9d6e8;
+    }
+    .pl-action.is-followup:hover { background: #d6e3ed; }
     .pl-action.is-warn {
       border-color: #f3d97a;
       background: var(--warn-soft);
@@ -350,6 +505,216 @@
       margin-right: 8px;
     }
     @keyframes pl-spin { to { transform: rotate(360deg); } }
+
+    /* Modal */
+    .pl-modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(20, 22, 24, 0.6);
+      z-index: 5000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: pl-fade-in 0.14s ease;
+    }
+    .pl-modal-backdrop.is-visible { display: flex; }
+    @keyframes pl-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+    .pl-modal {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      width: 100%;
+      max-width: 640px;
+      max-height: calc(100vh - 40px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .pl-modal-header {
+      padding: 18px 22px;
+      background: var(--charcoal);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .pl-modal-header h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .pl-modal-header-sub {
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+      margin-top: 2px;
+    }
+    .pl-modal-close {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .pl-modal-close:hover { opacity: 0.7; }
+
+    .pl-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 22px;
+    }
+
+    .pl-modal-context {
+      background: var(--cream);
+      border-left: 3px solid var(--green);
+      border-radius: 0 6px 6px 0;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--charcoal);
+      line-height: 1.55;
+    }
+    .pl-modal-context-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .pl-modal-templates {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .pl-modal-template-chip {
+      padding: 6px 12px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--charcoal);
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .pl-modal-template-chip:hover { border-color: var(--green); }
+    .pl-modal-template-chip.is-active {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+
+    .pl-modal-field {
+      margin-bottom: 14px;
+    }
+    .pl-modal-field-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--charcoal);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .pl-modal-field input,
+    .pl-modal-field textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--charcoal);
+      background: #fff;
+      box-sizing: border-box;
+    }
+    .pl-modal-field textarea {
+      min-height: 140px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+    .pl-modal-field input:focus,
+    .pl-modal-field textarea:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(93,126,105,0.16);
+    }
+
+    .pl-modal-footer {
+      padding: 14px 22px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--cream);
+    }
+    .pl-modal-meta {
+      font-size: 11px;
+      color: var(--muted);
+      flex: 1;
+      min-width: 0;
+    }
+    .pl-modal-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .pl-modal-cancel,
+    .pl-modal-send {
+      padding: 9px 16px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .pl-modal-cancel {
+      background: #fff;
+      color: var(--charcoal);
+      border-color: var(--border);
+    }
+    .pl-modal-cancel:hover { border-color: var(--charcoal); }
+    .pl-modal-send {
+      background: var(--green);
+      color: #fff;
+    }
+    .pl-modal-send:hover:not(:disabled) { background: var(--green-dark); }
+    .pl-modal-send:disabled {
+      background: #b8c8bd;
+      cursor: not-allowed;
+    }
+
+    .pl-modal-status {
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-top: 12px;
+      display: none;
+    }
+    .pl-modal-status.is-error {
+      display: block;
+      background: var(--danger-soft);
+      color: var(--danger-fg);
+      border: 1px solid #fecaca;
+    }
+    .pl-modal-status.is-success {
+      display: block;
+      background: var(--green-soft);
+      color: var(--green-dark);
+    }
+    .pl-modal-status.is-info {
+      display: block;
+      background: var(--info-soft);
+      color: var(--info-fg);
+    }
 
     /* Mobile */
     @media (max-width: 720px) {
@@ -398,8 +763,8 @@
     <p class="ash-lede">
       Every proposal you've authored, in one place. Stage is computed from real
       activity — sent, viewed, engaged with substitutions or redesigns, or gone
-      cold. Tap any row to see details, activity, and quick links into the
-      engagement view, substitutions queue, or redesign queue for that proposal.
+      cold. Send templated follow-ups in one click; bulk-send to all cold
+      proposals from the panel that appears when filtering by Cold.
     </p>
   </div>
 
@@ -437,10 +802,74 @@
     <button class="pl-refresh-btn" id="plRefreshBtn" type="button">Refresh</button>
   </div>
 
+  <!-- Bulk follow-up panel — only visible when filter=cold -->
+  <div class="pl-bulk-panel" id="plBulkPanel">
+    <div class="pl-bulk-header">
+      <div class="pl-bulk-title">
+        <strong id="plBulkCount">0</strong> proposals could use a nudge
+      </div>
+      <div class="pl-bulk-actions">
+        <button class="pl-bulk-select-all" id="plBulkSelectAll" type="button">Select all</button>
+        <button class="pl-bulk-send-btn" id="plBulkSendBtn" type="button" disabled>Send follow-ups</button>
+      </div>
+    </div>
+    <div class="pl-bulk-template">
+      <span class="pl-bulk-template-label">Template:</span>
+      <button type="button" class="pl-bulk-template-chip is-active" data-bulk-template="check_in">Just checking in</button>
+      <button type="button" class="pl-bulk-template-chip" data-bulk-template="question">Any questions?</button>
+      <button type="button" class="pl-bulk-template-chip" data-bulk-template="engagement_observed">Reference their views</button>
+    </div>
+    <div class="pl-bulk-checklist" id="plBulkChecklist"></div>
+  </div>
+
   <div id="plContent">
     <div class="pl-loading"><span class="pl-spinner"></span>Loading pipeline…</div>
   </div>
 </main>
+
+<!-- Single follow-up modal -->
+<div class="pl-modal-backdrop" id="plFollowupModal" role="dialog" aria-modal="true">
+  <div class="pl-modal">
+    <div class="pl-modal-header">
+      <div>
+        <h2 id="plFuModalTitle">Send follow-up</h2>
+        <div class="pl-modal-header-sub" id="plFuModalSub">—</div>
+      </div>
+      <button type="button" class="pl-modal-close" id="plFuModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="pl-modal-body">
+      <div class="pl-modal-context" id="plFuContext">
+        <div class="pl-modal-context-label">Engagement context</div>
+        <div id="plFuContextBody">—</div>
+      </div>
+
+      <div class="pl-modal-templates">
+        <button type="button" class="pl-modal-template-chip is-active" data-template="check_in">Just checking in</button>
+        <button type="button" class="pl-modal-template-chip" data-template="question">Any questions?</button>
+        <button type="button" class="pl-modal-template-chip" data-template="engagement_observed">Reference their views</button>
+        <button type="button" class="pl-modal-template-chip" data-template="custom">Custom</button>
+      </div>
+
+      <div class="pl-modal-field">
+        <div class="pl-modal-field-label">Subject</div>
+        <input type="text" id="plFuSubject" maxlength="240">
+      </div>
+      <div class="pl-modal-field">
+        <div class="pl-modal-field-label">Message</div>
+        <textarea id="plFuBody" maxlength="8000"></textarea>
+      </div>
+
+      <div class="pl-modal-status" id="plFuStatus"></div>
+    </div>
+    <div class="pl-modal-footer">
+      <div class="pl-modal-meta" id="plFuMeta">Reply-to: your email</div>
+      <div class="pl-modal-actions">
+        <button type="button" class="pl-modal-cancel" id="plFuCancel">Cancel</button>
+        <button type="button" class="pl-modal-send" id="plFuSend">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="/admin/admin-shell.js"></script>
 <script type="module" src="/admin/admin-pipeline.js"></script>
