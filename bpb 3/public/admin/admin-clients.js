@@ -11,10 +11,13 @@
 //   - Send magic-link invite (Supabase signInWithOtp with client's email)
 //   - Remove client (cascades to client_proposals via FK)
 //   - Phase 4.0c R2+: list sent referrals + mark appointment complete
+//
+// Phase 5B P2 cleanup: removed legacy signOutBtn handling. The shared
+// admin-shell binds sign-out on #ashSignOutBtn for every admin page now.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
-import { requireAdmin, sendMagicLink, signOut } from '/js/auth-util.js';
+import { requireAdmin, sendMagicLink } from '/js/auth-util.js';
 
 // DOM
 const loadingState = document.getElementById('loadingState');
@@ -32,7 +35,6 @@ const newEmail = document.getElementById('newEmail');
 const newPhone = document.getElementById('newPhone');
 const newAddress = document.getElementById('newAddress');
 const newNotes = document.getElementById('newNotes');
-const signOutBtn = document.getElementById('signOutBtn');
 
 // State
 const ctx = {
@@ -122,8 +124,6 @@ function attachEventListeners() {
     clearAddForm();
   });
   saveClientBtn.addEventListener('click', handleAddClient);
-
-  signOutBtn.addEventListener('click', signOut);
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────
