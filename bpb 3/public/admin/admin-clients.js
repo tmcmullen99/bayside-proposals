@@ -508,4 +508,268 @@ async function handleAddClient() {
   const { error } = await supabase
     .from('clients')
     .insert({
-      name, email, phon
+      name, email, phone: phone || null,
+      address: address || null,
+      notes: notes || null,
+      created_by: ctx.admin.id,
+    });
+
+  saveClientBtn.disabled = false;
+
+  if (error) {
+    if (error.code === '23505') {
+      return showStatus('error', `A client with email "${email}" already exists.`);
+    }
+    return showStatus('error', `Could not save: ${error.message}`);
+  }
+
+  addForm.classList.remove('visible');
+  clearAddForm();
+  showStatus('success', `Added ${name}. Click their row to expand, then "Send login link" to invite them.`);
+  await loadClients();
+  await loadEngagement();
+  render();
+}
+
+function clearAddForm() {
+  newName.value = '';
+  newEmail.value = '';
+  newPhone.value = '';
+  newAddress.value = '';
+  newNotes.value = '';
+}
+
+async function handleAssignProposal(clientId, proposalId) {
+  const { error } = await supabase
+    .from('client_proposals')
+    .insert({
+      client_id: clientId,
+      proposal_id: proposalId,
+      status: 'draft',
+    });
+  if (error) {
+    if (error.code === '23505') {
+      return showStatus('error', 'That proposal is already assigned to this client.');
+    }
+    return showStatus('error', `Could not assign: ${error.message}`);
+  }
+  showStatus('success', 'Proposal assigned.');
+  await loadClients();
+  await loadEngagement();
+  render();
+}
+
+async function handleUnassign(assignmentId) {
+  if (!confirm('Remove this proposal assignment? The proposal itself is not deleted.')) return;
+  const { error } = await supabase
+    .from('client_proposals')
+    .delete()
+    .eq('id', assignmentId);
+  if (error) return showStatus('error', `Could not unassign: ${error.message}`);
+  showStatus('success', 'Unassigned.');
+  await loadClients();
+  await loadEngagement();
+  render();
+}
+
+async function handleSendLoginLink(client, btn) {
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Sending…';
+
+  const { error } = await sendMagicLink(client.email, '/client/dashboard.html');
+
+  if (error) {
+    showStatus('error', `Could not send: ${error.message}`);
+    btn.disabled = false;
+    btn.textContent = originalText;
+    return;
+  }
+
+  const draftIds = (client.client_proposals || [])
+    .filter(cp => cp.status === 'draft')
+    .map(cp => cp.id);
+
+  if (draftIds.length > 0) {
+    await supabase
+      .from('client_proposals')
+      .update({ status: 'sent', sent_at: new Date().toISOString() })
+      .in('id', draftIds);
+  }
+
+  showStatus('success', `Login link sent to ${client.email}. They'll receive an email from tim@mcmullen.properties with a sign-in link.`);
+  btn.disabled = false;
+  btn.textContent = 'Resend login link';
+
+  await loadClients();
+  await loadEngagement();
+  render();
+}
+
+async function handleEditClient(client) {
+  const newNameVal = prompt('Full name:', client.name);
+  if (newNameVal === null) return;
+  const newPhoneVal = prompt('Phone:', client.phone || '');
+  if (newPhoneVal === null) return;
+  const newAddressVal = prompt('Address:', client.address || '');
+  if (newAddressVal === null) return;
+  const newNotesVal = prompt('Notes:', client.notes || '');
+  if (newNotesVal === null) return;
+
+  const { error } = await supabase
+    .from('clients')
+    .update({
+      name: newNameVal.trim() || client.name,
+      phone: newPhoneVal.trim() || null,
+      address: newAddressVal.trim() || null,
+      notes: newNotesVal.trim() || null,
+    })
+    .eq('id', client.id);
+
+  if (error) return showStatus('error', `Could not update: ${error.message}`);
+  showStatus('success', 'Client updated.');
+  await loadClients();
+  await loadEngagement();
+  render();
+}
+
+async function handleDeleteClient(client) {
+  const count = (client.client_proposals || []).length;
+  const msg = count > 0
+    ? `Remove ${client.name}? This will also unassign ${count} proposal${count === 1 ? '' : 's'}. The proposals themselves won't be deleted. This can't be undone.`
+    : `Remove ${client.name}? This can't be undone.`;
+  if (!confirm(msg)) return;
+
+  const { error } = await supabase
+    .from('clients')
+    .delete()
+    .eq('id', client.id);
+
+  if (error) return showStatus('error', `Could not remove: ${error.message}`);
+  showStatus('success', `Removed ${client.name}.`);
+  ctx.expandedIds.delete(client.id);
+  await loadClients();
+  await loadEngagement();
+  render();
+}
+
+async function handleMarkComplete(referralId, btn) {
+  if (!confirm('Mark this design appointment as complete? This will award $500 credit to the referrer (capped at $2,500 total).')) return;
+
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Marking…';
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    showStatus('error', 'Session expired. Please sign in again.');
+    btn.disabled = false;
+    btn.textContent = originalText;
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/mark-appointment-completed', {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+      body: JSON.stringify({ referral_id: referralId }),
+    });
+    const data = await r.json();
+
+    if (!r.ok) {
+      showStatus('error', data.error || `API returned ${r.status}`);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      return;
+    }
+
+    const newBalance = '$' + (Number(data.new_credit_cents || 0) / 100).toFixed(0);
+    const referrerName = data.referrer_name || 'the referrer';
+    const msg = data.credit_awarded
+      ? `Appointment complete! $500 credit added — ${referrerName} now at ${newBalance}.`
+      : `Appointment complete. ${referrerName} is at the $2,500 cap, so no additional credit was added.`;
+    showStatus('success', msg);
+
+    await loadClients();
+    await loadEngagement();
+    render();
+  } catch (err) {
+    showStatus('error', `Network error: ${err.message}`);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// ── Slug / address helpers ─────────────────────────────────────────────────
+function parseSlugSortKey(slug) {
+  if (!slug) return { date: '', version: 0 };
+  const match = String(slug).match(/(\d{4})-(\d{2})-(\d{2})(?:-(\d+))?$/);
+  if (!match) return { date: '', version: 0 };
+  return {
+    date: `${match[1]}-${match[2]}-${match[3]}`,
+    version: parseInt(match[4] || '1', 10),
+  };
+}
+
+function getLatestSlug(proposal) {
+  const pubs = proposal?.published_proposals;
+  if (!Array.isArray(pubs) || pubs.length === 0) return null;
+  const sorted = [...pubs].sort((a, b) => {
+    const ka = parseSlugSortKey(a.slug);
+    const kb = parseSlugSortKey(b.slug);
+    if (kb.date !== ka.date) return kb.date.localeCompare(ka.date);
+    return kb.version - ka.version;
+  });
+  return sorted[0]?.slug || null;
+}
+
+function getDisplayAddress(proposal) {
+  if (proposal?.address) return proposal.address;
+  const slug = getLatestSlug(proposal);
+  if (slug) {
+    const stripped = slug.replace(/-\d{4}-\d{2}-\d{2}(-\d+)?$/, '');
+    if (stripped) {
+      return stripped
+        .split('-')
+        .map(w => w ? w[0].toUpperCase() + w.slice(1) : w)
+        .join(' ');
+    }
+  }
+  return 'Untitled proposal';
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function showStatus(type, msg) {
+  statusBox.className = `status visible ${type}`;
+  statusBox.textContent = msg;
+  statusBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (type === 'success') {
+    setTimeout(() => {
+      if (statusBox.textContent === msg) {
+        statusBox.className = 'status';
+        statusBox.textContent = '';
+      }
+    }, 5000);
+  }
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
+}
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str);
+}
