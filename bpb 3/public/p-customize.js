@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /p-customize.js — Phase 4.1 Sprint B2 (revision 7)
+// /p-customize.js — Phase 4.1 Sprint B2 (revision 7) + 6.2 + 6.4A
 //
 // B2-r7: Move install-guide visuals from bid sections to Quality Standards.
 //
@@ -1742,6 +1742,13 @@
             const s = document.createElement('script');
             s.id = 'bpc-redesign-module';
             s.src = '/p-redesign.js';
+            document.head.appendChild(s);
+          }
+          // Phase 6.4A: load the budget exploration module.
+          if (!document.getElementById('bpc-budget-module')) {
+            const s = document.createElement('script');
+            s.id = 'bpc-budget-module';
+            s.src = '/p-budget.js';
             document.head.appendChild(s);
           }
         }
