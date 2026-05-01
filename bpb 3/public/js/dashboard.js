@@ -1,6 +1,9 @@
 // Dashboard — lists all proposals, creates new drafts, redirects to editor.
 // Phase 2D: per-row delete with branded confirm modal.
+// Phase 5D.3: engagement column on the proposals table — quick "did anyone
+// view this" indicator linking through to /admin/engagement.html.
 import { supabase } from './supabase-client.js';
+import { getProposalEngagementBulk, formatRelativeTime } from './engagement-utils.js';
 
 const content = document.getElementById('content');
 const errorBox = document.getElementById('errorBox');
@@ -15,7 +18,7 @@ async function loadProposals() {
 
   const { data, error } = await supabase
     .from('proposals')
-    .select('id, client_name, project_address, project_city, proposal_type, status, bid_total_amount, updated_at, created_at')
+    .select('id, client_name, project_address, project_city, project_label, proposal_type, status, bid_total_amount, updated_at, created_at')
     .order('updated_at', { ascending: false });
 
   if (error) {
@@ -29,7 +32,12 @@ async function loadProposals() {
     return;
   }
 
-  renderTable(data);
+  // Phase 5D.3: bulk-fetch engagement summaries for every proposal in one go.
+  // Errors here degrade gracefully — engagement cells just show '—'.
+  const proposalIds = data.map(p => p.id);
+  const engagement = await getProposalEngagementBulk(proposalIds);
+
+  renderTable(data, engagement);
 }
 
 function renderEmptyState() {
@@ -43,11 +51,8 @@ function renderEmptyState() {
   document.getElementById('emptyNewBtn').addEventListener('click', createProposal);
 }
 
-function renderTable(proposals) {
+function renderTable(proposals, engagement) {
   const rows = proposals.map(p => {
-    // Title fallback chain: client_name → project_label → project_address → "Untitled draft".
-    // Subtitle complements: if title used a real-world value, subtitle shows the
-    // remaining context (address + city, or just city when address was the title).
     const hasClient = !!p.client_name;
     const hasLabel = !!p.project_label;
     const hasAddress = !!p.project_address;
@@ -75,8 +80,10 @@ function renderTable(proposals) {
       : '—';
     const updated = formatDate(p.updated_at || p.created_at);
 
-    // data-id attribute on the row lets click handlers + delete handlers
-    // know which proposal to act on without inline JS interpolation.
+    // Phase 5D.3: engagement cell — clickable, links to /admin/engagement.html.
+    const eng = engagement.get(p.id);
+    const engagementCell = renderEngagementCell(p.id, eng);
+
     return `
       <tr data-proposal-id="${escapeHtml(p.id)}" class="proposal-row" style="cursor: pointer;">
         <td>
@@ -84,6 +91,7 @@ function renderTable(proposals) {
           <div class="project-address">${escapeHtml(address)}</div>
         </td>
         <td><span class="status-badge ${status}">${status}</span></td>
+        <td>${engagementCell}</td>
         <td class="tnum" style="text-transform: capitalize;">${escapeHtml(typeLabel)}</td>
         <td class="tnum">${amount}</td>
         <td class="date">${updated}</td>
@@ -114,15 +122,36 @@ function renderTable(proposals) {
       .row-delete-btn:focus-visible { outline: 2px solid #b91c1c; outline-offset: 1px; opacity: 1; }
       .proposal-row.deleting { opacity: 0.4; pointer-events: none; transition: opacity 0.2s; }
       .proposal-row.fading-out { opacity: 0; transition: opacity 0.3s; }
+
+      /* Phase 5D.3 engagement cell */
+      .engagement-cell {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 12px; text-decoration: none; color: inherit;
+        padding: 2px 6px; border-radius: 4px;
+        transition: background 0.12s;
+      }
+      .engagement-cell:hover { background: #f4f4f4; text-decoration: none; }
+      .engagement-cell-empty { color: #bbb; font-size: 13px; }
+      .engagement-dot {
+        display: inline-block; width: 8px; height: 8px;
+        border-radius: 50%; flex-shrink: 0;
+      }
+      .engagement-dot.is-live { animation: dashEngPulse 1.5s ease-in-out infinite; }
+      @keyframes dashEngPulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.4); opacity: 0.6; }
+      }
+      .engagement-cell-meta { color: #888; font-size: 11px; }
     </style>
     <table class="ledger">
       <thead>
         <tr>
           <th>Project</th>
-          <th style="width: 120px;">Status</th>
-          <th style="width: 140px;">Type</th>
-          <th style="width: 120px;">Amount</th>
-          <th style="width: 140px;">Updated</th>
+          <th style="width: 110px;">Status</th>
+          <th style="width: 170px;">Engagement</th>
+          <th style="width: 130px;">Type</th>
+          <th style="width: 110px;">Amount</th>
+          <th style="width: 130px;">Updated</th>
           <th style="width: 44px;"></th>
         </tr>
       </thead>
@@ -130,8 +159,8 @@ function renderTable(proposals) {
     </table>
   `;
 
-  // Wire up row click → open editor; delete button click → open modal.
-  // Done after innerHTML so we don't have inline onclick attributes.
+  // Wire up row click → open editor; delete button + engagement link both
+  // use stopPropagation so they don't ALSO trigger the row navigate.
   content.querySelectorAll('.proposal-row').forEach(row => {
     const proposalId = row.dataset.proposalId;
     const matchingProposal = proposals.find(p => p.id === proposalId);
@@ -142,10 +171,44 @@ function renderTable(proposals) {
 
     const delBtn = row.querySelector('.row-delete-btn');
     delBtn.addEventListener('click', (e) => {
-      e.stopPropagation(); // do not also trigger the row's navigate
+      e.stopPropagation();
       showDeleteModal(matchingProposal, row);
     });
+
+    const engCell = row.querySelector('a.engagement-cell');
+    if (engCell) {
+      engCell.addEventListener('click', (e) => {
+        // Let the link navigate to /admin/engagement.html instead of the row's
+        // editor-navigate handler.
+        e.stopPropagation();
+      });
+    }
   });
+}
+
+// Phase 5D.3: render the engagement cell for one proposal row.
+//   No data: muted dash
+//   Has data: dot + count + recency, clickable to engagement.html
+//   Live (event in last 60s): pulsing green dot
+function renderEngagementCell(proposalId, eng) {
+  if (!eng || eng.totalEvents === 0) {
+    return '<span class="engagement-cell-empty">—</span>';
+  }
+  const lastViewMs = eng.lastView ? new Date(eng.lastView).getTime() : 0;
+  const ageMs = Date.now() - lastViewMs;
+  const isRecent = ageMs < 24 * 3600 * 1000;
+  const dotColor = eng.isLive ? '#10a04a' : (isRecent ? '#5d7e69' : '#999');
+  const dotClass = 'engagement-dot' + (eng.isLive ? ' is-live' : '');
+  const recency = eng.isLive ? 'now' : formatRelativeTime(eng.lastView);
+  const viewsLabel = `${eng.totalEvents} view${eng.totalEvents === 1 ? '' : 's'}`;
+  return `
+    <a href="/admin/engagement.html?id=${escapeHtml(proposalId)}" class="engagement-cell"
+       title="View full engagement detail">
+      <span class="${dotClass}" style="background:${dotColor};"></span>
+      <span>${viewsLabel}</span>
+      <span class="engagement-cell-meta">· ${escapeHtml(recency)}</span>
+    </a>
+  `;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -154,12 +217,8 @@ function renderTable(proposals) {
 let _deleteOverlay = null;
 
 function showDeleteModal(proposal, rowEl) {
-  // Build (or reuse) the overlay
   if (!_deleteOverlay) _deleteOverlay = buildDeleteModal();
 
-  // Same name fallback chain as renderTable so modal matches row.
-  // When the address itself is being used as the title, don't repeat
-  // it in the subtitle — just show city (if any).
   const hasClient = !!proposal.client_name;
   const hasLabel = !!proposal.project_label;
   const hasAddress = !!proposal.project_address;
@@ -181,7 +240,6 @@ function showDeleteModal(proposal, rowEl) {
     ? '$' + Number(proposal.bid_total_amount).toLocaleString('en-US', { maximumFractionDigits: 0 })
     : null;
 
-  // Populate the modal with this proposal's data
   _deleteOverlay.querySelector('.bpb-del-name').textContent = displayName;
   const addrEl = _deleteOverlay.querySelector('.bpb-del-addr');
   if (address) {
@@ -194,7 +252,6 @@ function showDeleteModal(proposal, rowEl) {
     addrEl.style.display = 'none';
   }
 
-  // Reset state
   const errEl = _deleteOverlay.querySelector('.bpb-del-error');
   errEl.style.display = 'none';
   errEl.textContent = '';
@@ -202,7 +259,6 @@ function showDeleteModal(proposal, rowEl) {
   confirmBtn.disabled = false;
   confirmBtn.textContent = 'Yes, delete permanently';
 
-  // Wire confirm to this specific proposal/row
   confirmBtn.onclick = () => deleteProposal(proposal, rowEl);
 
   _deleteOverlay.style.display = 'flex';
@@ -322,7 +378,6 @@ function buildDeleteModal() {
 
   document.body.appendChild(overlay);
 
-  // Close interactions: click outside, Cancel button, ESC key
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeDeleteModal();
   });
@@ -346,20 +401,14 @@ async function deleteProposal(proposal, rowEl) {
   confirmBtn.textContent = 'Deleting…';
   errEl.style.display = 'none';
 
-  // Optimistic: dim the row immediately so the user sees the action register
   rowEl.classList.add('deleting');
 
-  // FK cascades handle children: proposal_sections, proposal_materials,
-  // proposal_images, proposal_regions, proposal_region_materials,
-  // proposal_sitemaps, published_proposals, signature_intents all
-  // ON DELETE CASCADE off proposals.id (verified in Phase 2D planning).
   const { error } = await supabase
     .from('proposals')
     .delete()
     .eq('id', proposal.id);
 
   if (error) {
-    // Restore row + show error inside modal (don't auto-close)
     rowEl.classList.remove('deleting');
     confirmBtn.disabled = false;
     cancelBtn.disabled = false;
@@ -369,13 +418,11 @@ async function deleteProposal(proposal, rowEl) {
     return;
   }
 
-  // Success: close modal, fade row out, then remove from DOM
   closeDeleteModal();
   rowEl.classList.remove('deleting');
   rowEl.classList.add('fading-out');
   setTimeout(() => {
     rowEl.remove();
-    // If the table is now empty, swap to the empty state
     if (!content.querySelector('.proposal-row')) {
       renderEmptyState();
     }
