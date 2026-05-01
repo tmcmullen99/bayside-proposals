@@ -272,4 +272,230 @@ export async function onRequestPost({ request, env }) {
       // Code path: create a fresh referrals row, already linked to the
       // newly-created homeowner. status='sent' so the dashboard pipeline
       // looks identical to a token-flow referral; the friend never sees an
-      // invite email because they si
+      // invite email because they signed up directly via the share link.
+      await fetch(SUPABASE_URL + '/rest/v1/referrals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SERVICE_ROLE,
+          'Authorization': 'Bearer ' + SERVICE_ROLE,
+        },
+        body: JSON.stringify({
+          referrer_client_id:  referrer.id,
+          referred_email:      email,
+          referred_name:       name,
+          referred_phone:      phone,
+          referred_client_id:  newClient.id,
+          status:              'sent',
+        }),
+      }).catch(() => {});
+    }
+
+    // ─── 8. Build Acuity prefill URL ────────────────────────────────────
+    const firstSpace = name.indexOf(' ');
+    const firstName  = firstSpace > 0 ? name.slice(0, firstSpace) : name;
+    const lastName   = firstSpace > 0 ? name.slice(firstSpace + 1) : '';
+
+    const acuityParams = new URLSearchParams();
+    acuityParams.set('firstName', firstName);
+    if (lastName) acuityParams.set('lastName', lastName);
+    acuityParams.set('email', email);
+    if (phone) acuityParams.set('phone', phone);
+    const acuityUrl = ACUITY_BASE + '?' + acuityParams.toString();
+
+    // ─── 9. Send the welcome email + designer notification ──────────────
+    // Phase 4 closeout (R3): use PUBLIC_BASE_URL constant rather than
+    // deriving from request.url so emails always link to the real domain.
+    const signinUrl = PUBLIC_BASE_URL + '/account/signin.html';
+    const designerName = (designerProfile && designerProfile.display_name) || 'your Bayside designer';
+    const refeeFirstName = firstName || 'there';
+
+    let homeownerEmailSent = false;
+    let designerEmailSent  = false;
+    let emailError = null;
+
+    if (RESEND_API_KEY) {
+      try {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + RESEND_API_KEY,
+            'Content-Type':  'application/json',
+          },
+          body: JSON.stringify({
+            from:    RESEND_FROM,
+            to:      [email],
+            subject: 'Your Bayside Pavers account is ready',
+            html:    buildHomeownerWelcomeHtml({ name: refeeFirstName, email, initialPassword, signinUrl, designerName }),
+            text:    buildHomeownerWelcomeText({ name: refeeFirstName, email, initialPassword, signinUrl, designerName }),
+          }),
+        });
+        homeownerEmailSent = r.ok;
+        if (!r.ok) emailError = 'Homeowner email failed: ' + (await r.text()).slice(0, 240);
+      } catch (err) {
+        emailError = 'Homeowner email error: ' + ((err && err.message) || 'unknown');
+      }
+
+      if (designerProfile && designerProfile.email) {
+        try {
+          const r = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + RESEND_API_KEY,
+              'Content-Type':  'application/json',
+            },
+            body: JSON.stringify({
+              from:    RESEND_FROM,
+              to:      [designerProfile.email],
+              subject: 'New referral signed up: ' + name + ' (from ' + referrer.name + ')',
+              html:    buildDesignerNotifyHtml({ designerName: designerProfile.display_name || 'there', refereeName: name, referrerName: referrer.name, refereeEmail: email, refereePhone: phone, address, acuityUrl }),
+              text:    buildDesignerNotifyText({ designerName: designerProfile.display_name || 'there', refereeName: name, referrerName: referrer.name, refereeEmail: email, refereePhone: phone, address, acuityUrl }),
+            }),
+          });
+          designerEmailSent = r.ok;
+          if (!r.ok && !emailError) emailError = 'Designer email failed: ' + (await r.text()).slice(0, 240);
+        } catch (err) {
+          if (!emailError) emailError = 'Designer email error: ' + ((err && err.message) || 'unknown');
+        }
+      }
+    } else {
+      emailError = 'RESEND_API_KEY not configured';
+    }
+
+    return json(200, {
+      ok: true,
+      client_id:        newClient.id,
+      acuity_url:       acuityUrl,
+      signin_url:       signinUrl,
+      initial_password: initialPassword,
+      designer_name:    designerName,
+      homeowner_email_sent: homeownerEmailSent,
+      designer_email_sent:  designerEmailSent,
+      email_error:       emailError,
+      via:              tok ? 'token' : 'code',
+    });
+
+  } catch (err) {
+    return json(500, { error: (err && err.message) || 'Unexpected server error' });
+  }
+}
+
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin':  '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age':       '86400',
+    },
+  });
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Email bodies (unchanged from Round 1)
+// ───────────────────────────────────────────────────────────────────────────
+
+function buildHomeownerWelcomeHtml({ name, email, initialPassword, signinUrl, designerName }) {
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>' +
+'<body style="margin:0;padding:0;background:#f7f7f4;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#1f2125;">' +
+'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f7f7f4;padding:40px 20px;">' +
+'<tr><td align="center">' +
+'<table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">' +
+'<tr><td style="background:#5d7e69;padding:32px 40px;text-align:center;">' +
+'<h1 style="margin:0;color:#fff;font-size:24px;font-weight:600;letter-spacing:-0.01em;">Welcome to Bayside Pavers</h1>' +
+'</td></tr>' +
+'<tr><td style="padding:36px 40px 24px;">' +
+'<p style="margin:0 0 18px;font-size:16px;line-height:1.6;">Hi ' + escapeHtml(name) + ',</p>' +
+'<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#58595b;">Your Bayside Pavers account is set up. ' + escapeHtml(designerName) + ' is your assigned designer — they will reach out to confirm your scheduled appointment.</p>' +
+'<div style="background:#f7f7f4;border-radius:6px;padding:20px 24px;margin:24px 0;">' +
+'<p style="margin:0 0 8px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#58595b;font-weight:600;">Your sign-in</p>' +
+'<p style="margin:0 0 6px;font-size:14px;"><strong>Email:</strong> ' + escapeHtml(email) + '</p>' +
+'<p style="margin:0;font-size:14px;"><strong>Password:</strong> <code style="background:#dad7c5;padding:2px 8px;border-radius:3px;font-family:SF Mono,Menlo,monospace;font-size:13px;">' + escapeHtml(initialPassword) + '</code></p>' +
+'</div>' +
+'<p style="margin:0 0 24px;font-size:13px;line-height:1.6;color:#58595b;">That password is your property address (lowercased, no spaces). We will prompt you to set your own when you sign in.</p>' +
+'<div style="text-align:center;margin:32px 0 8px;">' +
+'<a href="' + escapeHtml(signinUrl) + '" style="display:inline-block;background:#5d7e69;color:#fff;text-decoration:none;padding:14px 32px;border-radius:4px;font-size:15px;font-weight:600;">Sign in to your account</a>' +
+'</div></td></tr>' +
+'<tr><td style="padding:24px 40px;background:#f7f7f4;border-top:1px solid #e4e4df;text-align:center;">' +
+'<p style="margin:0;font-size:12px;color:#70726f;">Bayside Pavers · Creating backyards people love</p>' +
+'</td></tr></table></td></tr></table></body></html>';
+}
+
+function buildHomeownerWelcomeText({ name, email, initialPassword, signinUrl, designerName }) {
+  return [
+    'Hi ' + name + ',',
+    '',
+    'Your Bayside Pavers account is set up. ' + designerName + ' is your assigned designer.',
+    '',
+    'Your sign-in:',
+    '  Email:    ' + email,
+    '  Password: ' + initialPassword,
+    '',
+    'That password is your property address (lowercased, no spaces).',
+    'We will prompt you to set your own when you sign in.',
+    '',
+    'Sign in: ' + signinUrl,
+    '',
+    '— Bayside Pavers',
+  ].join('\n');
+}
+
+function buildDesignerNotifyHtml({ designerName, refereeName, referrerName, refereeEmail, refereePhone, address, acuityUrl }) {
+  const phoneRow = refereePhone
+    ? '<p style="margin:6px 0;font-size:14px;"><strong>Phone:</strong> ' + escapeHtml(refereePhone) + '</p>'
+    : '';
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>' +
+'<body style="margin:0;padding:0;background:#f7f7f4;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#1f2125;">' +
+'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f7f7f4;padding:40px 20px;">' +
+'<tr><td align="center">' +
+'<table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">' +
+'<tr><td style="background:#5d7e69;padding:24px 40px;">' +
+'<h1 style="margin:0;color:#fff;font-size:18px;font-weight:600;">New referral signed up</h1>' +
+'</td></tr>' +
+'<tr><td style="padding:28px 40px;">' +
+'<p style="margin:0 0 18px;font-size:15px;color:#58595b;">Hi ' + escapeHtml(designerName) + ', a new referral just created their Bayside account. They are heading to Acuity now to schedule.</p>' +
+'<div style="background:#f7f7f4;border-radius:6px;padding:18px 22px;margin:18px 0;">' +
+'<p style="margin:0 0 12px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#58595b;font-weight:600;">New homeowner</p>' +
+'<p style="margin:6px 0;font-size:14px;"><strong>Name:</strong> ' + escapeHtml(refereeName) + '</p>' +
+'<p style="margin:6px 0;font-size:14px;"><strong>Email:</strong> ' + escapeHtml(refereeEmail) + '</p>' +
+phoneRow +
+'<p style="margin:6px 0;font-size:14px;"><strong>Address:</strong> ' + escapeHtml(address) + '</p>' +
+'</div>' +
+'<div style="background:#dad7c5;border-radius:6px;padding:14px 18px;margin:18px 0;">' +
+'<p style="margin:0;font-size:13px;color:#1f2125;"><strong>Referred by:</strong> ' + escapeHtml(referrerName) + '</p>' +
+'<p style="margin:8px 0 0;font-size:12px;color:#58595b;">When ' + escapeHtml((refereeName||'').split(/[\s,&]+/)[0] || 'this client') + '\'s design appointment completes, ' + escapeHtml((referrerName||'').split(/[\s,&]+/)[0] || 'the referrer') + ' will earn $500 toward their next project.</p>' +
+'</div>' +
+'<p style="margin:18px 0 8px;font-size:13px;color:#58595b;">They were redirected to Acuity to schedule. You will get a separate confirmation from Acuity once they book a slot.</p>' +
+'</td></tr>' +
+'<tr><td style="padding:18px 40px;background:#f7f7f4;border-top:1px solid #e4e4df;text-align:center;">' +
+'<p style="margin:0;font-size:11px;color:#70726f;">Bayside Pavers · Internal notification</p>' +
+'</td></tr></table></td></tr></table></body></html>';
+}
+
+function buildDesignerNotifyText({ designerName, refereeName, referrerName, refereeEmail, refereePhone, address, acuityUrl }) {
+  return [
+    'Hi ' + designerName + ',',
+    '',
+    'A new referral just created their Bayside account. They are heading to Acuity now to schedule.',
+    '',
+    'NEW HOMEOWNER:',
+    '  Name:    ' + refereeName,
+    '  Email:   ' + refereeEmail,
+    (refereePhone ? '  Phone:   ' + refereePhone : null),
+    '  Address: ' + address,
+    '',
+    'REFERRED BY: ' + referrerName,
+    'When this design appointment completes, ' + referrerName + ' earns $500 toward their next project.',
+    '',
+    'You will get a separate confirmation from Acuity once they book a slot.',
+    '',
+    '— Bayside Pavers · Internal notification',
+  ].filter(Boolean).join('\n');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
