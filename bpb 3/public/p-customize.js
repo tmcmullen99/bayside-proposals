@@ -1736,6 +1736,14 @@
         if (r.ok) {
           customize.data = await r.json();
           customize.enabled = true;
+          // Phase 6.2: when customize is enabled (authenticated homeowner),
+          // load the redesign module — adds the floating CTA + drawing overlay.
+          if (!document.getElementById('bpc-redesign-module')) {
+            const s = document.createElement('script');
+            s.id = 'bpc-redesign-module';
+            s.src = '/p-redesign.js';
+            document.head.appendChild(s);
+          }
         }
       } catch (e) {}
     }
