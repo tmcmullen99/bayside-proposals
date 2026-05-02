@@ -4,23 +4,22 @@
 //
 // Auth: requireAdmin() at the top redirects non-admins away.
 //
-// Actions:
-//   - List/search clients (with JOIN to proposal counts)
-//   - Add new client (name, email, phone, address, notes)
-//   - Expand client row → show assigned proposals + assign new one
-//   - Send magic-link invite (Supabase signInWithOtp with client's email)
-//   - Remove client (cascades to client_proposals via FK)
-//   - Phase 4.0c R2+: list sent referrals + mark appointment complete
-//   - Phase 5D.2: engagement chip per assigned proposal (deep-link to
-//     /admin/engagement.html?id=<proposal_id>).
-//
-// Phase 5B P2 cleanup: removed legacy signOutBtn handling. The shared
-// admin-shell binds sign-out on #ashSignOutBtn for every admin page now.
+// Sprint 8a additions (on top of Phase 5D.2 baseline):
+//   - Creation date line on every client card
+//   - Aggregate engagement chip on the collapsed card row (sums events
+//     across all their assigned proposals)
+//   - Discount-timer status line on each assigned proposal row
+//   - Edit Client replaced with a real modal (name + EMAIL + phone +
+//     address + notes), including email-collision handling and a warning
+//     when editing a client who has already signed in
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
 import { requireAdmin, sendMagicLink } from '/js/auth-util.js';
 import { getProposalEngagementBulk, formatRelativeTime } from '/js/engagement-utils.js';
+
+// 48-hour signing-discount window. Lives in publish.js's email body too.
+const DISCOUNT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 // DOM
 const loadingState = document.getElementById('loadingState');
@@ -42,9 +41,9 @@ const newNotes = document.getElementById('newNotes');
 // State
 const ctx = {
   admin: null,
-  clients: [],     // [{ ...client, proposals: [...], sent_referrals: [...] }]
-  proposals: [],   // all proposals (for the assign dropdown)
-  engagement: new Map(), // Phase 5D.2: Map<proposal_id, summary>
+  clients: [],
+  proposals: [],
+  engagement: new Map(),
   expandedIds: new Set(),
   searchTerm: '',
 };
@@ -52,8 +51,9 @@ const ctx = {
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 (async function init() {
   ctx.admin = await requireAdmin();
-  if (!ctx.admin) return; // redirected
+  if (!ctx.admin) return;
 
+  ensureEditModalStyles();
   await Promise.all([loadClients(), loadAllProposals()]);
   await loadEngagement();
   render();
@@ -61,8 +61,9 @@ const ctx = {
 })();
 
 async function loadClients() {
-  // Load clients with nested client_proposals → proposals → published_proposals,
-  // PLUS each client's outgoing referrals (where they are referrer_client_id).
+  // Sprint 8a: extend nested select to pull show_signing_discount and the
+  // canonical published_proposals row's published_at, so we can compute
+  // the per-proposal discount-timer status.
   const { data, error } = await supabase
     .from('clients')
     .select(`
@@ -73,7 +74,8 @@ async function loadClients() {
         proposal:proposals!proposal_id (
           id,
           address,
-          published_proposals (id, slug)
+          show_signing_discount,
+          published_proposals (id, slug, published_at, is_canonical)
         )
       ),
       sent_referrals:referrals!referrer_client_id (
@@ -110,8 +112,6 @@ async function loadAllProposals() {
   ctx.proposals = data || [];
 }
 
-// Phase 5D.2: collect every proposal_id that appears in any client's
-// assignments and fetch their engagement summaries in one bulk query.
 async function loadEngagement() {
   const ids = new Set();
   for (const client of ctx.clients) {
@@ -165,8 +165,6 @@ function render() {
 
   emptyState.style.display = 'none';
   clientsList.style.display = 'grid';
-  // Phase 5D.2: inject pulse keyframes once at top so engagement chip's
-  // live indicator can animate without per-row inline @keyframes.
   clientsList.innerHTML = `
     <style>
       @keyframes adminClientsEngPulse {
@@ -177,7 +175,6 @@ function render() {
     ${visible.map(renderClientCard).join('')}
   `;
 
-  // Wire up per-card handlers
   visible.forEach(c => {
     wireCardHandlers(c);
   });
@@ -199,6 +196,15 @@ function renderClientCard(client) {
     ? `<span class="badge proposals" style="background:#fff4d4;color:#7a5a10;">${referralCount} referral${referralCount === 1 ? '' : 's'}</span>`
     : '';
 
+  // Sprint 8a: aggregate engagement across all their proposals
+  const aggEng = aggregateClientEngagement(client);
+  const engagementLine = renderClientEngagementLine(aggEng);
+
+  // Sprint 8a: creation date
+  const createdLine = client.created_at
+    ? `<span style="font-family:'JetBrains Mono', ui-monospace, monospace; font-size:11px; color:var(--muted);">Client since ${formatDate(client.created_at)}</span>`
+    : '';
+
   return `
     <div class="client-card ${isExpanded ? 'expanded' : ''}" data-client-id="${client.id}">
       <div class="client-row">
@@ -209,6 +215,12 @@ function renderClientCard(client) {
             ${client.phone ? `<span>${escapeHtml(client.phone)}</span>` : ''}
             ${client.address ? `<span>${escapeHtml(client.address)}</span>` : ''}
           </div>
+          ${(createdLine || engagementLine) ? `
+            <div style="display:flex; gap:14px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+              ${createdLine}
+              ${engagementLine}
+            </div>
+          ` : ''}
         </div>
         <div class="client-badges">
           ${linkedBadge}
@@ -221,6 +233,45 @@ function renderClientCard(client) {
         ${renderClientExpand(client)}
       </div>
     </div>
+  `;
+}
+
+// Sprint 8a: sum engagement across all of a client's assigned proposals.
+// Returns { totalEvents, lastViewMs, isLive } or null if no engagement at all.
+function aggregateClientEngagement(client) {
+  let totalEvents = 0;
+  let lastViewMs = 0;
+  let isLive = false;
+  for (const cp of (client.client_proposals || [])) {
+    const propId = cp.proposal && cp.proposal.id;
+    if (!propId) continue;
+    const eng = ctx.engagement.get(propId);
+    if (!eng || eng.totalEvents === 0) continue;
+    totalEvents += eng.totalEvents;
+    if (eng.isLive) isLive = true;
+    if (eng.lastView) {
+      const t = new Date(eng.lastView).getTime();
+      if (t > lastViewMs) lastViewMs = t;
+    }
+  }
+  if (totalEvents === 0) return null;
+  return { totalEvents, lastViewMs, isLive };
+}
+
+function renderClientEngagementLine(agg) {
+  if (!agg) return '';
+  const dotColor = agg.isLive
+    ? '#10a04a'
+    : (Date.now() - agg.lastViewMs < 24 * 3600 * 1000 ? 'var(--green-dark)' : 'var(--muted)');
+  const animation = agg.isLive ? 'animation: adminClientsEngPulse 1.5s ease-in-out infinite;' : '';
+  const recency = agg.isLive
+    ? 'active right now'
+    : agg.lastViewMs > 0 ? `last activity ${formatRelativeTime(new Date(agg.lastViewMs).toISOString())}` : '';
+  return `
+    <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--green-dark); font-weight:500;">
+      <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:${dotColor}; ${animation}"></span>
+      ${agg.totalEvents} event${agg.totalEvents === 1 ? '' : 's'}${recency ? ' · ' + escapeHtml(recency) : ''}
+    </span>
   `;
 }
 
@@ -298,9 +349,11 @@ function renderAssignedProposal(a) {
     ? `<a class="btn btn-small btn-secondary" href="/p/${escapeAttr(slug)}" target="_blank" rel="noopener">View</a>`
     : `<span class="btn btn-small btn-secondary" style="opacity:0.5;cursor:not-allowed;" title="No published version yet">View</span>`;
 
-  // Phase 5D.2: engagement chip below status meta. Clickable → engagement.html.
   const eng = ctx.engagement.get(p.id);
   const engagementChip = renderEngagementChip(p.id, eng);
+
+  // Sprint 8a: discount-timer line
+  const discountLine = renderDiscountStatus(p);
 
   return `
     <div class="proposal-row">
@@ -312,6 +365,7 @@ function renderAssignedProposal(a) {
           ${a.first_viewed_at ? ` · Viewed ${formatDate(a.first_viewed_at)}` : ''}
         </div>
         ${engagementChip}
+        ${discountLine}
       </div>
       <div style="display:flex; gap:6px;">
         ${viewButton}
@@ -321,11 +375,50 @@ function renderAssignedProposal(a) {
   `;
 }
 
-// Phase 5D.2: engagement chip rendered under each assigned proposal's meta.
-// Three states:
-//   - No data: muted "Not viewed yet" (no link)
-//   - Has data: clickable line linking to /admin/engagement.html?id=<id>
-//   - Live: pulsing dot + "Active right now"
+// Sprint 8a: render discount-timer status for one proposal.
+//   - show_signing_discount = false  → "Signing discount disabled"
+//   - no canonical published_proposals row → "Not published yet"
+//   - canonical.published_at + 48h in future → "Discount: Xh Ym remaining" (green)
+//   - else → "Discount expired" (muted)
+function renderDiscountStatus(proposal) {
+  if (proposal.show_signing_discount === false) {
+    return `
+      <div style="font-size:11px; color:var(--muted); margin-top:4px; font-family:'JetBrains Mono', ui-monospace, monospace;">
+        Signing discount disabled
+      </div>
+    `;
+  }
+  const pubs = Array.isArray(proposal.published_proposals) ? proposal.published_proposals : [];
+  const canonical = pubs.find(p => p.is_canonical) || pubs[0];
+  if (!canonical || !canonical.published_at) {
+    return `
+      <div style="font-size:11px; color:var(--muted); margin-top:4px; font-family:'JetBrains Mono', ui-monospace, monospace;">
+        Not published yet
+      </div>
+    `;
+  }
+  const publishedMs = new Date(canonical.published_at).getTime();
+  const elapsedMs = Date.now() - publishedMs;
+  const remainingMs = DISCOUNT_WINDOW_MS - elapsedMs;
+  if (remainingMs <= 0) {
+    return `
+      <div style="font-size:11px; color:var(--muted); margin-top:4px; font-family:'JetBrains Mono', ui-monospace, monospace;">
+        Discount expired
+      </div>
+    `;
+  }
+  const remainingHours = Math.floor(remainingMs / (3600 * 1000));
+  const remainingMinutes = Math.floor((remainingMs % (3600 * 1000)) / (60 * 1000));
+  const display = remainingHours >= 1
+    ? `${remainingHours}h ${remainingMinutes}m`
+    : `${remainingMinutes}m`;
+  return `
+    <div style="font-size:11px; color:var(--green-dark); margin-top:4px; font-weight:600; font-family:'JetBrains Mono', ui-monospace, monospace;">
+      🕒 5% discount: ${display} remaining
+    </div>
+  `;
+}
+
 function renderEngagementChip(proposalId, eng) {
   if (!eng || eng.totalEvents === 0) {
     return `
@@ -470,7 +563,7 @@ function wireCardHandlers(client) {
   });
 
   card.querySelector('.edit-btn')?.addEventListener('click', () => {
-    handleEditClient(client);
+    openEditClientModal(client);
   });
 
   card.querySelector('.delete-btn')?.addEventListener('click', () => {
@@ -606,27 +699,258 @@ async function handleSendLoginLink(client, btn) {
   render();
 }
 
-async function handleEditClient(client) {
-  const newNameVal = prompt('Full name:', client.name);
-  if (newNameVal === null) return;
-  const newPhoneVal = prompt('Phone:', client.phone || '');
-  if (newPhoneVal === null) return;
-  const newAddressVal = prompt('Address:', client.address || '');
-  if (newAddressVal === null) return;
-  const newNotesVal = prompt('Notes:', client.notes || '');
-  if (newNotesVal === null) return;
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 8a — Edit Client modal (replaces the old prompt() chain)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ensureEditModalStyles() {
+  if (document.getElementById('ace-modal-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'ace-modal-styles';
+  style.textContent = `
+    .ace-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(26, 31, 46, 0.55);
+      display: none; align-items: flex-start; justify-content: center;
+      padding: 56px 20px 20px;
+      overflow-y: auto;
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+      animation: aceFade 0.18s ease-out;
+    }
+    @keyframes aceFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes aceSlide { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .ace-modal {
+      background: #fff; border-radius: 14px;
+      max-width: 540px; width: 100%;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+      animation: aceSlide 0.22s ease-out;
+      color: #353535; overflow: hidden;
+      display: flex; flex-direction: column;
+      position: relative;
+    }
+    .ace-head { padding: 22px 28px 16px; border-bottom: 1px solid #e8e6dd; }
+    .ace-eyebrow {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px; letter-spacing: 0.18em;
+      color: #5d7e69; text-transform: uppercase;
+      margin-bottom: 6px; font-weight: 600;
+    }
+    .ace-title { font-size: 20px; font-weight: 600; letter-spacing: -0.012em; margin: 0; }
+    .ace-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 32px; height: 32px;
+      background: transparent; border: 0; cursor: pointer;
+      font-size: 18px; color: #888;
+      border-radius: 6px; transition: background 0.12s, color 0.12s;
+    }
+    .ace-close:hover { background: #f4f4ef; color: #353535; }
+    .ace-body { padding: 22px 28px; }
+    .ace-warn {
+      background: #fff7e6; color: #7a5a10;
+      border-left: 3px solid #c5a050;
+      padding: 10px 14px; border-radius: 6px;
+      font-size: 12px; line-height: 1.55;
+      margin-bottom: 16px;
+    }
+    .ace-error {
+      background: #fbeeee; color: #b91c1c;
+      border-left: 3px solid #b91c1c;
+      padding: 10px 14px; border-radius: 6px;
+      font-size: 13px; line-height: 1.5;
+      margin-bottom: 14px;
+    }
+    .ace-error.hidden { display: none; }
+    .ace-field { margin-bottom: 14px; }
+    .ace-field label {
+      display: block;
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: #888; margin-bottom: 5px;
+    }
+    .ace-field input, .ace-field textarea {
+      width: 100%; font-family: inherit;
+      font-size: 14px; padding: 9px 12px;
+      border: 1px solid #d4cfc0; border-radius: 6px;
+      background: #fff; color: #353535;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .ace-field textarea { min-height: 70px; resize: vertical; }
+    .ace-field input:focus, .ace-field textarea:focus {
+      outline: none; border-color: #5d7e69;
+      box-shadow: 0 0 0 3px #e8eee9;
+    }
+    .ace-row { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+    .ace-foot {
+      padding: 16px 28px; border-top: 1px solid #e8e6dd;
+      display: flex; justify-content: flex-end; gap: 10px;
+      background: #faf8f3;
+    }
+    .ace-btn {
+      font: inherit; font-size: 14px; font-weight: 600;
+      padding: 9px 18px; border-radius: 8px;
+      border: 1px solid transparent; cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s, opacity 0.15s;
+    }
+    .ace-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .ace-cancel { background: #fff; color: #353535; border-color: #d4cfc0; }
+    .ace-cancel:hover:not(:disabled) { background: #f4f4ef; border-color: #888; }
+    .ace-save { background: #5d7e69; color: #fff; box-shadow: 0 4px 12px rgba(93, 126, 105, 0.22); }
+    .ace-save:hover:not(:disabled) { background: #4a6654; transform: translateY(-1px); }
+  `;
+  document.head.appendChild(style);
+}
+
+let _editOverlay = null;
+let _editClientId = null;
+
+function buildEditModal() {
+  const overlay = document.createElement('div');
+  overlay.id = 'aceOverlay';
+  overlay.className = 'ace-overlay';
+  overlay.innerHTML = `
+    <div class="ace-modal" role="dialog" aria-modal="true" aria-labelledby="aceTitle">
+      <button type="button" class="ace-close" aria-label="Close">×</button>
+      <div class="ace-head">
+        <div class="ace-eyebrow">Edit client</div>
+        <h2 id="aceTitle" class="ace-title">Update contact details</h2>
+      </div>
+      <div class="ace-body">
+        <div class="ace-warn hidden" id="aceWarn"></div>
+        <div class="ace-error hidden" id="aceErr"></div>
+        <div class="ace-field">
+          <label>Full name</label>
+          <input type="text" id="aceName" autocomplete="off">
+        </div>
+        <div class="ace-field">
+          <label>Email <span style="text-transform:none; font-weight:400; color:#aaa;">(must be unique)</span></label>
+          <input type="email" id="aceEmail" autocomplete="off">
+        </div>
+        <div class="ace-row">
+          <div class="ace-field">
+            <label>Phone</label>
+            <input type="tel" id="acePhone" autocomplete="off">
+          </div>
+          <div class="ace-field">
+            <label>&nbsp;</label>
+            <input type="text" id="aceUnusedSpacer" disabled style="visibility:hidden;">
+          </div>
+        </div>
+        <div class="ace-field">
+          <label>Address</label>
+          <input type="text" id="aceAddress" autocomplete="off">
+        </div>
+        <div class="ace-field">
+          <label>Notes</label>
+          <textarea id="aceNotes" autocomplete="off"></textarea>
+        </div>
+      </div>
+      <div class="ace-foot">
+        <button type="button" class="ace-btn ace-cancel" id="aceCancel">Cancel</button>
+        <button type="button" class="ace-btn ace-save" id="aceSave">Save changes</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeEditClientModal(); });
+  overlay.querySelector('.ace-close').addEventListener('click', closeEditClientModal);
+  overlay.querySelector('#aceCancel').addEventListener('click', closeEditClientModal);
+  overlay.querySelector('#aceSave').addEventListener('click', submitEditClient);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && _editOverlay && _editOverlay.style.display !== 'none') {
+      closeEditClientModal();
+    }
+  });
+
+  return overlay;
+}
+
+function openEditClientModal(client) {
+  if (!_editOverlay) _editOverlay = buildEditModal();
+  _editClientId = client.id;
+
+  _editOverlay.querySelector('#aceName').value = client.name || '';
+  _editOverlay.querySelector('#aceEmail').value = client.email || '';
+  _editOverlay.querySelector('#acePhone').value = client.phone || '';
+  _editOverlay.querySelector('#aceAddress').value = client.address || '';
+  _editOverlay.querySelector('#aceNotes').value = client.notes || '';
+
+  const warn = _editOverlay.querySelector('#aceWarn');
+  if (client.user_id) {
+    warn.innerHTML = `<strong>Heads up:</strong> ${escapeHtml(client.name)} has already signed in. Changing their email here updates contact info but does <em>not</em> change their auth login — they will keep signing in with their previous email.`;
+    warn.classList.remove('hidden');
+  } else {
+    warn.classList.add('hidden');
+  }
+
+  const err = _editOverlay.querySelector('#aceErr');
+  err.classList.add('hidden');
+  err.textContent = '';
+
+  const saveBtn = _editOverlay.querySelector('#aceSave');
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Save changes';
+
+  _editOverlay.style.display = 'flex';
+  setTimeout(() => _editOverlay.querySelector('#aceName').focus(), 50);
+}
+
+function closeEditClientModal() {
+  if (_editOverlay) _editOverlay.style.display = 'none';
+  _editClientId = null;
+}
+
+async function submitEditClient() {
+  if (!_editClientId) return;
+  const saveBtn = _editOverlay.querySelector('#aceSave');
+  const err = _editOverlay.querySelector('#aceErr');
+  err.classList.add('hidden');
+
+  const name = _editOverlay.querySelector('#aceName').value.trim();
+  const email = _editOverlay.querySelector('#aceEmail').value.trim().toLowerCase();
+  const phone = _editOverlay.querySelector('#acePhone').value.trim();
+  const address = _editOverlay.querySelector('#aceAddress').value.trim();
+  const notes = _editOverlay.querySelector('#aceNotes').value.trim();
+
+  if (!name) {
+    err.textContent = 'Name is required.';
+    err.classList.remove('hidden');
+    return;
+  }
+  if (!email || !email.includes('@')) {
+    err.textContent = 'A valid email is required.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
 
   const { error } = await supabase
     .from('clients')
     .update({
-      name: newNameVal.trim() || client.name,
-      phone: newPhoneVal.trim() || null,
-      address: newAddressVal.trim() || null,
-      notes: newNotesVal.trim() || null,
+      name,
+      email,
+      phone: phone || null,
+      address: address || null,
+      notes: notes || null,
     })
-    .eq('id', client.id);
+    .eq('id', _editClientId);
 
-  if (error) return showStatus('error', `Could not update: ${error.message}`);
+  if (error) {
+    if (error.code === '23505' || (error.message || '').toLowerCase().includes('duplicate')) {
+      err.textContent = `Another client already uses the email "${email}". Pick a different one.`;
+    } else {
+      err.textContent = `Could not update: ${error.message}`;
+    }
+    err.classList.remove('hidden');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save changes';
+    return;
+  }
+
+  closeEditClientModal();
   showStatus('success', 'Client updated.');
   await loadClients();
   await loadEngagement();
