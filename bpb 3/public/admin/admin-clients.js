@@ -12,11 +12,16 @@
 //   - Edit Client replaced with a real modal (name + EMAIL + phone +
 //     address + notes), including email-collision handling and a warning
 //     when editing a client who has already signed in
+//
+// Sprint 10b addition:
+//   - "Open chat" button in the Client Actions row of every client card,
+//     opens the per-client chat drawer (admin-clients-chat.js)
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
 import { requireAdmin, sendMagicLink } from '/js/auth-util.js';
 import { getProposalEngagementBulk, formatRelativeTime } from '/js/engagement-utils.js';
+import { openClientChatDrawer } from './admin-clients-chat.js';
 
 // 48-hour signing-discount window. Lives in publish.js's email body too.
 const DISCOUNT_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -61,9 +66,6 @@ const ctx = {
 })();
 
 async function loadClients() {
-  // Sprint 8a: extend nested select to pull show_signing_discount and the
-  // canonical published_proposals row's published_at, so we can compute
-  // the per-proposal discount-timer status.
   const { data, error } = await supabase
     .from('clients')
     .select(`
@@ -196,11 +198,9 @@ function renderClientCard(client) {
     ? `<span class="badge proposals" style="background:#fff4d4;color:#7a5a10;">${referralCount} referral${referralCount === 1 ? '' : 's'}</span>`
     : '';
 
-  // Sprint 8a: aggregate engagement across all their proposals
   const aggEng = aggregateClientEngagement(client);
   const engagementLine = renderClientEngagementLine(aggEng);
 
-  // Sprint 8a: creation date
   const createdLine = client.created_at
     ? `<span style="font-family:'JetBrains Mono', ui-monospace, monospace; font-size:11px; color:var(--muted);">Client since ${formatDate(client.created_at)}</span>`
     : '';
@@ -236,8 +236,6 @@ function renderClientCard(client) {
   `;
 }
 
-// Sprint 8a: sum engagement across all of a client's assigned proposals.
-// Returns { totalEvents, lastViewMs, isLive } or null if no engagement at all.
 function aggregateClientEngagement(client) {
   let totalEvents = 0;
   let lastViewMs = 0;
@@ -323,6 +321,9 @@ function renderClientExpand(client) {
         <button class="btn btn-small btn-secondary edit-btn" data-client-id="${client.id}">
           Edit client
         </button>
+        <button class="btn btn-small btn-secondary chat-btn" data-client-id="${client.id}">
+          Open chat
+        </button>
         <button class="btn btn-small btn-danger delete-btn" data-client-id="${client.id}">
           Remove client
         </button>
@@ -351,8 +352,6 @@ function renderAssignedProposal(a) {
 
   const eng = ctx.engagement.get(p.id);
   const engagementChip = renderEngagementChip(p.id, eng);
-
-  // Sprint 8a: discount-timer line
   const discountLine = renderDiscountStatus(p);
 
   return `
@@ -375,11 +374,6 @@ function renderAssignedProposal(a) {
   `;
 }
 
-// Sprint 8a: render discount-timer status for one proposal.
-//   - show_signing_discount = false  → "Signing discount disabled"
-//   - no canonical published_proposals row → "Not published yet"
-//   - canonical.published_at + 48h in future → "Discount: Xh Ym remaining" (green)
-//   - else → "Discount expired" (muted)
 function renderDiscountStatus(proposal) {
   if (proposal.show_signing_discount === false) {
     return `
@@ -453,7 +447,6 @@ function renderEngagementChip(proposalId, eng) {
   `;
 }
 
-// ── Phase 4.0c Round 2+: referrals section ─────────────────────────────────
 function renderReferralsSection(client) {
   const referrals = client.sent_referrals || [];
   const creditCents = Number(client.referral_credit_cents || 0);
@@ -564,6 +557,10 @@ function wireCardHandlers(client) {
 
   card.querySelector('.edit-btn')?.addEventListener('click', () => {
     openEditClientModal(client);
+  });
+
+  card.querySelector('.chat-btn')?.addEventListener('click', () => {
+    openClientChatDrawer(client);
   });
 
   card.querySelector('.delete-btn')?.addEventListener('click', () => {
