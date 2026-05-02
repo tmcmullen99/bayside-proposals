@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Client · Admin · Bayside Proposal Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin-shell.css">
+  <style>
+    :root {
+      --green: #5d7e69;
+      --green-dark: #4a6654;
+      --green-soft: #e8eee9;
+      --green-tint: #f4f8f5;
+      --green-pulse: #10a04a;
+      --charcoal: #353535;
+      --tan: #faf8f3;
+      --tan-dark: #ece9dd;
+      --navy: #1a1f2e;
+      --border: #e5e5e5;
+      --muted: #666;
+      --muted-2: #888;
+      --danger: #b04040;
+      --warn-soft: #fff4d4;
+      --warn-text: #7a5a10;
+    }
+    body { background: var(--tan); }
+
+    @keyframes wrPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.6; } }
+
+    .wr-loading { text-align: center; padding: 80px 20px; color: var(--muted); }
+    .wr-loading-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border); border-top-color: var(--green);
+      border-radius: 50%; animation: wrSpin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes wrSpin { to { transform: rotate(360deg); } }
+    .wr-error {
+      max-width: 600px; margin: 60px auto;
+      background: #fbe6e6; color: var(--danger);
+      padding: 22px 26px; border-radius: 10px;
+      font-size: 14px; line-height: 1.6;
+      border-left: 4px solid var(--danger);
+    }
+
+    .wr-breadcrumb {
+      max-width: 1320px; margin: 0 auto;
+      padding: 16px 24px 0;
+      font-size: 13px; color: var(--muted);
+    }
+    .wr-breadcrumb a { color: var(--green); text-decoration: none; }
+    .wr-breadcrumb a:hover { text-decoration: underline; }
+    .wr-breadcrumb-current { color: var(--charcoal); font-weight: 600; margin-left: 6px; }
+
+    .wr-page {
+      max-width: 1320px; margin: 0 auto;
+      padding: 16px 24px 60px;
+    }
+    .wr-card {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    }
+
+    .wr-header {
+      padding: 24px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+    }
+    .wr-avatar {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--green); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 600; flex-shrink: 0;
+    }
+    .wr-header-info { flex: 1; min-width: 240px; }
+    .wr-header-name {
+      font-size: 22px; font-weight: 600;
+      letter-spacing: -0.012em; margin-bottom: 4px;
+      color: var(--navy);
+    }
+    .wr-header-meta {
+      font-size: 13px; color: var(--muted);
+      display: flex; gap: 14px; flex-wrap: wrap;
+    }
+    .wr-header-meta a { color: var(--muted); text-decoration: none; }
+    .wr-header-meta a:hover { color: var(--green-dark); }
+    .wr-header-actions { display: flex; gap: 8px; }
+    .wr-action-btn {
+      padding: 8px 14px; font-size: 13px; font-weight: 600;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: #fff; color: var(--charcoal); cursor: pointer;
+      font-family: inherit;
+    }
+    .wr-action-btn:hover { border-color: var(--green); color: var(--green-dark); background: var(--tan); }
+    .wr-action-btn-primary { background: var(--green); color: #fff; border-color: var(--green); }
+    .wr-action-btn-primary:hover { background: var(--green-dark); color: #fff; }
+
+    .wr-hot-stats {
+      display: flex; gap: 28px; align-items: center;
+      padding: 18px 28px;
+      background: var(--tan);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .wr-hot-stat { text-align: center; }
+    .wr-hot-stat-num {
+      font-size: 22px; font-weight: 600;
+      letter-spacing: -0.014em; color: var(--navy);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .wr-hot-stat-num.live { color: var(--green-pulse); }
+    .wr-hot-stat-num.live::before {
+      content: ''; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--green-pulse);
+      animation: wrPulse 1.5s ease-in-out infinite;
+    }
+    .wr-hot-stat-num.discount { color: var(--green-dark); }
+    .wr-hot-stat-label {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--muted);
+      font-family: 'JetBrains Mono', monospace; font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .wr-body {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      min-height: 640px;
+    }
+    @media (max-width: 980px) { .wr-body { grid-template-columns: 1fr; } }
+
+    .wr-chat-area {
+      display: flex; flex-direction: column;
+      background: var(--tan);
+      border-right: 1px solid var(--border);
+      min-height: 640px;
+    }
+    @media (max-width: 980px) {
+      .wr-chat-area { border-right: 0; border-bottom: 1px solid var(--border); }
+    }
+
+    .wr-context-strip {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 22px;
+      display: flex; gap: 10px; align-items: center;
+      flex-wrap: wrap;
+    }
+    .wr-context-pill {
+      font-size: 12px; font-weight: 500;
+      padding: 5px 11px; border-radius: 14px;
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--green-soft); color: var(--green-dark);
+    }
+    .wr-context-pill.muted { background: var(--tan-dark); color: var(--charcoal); }
+    .wr-context-pill.amber { background: var(--warn-soft); color: var(--warn-text); }
+    .wr-context-pill.gray  { background: #f0f0f0; color: var(--muted); }
+
+    .wr-messages {
+      flex: 1; padding: 22px 24px; overflow-y: auto;
+      max-height: 520px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .wr-empty {
+      text-align: center; padding: 50px 20px; color: var(--muted);
+    }
+    .wr-empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.5; }
+    .wr-empty-title { font-size: 14px; font-weight: 600; color: var(--charcoal); margin-bottom: 4px; }
+    .wr-empty-sub { font-size: 12px; }
+
+    .wr-msg { display: flex; flex-direction: column; gap: 4px; max-width: 85%; }
+    .wr-msg-in  { align-self: flex-start; }
+    .wr-msg-out { align-self: flex-end; align-items: flex-end; }
+    .wr-msg-meta {
+      font-size: 11px; color: var(--muted-2);
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    }
+    .wr-msg-sender { font-weight: 600; color: #555; }
+    .wr-msg-pill {
+      font-size: 9px; text-transform: uppercase;
+      letter-spacing: 0.06em; padding: 1px 6px;
+      border-radius: 4px; font-weight: 600;
+    }
+    .wr-msg-pill.master { background: var(--navy); color: #fff; }
+    .wr-msg-pill.designer { background: var(--green); color: #fff; }
+    .wr-msg-pill.homeowner { background: var(--tan-dark); color: var(--charcoal); }
+    .wr-msg-time { font-family: 'JetBrains Mono', monospace; color: #aaa; }
+    .wr-msg-body {
+      padding: 10px 14px; border-radius: 12px;
+      font-size: 14px; line-height: 1.5;
+      white-space: pre-wrap; word-wrap: break-word;
+    }
+    .wr-msg-in .wr-msg-body  { background: #fff; color: var(--charcoal); border-bottom-left-radius: 4px; }
+    .wr-msg-out .wr-msg-body { background: var(--green); color: #fff; border-bottom-right-radius: 4px; }
+
+    .wr-suggestions {
+      background: #fff; border-top: 1px solid var(--border);
+      padding: 10px 22px;
+    }
+    .wr-suggestions-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+      color: var(--muted); font-weight: 600; margin-bottom: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .wr-suggestion-chip {
+      display: inline-block; margin: 0 6px 6px 0;
+      padding: 6px 11px; background: var(--green-tint);
+      border: 1px solid transparent; border-radius: 7px;
+      font-size: 12px; cursor: pointer; color: var(--charcoal);
+      font-family: inherit;
+    }
+    .wr-suggestion-chip:hover { border-color: var(--green); background: #fff; }
+
+    .wr-composer {
+      background: #fff; border-top: 1px solid var(--border);
+      padding: 14px 22px 18px;
+      display: flex; gap: 10px; align-items: flex-end;
+    }
+    .wr-composer textarea {
+      flex: 1; font-family: inherit; font-size: 14px;
+      padding: 10px 14px; border: 1px solid var(--border);
+      border-radius: 8px; resize: none; min-height: 44px; max-height: 140px;
+    }
+    .wr-composer textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+    .wr-composer button {
+      background: var(--green); color: #fff; border: 0;
+      padding: 10px 18px; border-radius: 8px;
+      font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .wr-composer button:hover:not(:disabled) { background: var(--green-dark); }
+    .wr-composer button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .wr-side { background: #fff; overflow-y: auto; max-height: 720px; }
+    .wr-side-section {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+    }
+    .wr-side-section:last-child { border-bottom: 0; }
+    .wr-side-section h4 {
+      font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.14em; color: var(--muted);
+      margin: 0 0 12px; font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+    .wr-proposal-card {
+      background: var(--tan); border-radius: 8px;
+      padding: 12px 14px; margin-bottom: 8px;
+    }
+    .wr-proposal-card-addr { font-weight: 600; font-size: 13px; margin-bottom: 4px; color: var(--navy); }
+    .wr-proposal-card-meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .wr-proposal-card-eng {
+      font-size: 11px; font-family: 'JetBrains Mono', monospace;
+      color: var(--green-dark); display: flex; align-items: center; gap: 6px;
+      font-weight: 500;
+    }
+    .wr-pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green-pulse); animation: wrPulse 1.5s ease-in-out infinite;
+    }
+    .wr-proposal-card-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .wr-mini-btn {
+      font-size: 11px; padding: 4px 9px;
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 5px; cursor: pointer; color: var(--charcoal);
+      text-decoration: none; font-family: inherit;
+    }
+    .wr-mini-btn:hover { border-color: var(--green); color: var(--green-dark); }
+
+    .wr-detail-row {
+      display: flex; justify-content: space-between;
+      padding: 7px 0; font-size: 13px;
+      border-bottom: 1px solid var(--tan-dark);
+    }
+    .wr-detail-row:last-child { border-bottom: 0; }
+    .wr-detail-row span:first-child { color: var(--muted); }
+    .wr-detail-row span:last-child { font-weight: 500; color: var(--charcoal); text-align: right; }
+
+    .wr-event {
+      font-size: 12px; padding: 8px 0;
+      border-bottom: 1px solid var(--tan-dark);
+      display: flex; gap: 8px;
+    }
+    .wr-event:last-child { border-bottom: 0; }
+    .wr-event-time {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted); font-size: 11px;
+      flex-shrink: 0; width: 50px;
+    }
+    .wr-event-body { color: var(--charcoal); flex: 1; }
+
+    .wr-empty-side { font-size: 12px; color: var(--muted); padding: 6px 0; }
+  </style>
+</head>
+<body>
+
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge is-loading" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
+    </div>
+  </div>
+</header>
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections"></nav>
+
+<div class="wr-breadcrumb">
+  <a href="/admin/clients">← All clients</a><span class="wr-breadcrumb-current" id="wrCrumbName">Loading…</span>
+</div>
+
+<main class="wr-page">
+  <div id="wrContent">
+    <div class="wr-loading">
+      <div class="wr-loading-spinner"></div>
+      <div>Loading client…</div>
+    </div>
+  </div>
+</main>
+
+<script type="module" src="/admin/admin-shell.js"></script>
+<script type="module" src="/admin/admin-client.js"></script>
+
+</body>
+</html>
