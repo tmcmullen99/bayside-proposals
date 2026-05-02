@@ -644,6 +644,17 @@ function renderShell() {
         </p>
       </div>
 
+    <div style="margin-bottom:24px;padding:18px 20px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;">
+      <label for="bpPublishChangeNote" style="display:block;font-size:14px;font-weight:600;color:#353535;line-height:1.4;margin-bottom:6px;">
+        What changed in this version? <span style="font-weight:400;color:#999;">— optional</span>
+      </label>
+      <p style="font-size:13px;color:#666;margin:0 0 10px;line-height:1.5;">
+        When set, the homeowner sees a "What's new in this version" banner at the top of the proposal explaining your changes. Also included in the auto-email when the "Email client about this update" box below is checked. Leave blank for typo-fix republishes that don't need a callout.
+      </p>
+      <textarea id="bpPublishChangeNote" rows="3" placeholder="e.g. Reduced backyard paver area to bring total under $120K. Swapped to Belgard Catalina for better tonal match with house. Added retaining wall at upper tier."
+        style="width:100%;padding:10px 12px;border:1px solid #d4d0c2;border-radius:6px;font-family:inherit;font-size:14px;line-height:1.5;color:#353535;resize:vertical;box-sizing:border-box;"></textarea>
+    </div>
+
       <div class="bp-publish-actions">
         <div>
           <div class="bp-publish-next-slug-label">Next publish URL</div>
@@ -705,6 +716,10 @@ function renderBody() {
   document.getElementById('bpPublishLoom').value = proposal.loom_url || '';
   document.getElementById('bpPublishShowDiscount').checked =
     proposal.show_signing_discount !== false;
+  // Phase 6.5 — change-note is per-publish (not persisted on the proposal),
+  // so always start blank on each editor load. This matches typo-fix
+  // workflow: open editor → fix → publish without re-typing a stale note.
+  document.getElementById('bpPublishChangeNote').value = '';
 
   const nextSlug = slugifyBase(proposal.project_address, new Date());
   const origin = window.location.origin;
@@ -947,7 +962,7 @@ async function handleShowDiscountToggle(e) {
 // (republishes are legitimate update notifications, not spam). Status is
 // reflected inline in the publish-status line; failures are non-blocking
 // — the publish itself is already complete by the time this runs.
-async function sendPublishNotification(slug) {
+async function sendPublishNotification(slug, changeNote) {
   const proposal = currentData.proposal;
   const fullName = (proposal.client_name || '').trim();
   const firstName = fullName ? fullName.split(/\s+/)[0] : 'there';
@@ -965,11 +980,20 @@ async function sendPublishNotification(slug) {
     return;
   }
 
+  // Phase 6.5 — when a change_note is set, include it verbatim in the email
+  // body so the homeowner gets the "what changed" message in their inbox
+  // (not just on the page). When no note is set, use the original generic
+  // email — preserves typo-fix-republish flow without spamming the client
+  // with empty "I made changes" notes.
   const subject = `Updated proposal — ${address}`;
-  const body =
-    `Hi ${firstName},\n\n` +
-    `I've put together an updated version of your proposal for ${address}. ` +
-    `Take a look and let me know if you have any questions or want to discuss any of the changes.`;
+  const body = changeNote
+    ? `Hi ${firstName},\n\n` +
+      `I've put together an updated version of your proposal for ${address}. Here's what changed:\n\n` +
+      `${changeNote}\n\n` +
+      `Take a look and let me know if you have any questions or want to discuss any of these changes.`
+    : `Hi ${firstName},\n\n` +
+      `I've put together an updated version of your proposal for ${address}. ` +
+      `Take a look and let me know if you have any questions or want to discuss any of the changes.`;
 
   try {
     const resp = await fetch('/api/send-follow-up', {
@@ -1038,32 +1062,117 @@ export async function handlePublish() {
   setStatus('Generating snapshot…');
 
   try {
-    const slug = await allocateSlug(currentData.proposal);
-    const html = buildHtmlSnapshot(currentData);
-    const title = currentData.proposal.project_address
-      || currentData.proposal.client_name
+    // Phase 6.5 — canonical-slug publish flow. Replaces "always INSERT a
+    // new dated row" with: ensure a canonical row exists at a stable URL,
+    // UPDATE it on republish, AND insert a dated historical snapshot so
+    // homeowners can compare to prior versions.
+    //
+    // First publish: no canonical row exists yet → generate canonical_slug
+    // (e.g. "88-prospect-ave"), save to proposals table, INSERT new
+    // published_proposals row with is_canonical=true, version_number=1.
+    //
+    // Republish: canonical row exists → INSERT a dated historical snapshot
+    // (is_canonical=false, version_number=N+1) preserving the prior
+    // canonical state, then UPDATE the canonical row with the new
+    // html_snapshot, change_note, and bumped published_at. Homeowners
+    // bookmarked at /p/{canonical_slug} always see the latest, and the
+    // historical row is reachable for "view previous version" links.
+    const proposal = currentData.proposal;
+    const changeNote = (document.getElementById('bpPublishChangeNote').value || '').trim() || null;
+    const title = proposal.project_address
+      || proposal.client_name
       || 'Bayside Pavers proposal';
-    const totalAmount = currentData.proposal.bid_total_amount || null;
+    const totalAmount = proposal.bid_total_amount || null;
 
-    const { error } = await supabase.from('published_proposals').insert({
-      proposal_id: proposalId,
-      slug,
-      html_snapshot: html,
-      title,
-      project_address: currentData.proposal.project_address || null,
-      total_amount: totalAmount,
-    });
+    // Look up the existing canonical row, if any.
+    const { data: canonRows, error: canonErr } = await supabase
+      .from('published_proposals')
+      .select('id, slug, html_snapshot, change_note, version_number')
+      .eq('proposal_id', proposalId)
+      .eq('is_canonical', true)
+      .limit(1);
+    if (canonErr) throw canonErr;
+    const existingCanonical = (canonRows && canonRows[0]) || null;
 
-   if (error) throw error;
+    // Resolve canonical_slug — generated once on first publish, persisted
+    // on the proposals row, never changes thereafter. Uses the same
+    // slugifyBase() generator as historical slugs but without a date
+    // suffix.
+    let canonicalSlug = proposal.canonical_slug;
+    if (!canonicalSlug) {
+      canonicalSlug = await allocateCanonicalSlug(proposal);
+      const { error: canonSlugErr } = await supabase
+        .from('proposals')
+        .update({ canonical_slug: canonicalSlug })
+        .eq('id', proposalId);
+      if (canonSlugErr) throw canonSlugErr;
+      proposal.canonical_slug = canonicalSlug;
+    }
 
-    setStatus(`Published! Live at ${window.location.origin}/p/${slug}`, 'ok');
+    // Build the snapshot HTML *with the change note baked in*. The change
+    // note is rendered as a banner at the top of the published page.
+    const html = buildHtmlSnapshot({ ...currentData, changeNote });
+
+    if (!existingCanonical) {
+      // First publish — create canonical row at the stable URL.
+      const { error: insErr } = await supabase
+        .from('published_proposals')
+        .insert({
+          proposal_id: proposalId,
+          slug: canonicalSlug,
+          html_snapshot: html,
+          title,
+          project_address: proposal.project_address || null,
+          total_amount: totalAmount,
+          is_canonical: true,
+          version_number: 1,
+          change_note: changeNote,
+        });
+      if (insErr) throw insErr;
+      setStatus(`Published! Live at ${window.location.origin}/p/${canonicalSlug}`, 'ok');
+    } else {
+      // Republish — preserve the prior version as a dated historical row,
+      // then UPDATE the canonical row in place. Note that the historical
+      // row's change_note is the prior version's note, not the incoming
+      // one — preserves "what was current when this version was live."
+      const dateSuffix = await allocateSlug(proposal); // dated slug
+      const { error: histErr } = await supabase
+        .from('published_proposals')
+        .insert({
+          proposal_id: proposalId,
+          slug: dateSuffix,
+          html_snapshot: existingCanonical.html_snapshot,
+          title,
+          project_address: proposal.project_address || null,
+          total_amount: totalAmount,
+          is_canonical: false,
+          version_number: existingCanonical.version_number,
+          change_note: existingCanonical.change_note,
+        });
+      if (histErr) throw histErr;
+
+      const { error: updErr } = await supabase
+        .from('published_proposals')
+        .update({
+          html_snapshot: html,
+          title,
+          project_address: proposal.project_address || null,
+          total_amount: totalAmount,
+          version_number: existingCanonical.version_number + 1,
+          change_note: changeNote,
+          published_at: new Date().toISOString(),
+        })
+        .eq('id', existingCanonical.id);
+      if (updErr) throw updErr;
+
+      setStatus(`Published v${existingCanonical.version_number + 1}! Live at ${window.location.origin}/p/${canonicalSlug}`, 'ok');
+    }
 
     // Phase 6.4B — optionally email the linked client about this update.
-    // Checkbox defaults to checked but designer can uncheck for typo-fix
-    // republishes that don't warrant a client email.
+    // Phase 6.5 — also pass changeNote so the email body can include it.
     const notifyEl = document.getElementById('bpPublishNotify');
     if (notifyEl && notifyEl.checked) {
-      await sendPublishNotification(slug);
+      await sendPublishNotification(canonicalSlug, changeNote);
     }
 
     await reload();
@@ -1093,6 +1202,44 @@ async function allocateSlug(proposal) {
   return `${base}-${n}`;
 }
 
+// Phase 6.5 — canonical slug allocator. Like slugifyBase but without the
+// date suffix. The canonical slug is the proposal's permanent URL, used
+// only on first publish (afterward stored on proposals.canonical_slug
+// and reused). Falls back to a uuid-prefixed slug if the address is
+// missing or another proposal already claims the natural slug.
+async function allocateCanonicalSlug(proposal) {
+  const base = slugifyAddressOnly(proposal.project_address) || `proposal-${proposal.id.slice(0, 8)}`;
+
+  const { data: existing, error } = await supabase
+    .from('published_proposals')
+    .select('slug')
+    .like('slug', `${base}%`);
+  if (error) throw error;
+
+  const taken = new Set((existing || []).map(r => r.slug));
+  if (!taken.has(base)) return base;
+
+  // Address-only slug is already taken by an unrelated published row.
+  // Fall back to address-N to avoid colliding. The canonical_slug is
+  // stamped onto the proposals row and never regenerated, so the value
+  // is stable forever once chosen.
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
+}
+
+// Phase 6.5 — slug from address only, no date.
+function slugifyAddressOnly(address) {
+  return (address || '')
+    .toLowerCase()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60);
+}
+
 function slugifyBase(address, date) {
   const addr = (address || 'proposal')
     .toLowerCase()
@@ -1112,7 +1259,7 @@ function slugifyBase(address, date) {
 // ───────────────────────────────────────────────────────────────────────────
 // HTML snapshot builder — full standalone document
 // ───────────────────────────────────────────────────────────────────────────
-function buildHtmlSnapshot({ proposal, sections, materials, photos, installSections, categoryToSection, regions }) {
+function buildHtmlSnapshot({ proposal, sections, materials, photos, installSections, categoryToSection, regions, changeNote }) {
   const address = proposal.project_address || '';
   const cityLine = [proposal.project_city, proposal.project_state,
     proposal.project_zip].filter(Boolean).join(', ');
@@ -1128,6 +1275,10 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   const loomEmbed = buildLoomEmbed(proposal.loom_url);
   const heroBanner = buildHeroBanner(proposal.hero_image_url);
   const drawingSection = buildDrawingSection(proposal, regions, materials, categoryToSection);
+  // Phase 6.5 — change-note banner. Renders above the hero when a non-empty
+  // changeNote is provided. Wrapped in pub-changed-banner-wrap so the
+  // dismiss-via-localStorage script can find and hide it.
+  const changeNoteBanner = buildChangeNoteBanner(changeNote, proposal);
 
   const scopeHtml = renderScopeSection(sections, proposal.bid_total_amount);
   // Phase 1B.4 — when the proposal has labeled regions on a backdrop,
@@ -2600,6 +2751,8 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     <span class="pub-header-date">${escapeHtml(dateStr)}</span>
   </header>
 
+  ${changeNoteBanner}
+
   <section class="pub-hero">
     ${heroBanner}
     <div class="pub-hero-body">
@@ -3010,6 +3163,140 @@ function buildHeroBanner(url) {
     <div class="pub-hero-banner-wrap">
       <img src="${escapeAttr(url)}" alt="Project rendering" class="pub-hero-banner">
     </div>
+  `;
+}
+
+// Phase 6.5 — change-note banner. Rendered between the header and the hero
+// when the designer typed a non-empty "what changed" note before publishing.
+//
+// The banner is dismissable per-viewer via localStorage. Key includes a
+// hash of the note text so re-publishing with a NEW note re-shows the
+// banner — otherwise a homeowner who dismissed v3's note would never see
+// v4's note.
+function buildChangeNoteBanner(changeNote, proposal) {
+  if (!changeNote || !changeNote.trim()) return '';
+  const note = changeNote.trim();
+  // Simple non-cryptographic hash so the dismiss key changes when the
+  // note changes. Java string hashCode equivalent — fine for this use.
+  let hash = 0;
+  for (let i = 0; i < note.length; i++) {
+    hash = ((hash << 5) - hash) + note.charCodeAt(i);
+    hash |= 0;
+  }
+  const dismissKey = `bpb-change-note-dismiss-${proposal.id || 'x'}-${hash}`;
+  const dateStr = formatDate(new Date());
+
+  return `
+    <style>
+      .pub-changed-banner-wrap {
+        background: linear-gradient(135deg, #f0f4f1, #faf8f3);
+        border-bottom: 1px solid #d8dbd2;
+        padding: 24px 32px;
+        font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      .pub-changed-banner {
+        max-width: 880px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 18px;
+        align-items: start;
+      }
+      .pub-changed-banner-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #5d7e69;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        flex-shrink: 0;
+      }
+      .pub-changed-banner-body { min-width: 0; }
+      .pub-changed-banner-title {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #5d7e69;
+        margin-bottom: 4px;
+      }
+      .pub-changed-banner-meta {
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 10px;
+      }
+      .pub-changed-banner-text {
+        font-size: 15px;
+        line-height: 1.55;
+        color: #353535;
+        white-space: pre-wrap;
+        margin: 0;
+      }
+      .pub-changed-banner-dismiss {
+        background: transparent;
+        border: 1px solid transparent;
+        color: #999;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        align-self: start;
+      }
+      .pub-changed-banner-dismiss:hover {
+        background: #fff;
+        color: #353535;
+        border-color: #d8d2bf;
+      }
+      @media (max-width: 640px) {
+        .pub-changed-banner-wrap { padding: 18px 20px; }
+        .pub-changed-banner {
+          grid-template-columns: auto 1fr;
+          gap: 12px;
+        }
+        .pub-changed-banner-dismiss {
+          grid-column: 1 / -1;
+          justify-self: end;
+          margin-top: 4px;
+        }
+      }
+    </style>
+    <div class="pub-changed-banner-wrap" id="pubChangedBanner" data-dismiss-key="${escapeAttr(dismissKey)}">
+      <div class="pub-changed-banner">
+        <div class="pub-changed-banner-icon" aria-hidden="true">✨</div>
+        <div class="pub-changed-banner-body">
+          <div class="pub-changed-banner-title">What's new in this version</div>
+          <div class="pub-changed-banner-meta">Posted ${escapeHtml(dateStr)} by Tim</div>
+          <p class="pub-changed-banner-text">${escapeHtml(note)}</p>
+        </div>
+        <button type="button" class="pub-changed-banner-dismiss" id="pubChangedBannerDismiss" aria-label="Dismiss this notice">Dismiss</button>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var wrap = document.getElementById('pubChangedBanner');
+        if (!wrap) return;
+        var key = wrap.getAttribute('data-dismiss-key');
+        try {
+          if (localStorage.getItem(key) === '1') {
+            wrap.style.display = 'none';
+            return;
+          }
+        } catch (e) {}
+        var btn = document.getElementById('pubChangedBannerDismiss');
+        if (btn) {
+          btn.addEventListener('click', function () {
+            try { localStorage.setItem(key, '1'); } catch (e) {}
+            wrap.style.display = 'none';
+          });
+        }
+      })();
+    </script>
   `;
 }
 
