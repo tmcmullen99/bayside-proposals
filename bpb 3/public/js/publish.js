@@ -634,10 +634,24 @@ function renderShell() {
         </p>
       </div>
 
+      <div class="bp-publish-loom-row">
+        <label class="bp-publish-loom-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="bpPublishShowDiscount" style="width:16px;height:16px;flex-shrink:0;">
+          <span>Show signing-discount countdown timer (48-hour 5% off)</span>
+        </label>
+        <p class="bp-publish-loom-hint">
+          When checked, the published page shows a 48-hour countdown with the Immediate Start Discount messaging at the bottom. Uncheck to publish without the timer — the sign button and contact info remain. Changes apply on next publish.
+        </p>
+      </div>
+
       <div class="bp-publish-actions">
         <div>
           <div class="bp-publish-next-slug-label">Next publish URL</div>
           <code id="bpPublishNextSlug" class="bp-publish-next-slug">…</code>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;color:#58595b;cursor:pointer;">
+            <input type="checkbox" id="bpPublishNotify" checked style="width:14px;height:14px;flex-shrink:0;">
+            <span>Email client about this update</span>
+          </label>
         </div>
         <div class="bp-publish-action-btns">
           <button id="bpPublishRefresh" class="bp-publish-refresh-btn">
@@ -678,6 +692,8 @@ function renderShell() {
     .addEventListener('click', () => reload());
   document.getElementById('bpPublishLoom')
     .addEventListener('input', handleLoomInput);
+  document.getElementById('bpPublishShowDiscount')
+    .addEventListener('change', handleShowDiscountToggle);
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -687,6 +703,8 @@ function renderBody() {
   const { proposal, history } = currentData;
 
   document.getElementById('bpPublishLoom').value = proposal.loom_url || '';
+  document.getElementById('bpPublishShowDiscount').checked =
+    proposal.show_signing_discount !== false;
 
   const nextSlug = slugifyBase(proposal.project_address, new Date());
   const origin = window.location.origin;
@@ -900,6 +918,96 @@ function renderPreview() {
 // Auto-save handler for Loom URL (debounced)
 // ───────────────────────────────────────────────────────────────────────────
 let loomSaveTimer = null;
+
+// Phase 6.4B — handler for the show-discount toggle. Saves to DB, mirrors
+// into currentData so subsequent renderPreview() calls reflect the change,
+// and re-renders the iframe preview so the toggle takes effect immediately.
+// The actual published HTML updates only on the next "Publish new version"
+// click — the iframe preview is a live render of buildHtmlSnapshot() with
+// the current flag state.
+async function handleShowDiscountToggle(e) {
+  const value = !!e.target.checked;
+  const { error } = await supabase
+    .from('proposals')
+    .update({ show_signing_discount: value })
+    .eq('id', proposalId);
+  if (error) {
+    showError(`Could not save discount toggle: ${error.message}`);
+    e.target.checked = !value;
+    return;
+  }
+  if (currentData) currentData.proposal.show_signing_discount = value;
+  renderPreview();
+  onSaveCb();
+}
+
+// Phase 6.4B — sends an "Updated proposal" email to the linked client via
+// the existing /api/send-follow-up endpoint. Uses template_kind='custom'
+// (already accepted) and force=true to bypass the 7-day dedup window
+// (republishes are legitimate update notifications, not spam). Status is
+// reflected inline in the publish-status line; failures are non-blocking
+// — the publish itself is already complete by the time this runs.
+async function sendPublishNotification(slug) {
+  const proposal = currentData.proposal;
+  const fullName = (proposal.client_name || '').trim();
+  const firstName = fullName ? fullName.split(/\s+/)[0] : 'there';
+  const address = proposal.project_address || 'your project';
+
+  setStatus(`Published! Notifying client…`, 'ok');
+
+  let token = null;
+  try {
+    const sess = await supabase.auth.getSession();
+    token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+  } catch (e) {}
+  if (!token) {
+    setStatus(`Published at /p/${slug} — but couldn't get auth token to email client.`, 'ok');
+    return;
+  }
+
+  const subject = `Updated proposal — ${address}`;
+  const body =
+    `Hi ${firstName},\n\n` +
+    `I've put together an updated version of your proposal for ${address}. ` +
+    `Take a look and let me know if you have any questions or want to discuss any of the changes.`;
+
+  try {
+    const resp = await fetch('/api/send-follow-up', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify({
+        proposal_id: proposalId,
+        template_kind: 'custom',
+        subject,
+        body,
+        force: true,
+      }),
+    });
+    const result = await resp.json().catch(() => ({}));
+    if (resp.ok && result.ok) {
+      setStatus(`Published at /p/${slug} & emailed client at ${maskEmail(result.recipient_email)}`, 'ok');
+    } else {
+      const msg = (result && result.error) || `HTTP ${resp.status}`;
+      setStatus(`Published at /p/${slug} — but couldn't email client: ${msg}`, 'ok');
+    }
+  } catch (err) {
+    setStatus(`Published at /p/${slug} — but notify request failed: ${(err && err.message) || 'network error'}`, 'ok');
+  }
+}
+
+function maskEmail(email) {
+  if (!email) return '';
+  const at = email.indexOf('@');
+  if (at < 1) return email;
+  const local = email.slice(0, at);
+  const domain = email.slice(at);
+  const masked = local.length <= 2 ? local : local[0] + '***' + local.slice(-1);
+  return masked + domain;
+}
+
 function handleLoomInput(e) {
   const val = e.target.value.trim();
   clearTimeout(loomSaveTimer);
@@ -946,9 +1054,18 @@ export async function handlePublish() {
       total_amount: totalAmount,
     });
 
-    if (error) throw error;
+   if (error) throw error;
 
     setStatus(`Published! Live at ${window.location.origin}/p/${slug}`, 'ok');
+
+    // Phase 6.4B — optionally email the linked client about this update.
+    // Checkbox defaults to checked but designer can uncheck for typo-fix
+    // republishes that don't warrant a client email.
+    const notifyEl = document.getElementById('bpPublishNotify');
+    if (notifyEl && notifyEl.checked) {
+      await sendPublishNotification(slug);
+    }
+
     await reload();
     onSaveCb();
   } catch (err) {
@@ -2021,7 +2138,12 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
      elapsed, every element in the .pub-cta-discount-block hides at once
      (eyebrow, headline, lede, countdown box, expired-msg). The sign
      button + secondary contact links remain. */
-  .pub-cta-final.is-discount-expired .pub-cta-discount-block { display: none; }
+ .pub-cta-final.is-discount-expired .pub-cta-discount-block { display: none; }
+  /* Phase 6.4B — designer-controlled toggle. When show_signing_discount is
+     false on the proposal, all discount messaging hides (same target classes
+     as is-discount-expired). The sign button + secondary contact links stay
+     visible. */
+  .pub-cta-final.is-discount-disabled .pub-cta-discount-block { display: none; }
 
   .pub-cta-countdown.is-expired { opacity: 0.6; }
   .pub-cta-countdown.is-expired .pub-cta-countdown-value {
@@ -2504,7 +2626,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 
   ${photosHtml}
 
-  <section class="pub-cta-final" data-proposal-id="${escapeAttr(proposal.id || '')}" data-bid-total="${escapeAttr(String(proposal.bid_total_amount || 0))}" data-publish-deadline="${escapeAttr(discountDeadlineIso)}">
+<section class="pub-cta-final${proposal.show_signing_discount === false ? ' is-discount-disabled' : ''}" data-proposal-id="${escapeAttr(proposal.id || '')}" data-bid-total="${escapeAttr(String(proposal.bid_total_amount || 0))}" data-publish-deadline="${escapeAttr(discountDeadlineIso)}">
     <div class="pub-cta-final-inner">
       <div class="pub-cta-final-eyebrow pub-cta-discount-block">Limited time · Immediate start discount</div>
       <h2 class="pub-cta-final-headline pub-cta-discount-block">
