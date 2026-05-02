@@ -1,24 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// admin-client.js — Sprint 10c
+// admin-client.js — Sprint 10c-2
 //
 // War Room layout for one client at /admin/client.html?id=<client_uuid>.
 //
-// Responsibilities (all in one file — page is self-contained):
-//   1. Read client_id from URL, redirect to /admin/clients if missing/invalid
-//   2. Verify viewer is master or designer with access (RLS enforces this)
-//   3. Load client + proposals + engagement + recent events + messages
-//   4. Render the War Room (header / hot stats / context strip / chat / right rail)
-//   5. Wire chat send + realtime subscription (pattern reused from
-//      admin-clients-chat.js — but inline here, no drawer)
-//   6. Recent events come from proposal_events for any of the client's proposals
-//
-// Smart-reply chips are rendered as static placeholders for now (Sprint 11
-// will wire them to an LLM endpoint). They appear so designers see where
-// the feature will live.
-//
-// Sprint 10c-1 ships: text chat + at-a-glance stats + sidebar context.
-// Sprint 10c-2 (next): "Edit details" inline modal, smart-reply LLM,
-//   notes section, file uploads.
+// Sprint 10c-2 changes (on top of 10c-1):
+//   - FIX: bid_total_amount is stored as dollars (numeric), not cents — the
+//     /100 divisions in the formatters were wrong. Removed them.
+//   - NEW: inline Edit modal (Name/Email/Phone/Address/Notes) on the
+//     client page itself; the Edit button no longer bounces to /admin/clients.
+//   - NEW: Notes section in the right rail (read-only display; edit via
+//     the same Edit modal).
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -28,20 +19,20 @@ import { getProposalEngagementBulk, formatRelativeTime } from '/js/engagement-ut
 const DISCOUNT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 const ctx = {
-  viewer: null,                  // master/designer profile
-  client: null,                  // clients row
-  clientProposals: [],           // client_proposals rows w/ joined proposals + published_proposals
-  engagement: new Map(),         // proposal_id → engagement summary
-  events: [],                    // proposal_events rows (latest 12 across all proposals)
-  messages: [],                  // client_messages rows for this client
-  profileCache: new Map(),       // sender_user_id → profile for staff renderers
-  channel: null,                 // realtime channel
+  viewer: null,
+  client: null,
+  clientProposals: [],
+  engagement: new Map(),
+  events: [],
+  messages: [],
+  profileCache: new Map(),
+  channel: null,
 };
 
 // ─── Bootstrap ─────────────────────────────────────────────────────────────
 (async function init() {
   ctx.viewer = await requireAdmin();
-  if (!ctx.viewer) return; // redirect handled
+  if (!ctx.viewer) return;
 
   const params = new URLSearchParams(window.location.search);
   const clientId = params.get('id');
@@ -52,6 +43,7 @@ const ctx = {
   }
   ctx.profileCache.set(ctx.viewer.id, ctx.viewer);
 
+  ensureEditModalStyles();
   await loadAll(clientId);
   if (!ctx.client) {
     showFatal('Could not load this client. They may not exist, or you may not have access.');
@@ -159,10 +151,11 @@ function render() {
   const isLive = aggEng?.isLive || false;
   const totalDevices = aggEng?.totalDevices || 0;
 
-  const totalBidCents = ctx.clientProposals.reduce((sum, cp) => {
-    return sum + (cp.proposal?.bid_total_amount || 0);
+  // Sprint 10c-2 fix: bid_total_amount is dollars, not cents — no /100 needed.
+  const totalBid = ctx.clientProposals.reduce((sum, cp) => {
+    return sum + Number(cp.proposal?.bid_total_amount || 0);
   }, 0);
-  const bidLabel = totalBidCents > 0 ? formatBidShort(totalBidCents) : '—';
+  const bidLabel = totalBid > 0 ? formatBidShort(totalBid) : '—';
 
   const activeDiscount = soonestActiveDiscount();
   const discountLabel = activeDiscount
@@ -171,7 +164,6 @@ function render() {
 
   const mainHtml = `
     <div class="wr-card">
-      <!-- Header -->
       <div class="wr-header">
         <div class="wr-avatar">${escapeHtml(initials)}</div>
         <div class="wr-header-info">
@@ -188,7 +180,6 @@ function render() {
         </div>
       </div>
 
-      <!-- Hot stats ribbon -->
       <div class="wr-hot-stats">
         <div class="wr-hot-stat">
           <div class="wr-hot-stat-num ${isLive ? 'live' : ''}">${totalEvents}</div>
@@ -208,9 +199,7 @@ function render() {
         </div>
       </div>
 
-      <!-- 2-column body -->
       <div class="wr-body">
-        <!-- Chat (left/main) -->
         <div class="wr-chat-area">
           ${renderContextStrip(aggEng, activeDiscount)}
 
@@ -232,7 +221,6 @@ function render() {
           </div>
         </div>
 
-        <!-- Right rail -->
         <aside class="wr-side">
           <div class="wr-side-section">
             <h4>Active Proposals</h4>
@@ -241,6 +229,10 @@ function render() {
           <div class="wr-side-section">
             <h4>Quick Stats</h4>
             ${renderQuickStats()}
+          </div>
+          <div class="wr-side-section">
+            <h4>Notes</h4>
+            ${renderNotes()}
           </div>
           <div class="wr-side-section">
             <h4>Recent Events</h4>
@@ -278,7 +270,6 @@ function aggregateEngagement() {
   return { totalEvents, lastViewMs, isLive, totalDevices };
 }
 
-// Returns the proposal whose discount window expires soonest among those still active.
 function soonestActiveDiscount() {
   let best = null;
   for (const cp of ctx.clientProposals) {
@@ -307,7 +298,6 @@ function renderContextStrip(aggEng, activeDiscount) {
     pills.push(`<span class="wr-context-pill muted">👀 Last seen ${escapeHtml(since)}</span>`);
   }
 
-  // Free revision status across the client's proposals
   const anyUsedFree = ctx.clientProposals.some(cp => cp.has_used_free_revision);
   const anyInterest = ctx.clientProposals.some(cp => cp.design_retainer_interest_at);
   if (anyInterest) {
@@ -381,8 +371,8 @@ function renderProposalCards() {
     if (!p) return '';
     const eng = ctx.engagement.get(p.id);
     const slug = getLatestSlug(p);
-    const bidCents = p.bid_total_amount || 0;
-    const bidLabel = bidCents > 0 ? formatBidFull(bidCents) : '';
+    const bid = Number(p.bid_total_amount || 0);
+    const bidLabel = bid > 0 ? formatBidFull(bid) : '';
     const sentDate = cp.sent_at ? formatDate(cp.sent_at) : null;
 
     let engLine = '';
@@ -425,6 +415,15 @@ function renderQuickStats() {
   return rows.map(([label, value]) =>
     `<div class="wr-detail-row"><span>${escapeHtml(label)}</span><span>${escapeHtml(value)}</span></div>`
   ).join('');
+}
+
+// Sprint 10c-2: read-only Notes display in right rail.
+function renderNotes() {
+  const notes = ctx.client.notes || '';
+  if (!notes.trim()) {
+    return '<div class="wr-empty-side">No notes yet. Click <strong>Edit</strong> to add some.</div>';
+  }
+  return `<div class="wr-notes-display">${escapeHtml(notes).replace(/\n/g, '<br>')}</div>`;
 }
 
 function renderRecentEvents() {
@@ -473,7 +472,7 @@ function wireHandlers() {
     }
   });
   sendLinkBtn?.addEventListener('click', handleSendLoginLink);
-  editBtn?.addEventListener('click', handleEdit);
+  editBtn?.addEventListener('click', () => openEditModal(ctx.client));
   setTimeout(() => composer?.focus(), 80);
 }
 
@@ -504,7 +503,6 @@ async function handleSend() {
   }
   composer.value = '';
   composer.focus();
-  // Realtime delivers the message back; renderer adds it.
 }
 
 async function handleSendLoginLink(e) {
@@ -526,13 +524,6 @@ async function handleSendLoginLink(e) {
   btn.disabled = false;
   btn.textContent = 'Resend login';
   alert(`Login link sent to ${ctx.client.email}.`);
-}
-
-function handleEdit() {
-  // Sprint 10c-2 will replace this with an inline edit modal that mirrors
-  // /admin/clients's Edit Client modal. For now: link back to the index where
-  // the existing Edit modal works.
-  window.location.href = '/admin/clients';
 }
 
 function subscribeRealtime() {
@@ -583,6 +574,255 @@ function scrollMessagesToBottom() {
   if (m) m.scrollTop = m.scrollHeight;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 10c-2 — Edit Client modal
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ensureEditModalStyles() {
+  if (document.getElementById('wrace-modal-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'wrace-modal-styles';
+  style.textContent = `
+    .wrace-overlay {
+      position: fixed; inset: 0; z-index: 1200;
+      background: rgba(26, 31, 46, 0.55);
+      display: none; align-items: flex-start; justify-content: center;
+      padding: 56px 20px 20px;
+      overflow-y: auto;
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+      animation: wraceFade 0.18s ease-out;
+    }
+    @keyframes wraceFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes wraceSlide { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .wrace-modal {
+      background: #fff; border-radius: 14px;
+      max-width: 540px; width: 100%;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+      animation: wraceSlide 0.22s ease-out;
+      color: #353535; overflow: hidden;
+      display: flex; flex-direction: column; position: relative;
+    }
+    .wrace-head { padding: 22px 28px 16px; border-bottom: 1px solid #e8e6dd; }
+    .wrace-eyebrow {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px; letter-spacing: 0.18em;
+      color: #5d7e69; text-transform: uppercase;
+      margin-bottom: 6px; font-weight: 600;
+    }
+    .wrace-title { font-size: 20px; font-weight: 600; letter-spacing: -0.012em; margin: 0; }
+    .wrace-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 32px; height: 32px;
+      background: transparent; border: 0; cursor: pointer;
+      font-size: 18px; color: #888;
+      border-radius: 6px; transition: background 0.12s, color 0.12s;
+    }
+    .wrace-close:hover { background: #f4f4ef; color: #353535; }
+    .wrace-body { padding: 22px 28px; }
+    .wrace-warn {
+      background: #fff7e6; color: #7a5a10;
+      border-left: 3px solid #c5a050;
+      padding: 10px 14px; border-radius: 6px;
+      font-size: 12px; line-height: 1.55; margin-bottom: 16px;
+    }
+    .wrace-error {
+      background: #fbeeee; color: #b91c1c;
+      border-left: 3px solid #b91c1c;
+      padding: 10px 14px; border-radius: 6px;
+      font-size: 13px; line-height: 1.5; margin-bottom: 14px;
+    }
+    .wrace-error.hidden, .wrace-warn.hidden { display: none; }
+    .wrace-field { margin-bottom: 14px; }
+    .wrace-field label {
+      display: block; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: #888; margin-bottom: 5px;
+    }
+    .wrace-field input, .wrace-field textarea {
+      width: 100%; font-family: inherit; font-size: 14px;
+      padding: 9px 12px; border: 1px solid #d4cfc0;
+      border-radius: 6px; background: #fff; color: #353535;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      box-sizing: border-box;
+    }
+    .wrace-field textarea { min-height: 80px; resize: vertical; }
+    .wrace-field input:focus, .wrace-field textarea:focus {
+      outline: none; border-color: #5d7e69;
+      box-shadow: 0 0 0 3px #e8eee9;
+    }
+    .wrace-foot {
+      padding: 16px 28px; border-top: 1px solid #e8e6dd;
+      display: flex; justify-content: flex-end; gap: 10px;
+      background: #faf8f3;
+    }
+    .wrace-btn {
+      font: inherit; font-size: 14px; font-weight: 600;
+      padding: 9px 18px; border-radius: 8px;
+      border: 1px solid transparent; cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s, opacity 0.15s;
+    }
+    .wrace-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .wrace-cancel { background: #fff; color: #353535; border-color: #d4cfc0; }
+    .wrace-cancel:hover:not(:disabled) { background: #f4f4ef; border-color: #888; }
+    .wrace-save { background: #5d7e69; color: #fff; box-shadow: 0 4px 12px rgba(93, 126, 105, 0.22); }
+    .wrace-save:hover:not(:disabled) { background: #4a6654; transform: translateY(-1px); }
+
+    .wr-notes-display {
+      font-size: 13px; line-height: 1.55;
+      color: #353535; white-space: pre-wrap; word-wrap: break-word;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+let _editOverlay = null;
+
+function buildEditModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'wrace-overlay';
+  overlay.innerHTML = `
+    <div class="wrace-modal" role="dialog" aria-modal="true" aria-labelledby="wraceTitle">
+      <button type="button" class="wrace-close" aria-label="Close">×</button>
+      <div class="wrace-head">
+        <div class="wrace-eyebrow">Edit client</div>
+        <h2 id="wraceTitle" class="wrace-title">Update contact details</h2>
+      </div>
+      <div class="wrace-body">
+        <div class="wrace-warn hidden" id="wraceWarn"></div>
+        <div class="wrace-error hidden" id="wraceErr"></div>
+        <div class="wrace-field">
+          <label>Full name</label>
+          <input type="text" id="wraceName" autocomplete="off">
+        </div>
+        <div class="wrace-field">
+          <label>Email <span style="text-transform:none; font-weight:400; color:#aaa;">(must be unique)</span></label>
+          <input type="email" id="wraceEmail" autocomplete="off">
+        </div>
+        <div class="wrace-field">
+          <label>Phone</label>
+          <input type="tel" id="wracePhone" autocomplete="off">
+        </div>
+        <div class="wrace-field">
+          <label>Project address</label>
+          <input type="text" id="wraceAddress" autocomplete="off">
+        </div>
+        <div class="wrace-field">
+          <label>Notes (internal)</label>
+          <textarea id="wraceNotes" autocomplete="off" placeholder="Anything worth remembering about this client…"></textarea>
+        </div>
+      </div>
+      <div class="wrace-foot">
+        <button type="button" class="wrace-btn wrace-cancel" id="wraceCancel">Cancel</button>
+        <button type="button" class="wrace-btn wrace-save" id="wraceSave">Save changes</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeEditModal(); });
+  overlay.querySelector('.wrace-close').addEventListener('click', closeEditModal);
+  overlay.querySelector('#wraceCancel').addEventListener('click', closeEditModal);
+  overlay.querySelector('#wraceSave').addEventListener('click', submitEditClient);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && _editOverlay && _editOverlay.style.display !== 'none') {
+      closeEditModal();
+    }
+  });
+
+  return overlay;
+}
+
+function openEditModal(client) {
+  if (!_editOverlay) _editOverlay = buildEditModal();
+
+  _editOverlay.querySelector('#wraceName').value = client.name || '';
+  _editOverlay.querySelector('#wraceEmail').value = client.email || '';
+  _editOverlay.querySelector('#wracePhone').value = client.phone || '';
+  _editOverlay.querySelector('#wraceAddress').value = client.address || '';
+  _editOverlay.querySelector('#wraceNotes').value = client.notes || '';
+
+  const warn = _editOverlay.querySelector('#wraceWarn');
+  if (client.user_id) {
+    warn.innerHTML = `<strong>Heads up:</strong> ${escapeHtml(client.name)} has already signed in. Changing their email here updates contact info but does <em>not</em> change their auth login — they will keep signing in with their previous email.`;
+    warn.classList.remove('hidden');
+  } else {
+    warn.classList.add('hidden');
+  }
+
+  const err = _editOverlay.querySelector('#wraceErr');
+  err.classList.add('hidden');
+  err.textContent = '';
+
+  const saveBtn = _editOverlay.querySelector('#wraceSave');
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Save changes';
+
+  _editOverlay.style.display = 'flex';
+  setTimeout(() => _editOverlay.querySelector('#wraceName').focus(), 50);
+}
+
+function closeEditModal() {
+  if (_editOverlay) _editOverlay.style.display = 'none';
+}
+
+async function submitEditClient() {
+  const saveBtn = _editOverlay.querySelector('#wraceSave');
+  const err = _editOverlay.querySelector('#wraceErr');
+  err.classList.add('hidden');
+
+  const name = _editOverlay.querySelector('#wraceName').value.trim();
+  const email = _editOverlay.querySelector('#wraceEmail').value.trim().toLowerCase();
+  const phone = _editOverlay.querySelector('#wracePhone').value.trim();
+  const address = _editOverlay.querySelector('#wraceAddress').value.trim();
+  const notes = _editOverlay.querySelector('#wraceNotes').value.trim();
+
+  if (!name) {
+    err.textContent = 'Name is required.';
+    err.classList.remove('hidden');
+    return;
+  }
+  if (!email || !email.includes('@')) {
+    err.textContent = 'A valid email is required.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+
+  const { error } = await supabase
+    .from('clients')
+    .update({
+      name, email,
+      phone: phone || null,
+      address: address || null,
+      notes: notes || null,
+    })
+    .eq('id', ctx.client.id);
+
+  if (error) {
+    if (error.code === '23505' || (error.message || '').toLowerCase().includes('duplicate')) {
+      err.textContent = `Another client already uses the email "${email}". Pick a different one.`;
+    } else {
+      err.textContent = `Could not update: ${error.message}`;
+    }
+    err.classList.remove('hidden');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save changes';
+    return;
+  }
+
+  ctx.client.name = name;
+  ctx.client.email = email;
+  ctx.client.phone = phone || null;
+  ctx.client.address = address || null;
+  ctx.client.notes = notes || null;
+
+  closeEditModal();
+  render();
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────
 function showFatal(msg) {
   document.getElementById('wrContent').innerHTML = `<div class="wr-error">${escapeHtml(msg)}</div>`;
@@ -599,13 +839,13 @@ function getDisplayAddress(proposal) {
   return proposal?.address || proposal?.project_address || 'Untitled proposal';
 }
 
-function formatBidShort(cents) {
-  const dollars = cents / 100;
-  if (dollars >= 1000) return '$' + Math.round(dollars / 1000) + 'K';
-  return '$' + dollars.toFixed(0);
+// Sprint 10c-2 fix: bid_total_amount is dollars, not cents.
+function formatBidShort(amount) {
+  if (amount >= 1000) return '$' + Math.round(amount / 1000) + 'K';
+  return '$' + amount.toFixed(0);
 }
-function formatBidFull(cents) {
-  return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatBidFull(amount) {
+  return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatDiscountRemaining(ms) {
