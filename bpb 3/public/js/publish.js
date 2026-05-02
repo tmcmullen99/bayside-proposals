@@ -634,12 +634,12 @@ function renderShell() {
         </p>
       </div>
 
-      <div class="bp-publish-loom-row">
-        <label class="bp-publish-loom-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-          <input type="checkbox" id="bpPublishShowDiscount" style="width:16px;height:16px;flex-shrink:0;">
-          <span>Show signing-discount countdown timer (48-hour 5% off)</span>
+    <div style="margin-bottom:24px;padding:16px 20px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="bpPublishShowDiscount" style="width:16px;height:16px;flex-shrink:0;margin-top:2px;">
+          <span style="font-size:14px;font-weight:600;color:#353535;line-height:1.4;">Show signing-discount countdown timer (48-hour 5% off)</span>
         </label>
-        <p class="bp-publish-loom-hint">
+        <p style="font-size:13px;color:#666;margin:8px 0 0 26px;line-height:1.5;">
           When checked, the published page shows a 48-hour countdown with the Immediate Start Discount messaging at the bottom. Uncheck to publish without the timer — the sign button and contact info remain. Changes apply on next publish.
         </p>
       </div>
@@ -648,7 +648,7 @@ function renderShell() {
         <div>
           <div class="bp-publish-next-slug-label">Next publish URL</div>
           <code id="bpPublishNextSlug" class="bp-publish-next-slug">…</code>
-          <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;color:#58595b;cursor:pointer;">
+         <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;font-weight:500;color:#353535;cursor:pointer;text-transform:none;letter-spacing:normal;">
             <input type="checkbox" id="bpPublishNotify" checked style="width:14px;height:14px;flex-shrink:0;">
             <span>Email client about this update</span>
           </label>
