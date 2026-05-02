@@ -3150,6 +3150,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
       }
     })();
   </script>
+<script src="/js/homeowner-revision-cta.js" type="module"></script>
 </body>
 </html>`;
 }
