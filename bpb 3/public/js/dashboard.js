@@ -1,454 +1,466 @@
-// Dashboard — lists all proposals, creates new drafts, redirects to editor.
-// Phase 2D: per-row delete with branded confirm modal.
-// Phase 5D.3: engagement column on the proposals table — quick "did anyone
-// view this" indicator linking through to /admin/engagement.html.
+// Sprint 6.4 — Designer Dashboard (Pipeline Command Center)
+//
+// Replaces the prior flat-table dashboard.js. Renders:
+//   - Stat row (open value, closed total, win rate, active count)
+//   - Funnel: 5 stages with counts/amounts
+//   - Stage cards: clicking a stage filters deals shown below
+//   - Deal cards: name, address, amount, engagement, pending pills
+//
+// Role-aware data scope:
+//   - master   : sees ALL proposals (across all designers)
+//   - designer : sees only proposals where owner_user_id = current user
+
 import { supabase } from './supabase-client.js';
 import { getProposalEngagementBulk, formatRelativeTime } from './engagement-utils.js';
 
-const content = document.getElementById('content');
-const errorBox = document.getElementById('errorBox');
-const newBtn = document.getElementById('newProposalBtn');
+const banner = document.getElementById('ddBanner');
+const userName = document.getElementById('ddUserName');
+const rolePill = document.getElementById('ddRolePill');
+const switchBtn = document.getElementById('ddSwitchBtn');
+const switchLabel = document.getElementById('ddSwitchLabel');
+const signoutBtn = document.getElementById('ddSignoutBtn');
+const newBtn = document.getElementById('ddNewBtn');
+const navReports = document.getElementById('ddNavReports');
+const navDesigns = document.getElementById('ddNavDesigns');
+const statRow = document.getElementById('ddStatRow');
+const funnelStages = document.getElementById('ddFunnelStages');
+const stageTitle = document.getElementById('ddStageTitle');
+const stageMeta = document.getElementById('ddStageMeta');
+const stageCards = document.getElementById('ddStageCards');
 
-// ───────────────────────────────────────────────────────────────────────────
-// Load and render proposals
-// ───────────────────────────────────────────────────────────────────────────
-async function loadProposals() {
-  content.innerHTML = '<div class="loading">Loading proposals…</div>';
-  errorBox.innerHTML = '';
+let currentProfile = null;
+let allProposals = [];
+let classifiedDeals = [];
+let activeStage = 'engaged';
 
-  const { data, error } = await supabase
+const STAGES = [
+  { key: 'draft',   label: 'Draft' },
+  { key: 'sent',    label: 'Sent' },
+  { key: 'viewed',  label: 'Viewed' },
+  { key: 'engaged', label: 'Engaged' },
+  { key: 'signed',  label: 'Signed' },
+];
+
+(async function bootstrap() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    window.location.replace('/account/signin.html');
+    return;
+  }
+
+  const { data: profile, error: profErr } = await supabase
+    .from('profiles')
+    .select('id, role, display_name, email, is_active')
+    .eq('id', session.user.id)
+    .maybeSingle();
+
+  if (profErr || !profile) {
+    showError('Could not load your profile: ' + (profErr ? profErr.message : 'no profile found'));
+    return;
+  }
+  if (!profile.is_active) {
+    showError('Your account is inactive. Contact your admin.');
+    return;
+  }
+
+  currentProfile = profile;
+  renderUserChrome(profile);
+  attachEventListeners();
+  await loadAndRender();
+})();
+
+function renderUserChrome(profile) {
+  const name = profile.display_name || profile.email || 'You';
+  userName.textContent = name;
+  rolePill.textContent = profile.role === 'master' ? 'Master' : 'Designer';
+  if (profile.role === 'master') {
+    rolePill.classList.add('master');
+    switchLabel.textContent = 'Switch to Designer';
+  } else {
+    switchLabel.textContent = 'Switch to Master';
+  }
+  document.title = profile.role === 'master'
+    ? 'Pipeline (master view) · Bayside Proposal Builder'
+    : 'Pipeline · Bayside Proposal Builder';
+}
+
+function attachEventListeners() {
+  signoutBtn.addEventListener('click', async () => {
+    try { await supabase.auth.signOut(); } catch (_) {}
+    window.location.replace('/account/signin.html');
+  });
+
+  switchBtn.addEventListener('click', async () => {
+    const ok = confirm(
+      'Account-switching without re-signing-in is coming in the next sprint.\n\n' +
+      'For now, clicking OK will sign you out so you can sign in to your ' +
+      'other account. Continue?'
+    );
+    if (!ok) return;
+    try { await supabase.auth.signOut(); } catch (_) {}
+    window.location.replace('/account/signin.html');
+  });
+
+  newBtn.addEventListener('click', createProposal);
+
+  funnelStages.querySelectorAll('.dd-fs').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setActiveStage(btn.dataset.stage);
+    });
+  });
+
+  navReports.addEventListener('click', () => {
+    alert('Reports view is coming in Sprint 7. For now use Engagement (live activity per proposal) or Pipeline (current funnel).');
+  });
+  navDesigns.addEventListener('click', () => {
+    alert('Designs gallery is coming in a future sprint. It will show 3D renderings and material selections from past completed projects, browseable as inspiration for new clients.');
+  });
+}
+
+async function loadAndRender() {
+  banner.innerHTML = '';
+
+  let q = supabase
     .from('proposals')
-    .select('id, client_name, project_address, project_city, project_label, proposal_type, status, bid_total_amount, updated_at, created_at')
+    .select('id, client_name, project_address, project_city, project_label, status, bid_total_amount, owner_user_id, updated_at, created_at')
     .order('updated_at', { ascending: false });
 
+  if (currentProfile.role !== 'master') {
+    q = q.eq('owner_user_id', currentProfile.id);
+  }
+
+  const { data: proposals, error } = await q;
   if (error) {
-    errorBox.innerHTML = `<div class="error-box">Failed to load proposals: ${escapeHtml(error.message)}</div>`;
-    content.innerHTML = '';
+    showError('Could not load proposals: ' + error.message);
     return;
   }
 
-  if (!data || data.length === 0) {
-    renderEmptyState();
+  allProposals = proposals || [];
+
+  if (allProposals.length === 0) {
+    renderEmptyDashboard();
     return;
   }
 
-  // Phase 5D.3: bulk-fetch engagement summaries for every proposal in one go.
-  // Errors here degrade gracefully — engagement cells just show '—'.
-  const proposalIds = data.map(p => p.id);
-  const engagement = await getProposalEngagementBulk(proposalIds);
+  const proposalIds = allProposals.map(p => p.id);
 
-  renderTable(data, engagement);
+  const [engagementMap, pubMap, subMap, redesignMap] = await Promise.all([
+    getProposalEngagementBulk(proposalIds),
+    fetchPublishedMap(proposalIds),
+    fetchPendingSubstitutions(proposalIds),
+    fetchPendingRedesigns(proposalIds),
+  ]);
+
+  classifiedDeals = allProposals.map(p => {
+    const eng = engagementMap.get(p.id);
+    const totalEvents = eng ? eng.totalEvents : 0;
+    const lastViewMs = eng && eng.lastView ? new Date(eng.lastView).getTime() : 0;
+    const hasPub = pubMap.has(p.id);
+    const pendingSub = subMap.has(p.id);
+    const pendingRedesign = redesignMap.has(p.id);
+
+    let stage;
+    if (p.status === 'signed' || p.status === 'completed') {
+      stage = 'signed';
+    } else if (p.status === 'archived') {
+      stage = null;
+    } else if (pendingSub || pendingRedesign || totalEvents >= 4) {
+      stage = 'engaged';
+    } else if (totalEvents > 0) {
+      stage = 'viewed';
+    } else if (hasPub) {
+      stage = 'sent';
+    } else {
+      stage = 'draft';
+    }
+
+    return {
+      proposal: p,
+      stage,
+      engagement: eng || { totalEvents: 0, lastView: null, isLive: false },
+      pendingSub,
+      pendingRedesign,
+      lastActivityMs: lastViewMs,
+    };
+  }).filter(d => d.stage !== null);
+
+  renderStats();
+  renderFunnel();
+  renderStageCards();
 }
 
-function renderEmptyState() {
-  content.innerHTML = `
-    <div class="empty-state">
-      <div class="headline">No proposals yet.</div>
-      <div class="sub">Start a new proposal to upload a bid PDF, pick materials, and generate a finished Bayside page.</div>
-      <button id="emptyNewBtn" class="btn primary">Create your first proposal →</button>
+function renderStats() {
+  const open = classifiedDeals.filter(d => d.stage !== 'signed').reduce((sum, d) => sum + Number(d.proposal.bid_total_amount || 0), 0);
+  const closed = classifiedDeals.filter(d => d.stage === 'signed').reduce((sum, d) => sum + Number(d.proposal.bid_total_amount || 0), 0);
+  const signedCount = classifiedDeals.filter(d => d.stage === 'signed').length;
+  const totalCount = classifiedDeals.length;
+  const winRate = totalCount > 0 ? Math.round((signedCount / totalCount) * 100) : 0;
+  const activeCount = classifiedDeals.filter(d => d.stage !== 'signed').length;
+
+  statRow.innerHTML = `
+    <div class="dd-stat-card">
+      <div class="dd-stat-label">Open value</div>
+      <div class="dd-stat-value">${formatUSD(open)}</div>
+      <div class="dd-stat-detail">${activeCount} active deal${activeCount === 1 ? '' : 's'}</div>
+    </div>
+    <div class="dd-stat-card">
+      <div class="dd-stat-label">Closed total</div>
+      <div class="dd-stat-value">${formatUSD(closed)}</div>
+      <div class="dd-stat-detail">${signedCount} signed deal${signedCount === 1 ? '' : 's'}</div>
+    </div>
+    <div class="dd-stat-card">
+      <div class="dd-stat-label">Win rate</div>
+      <div class="dd-stat-value">${winRate}%</div>
+      <div class="dd-stat-detail">${signedCount} of ${totalCount} total</div>
+    </div>
+    <div class="dd-stat-card">
+      <div class="dd-stat-label">Active deals</div>
+      <div class="dd-stat-value">${activeCount}</div>
+      <div class="dd-stat-detail">${totalCount - activeCount} closed</div>
     </div>
   `;
-  document.getElementById('emptyNewBtn').addEventListener('click', createProposal);
 }
 
-function renderTable(proposals, engagement) {
-  const rows = proposals.map(p => {
-    const hasClient = !!p.client_name;
-    const hasLabel = !!p.project_label;
-    const hasAddress = !!p.project_address;
-    const hasCity = !!p.project_city;
+function renderFunnel() {
+  const counts = { draft: 0, sent: 0, viewed: 0, engaged: 0, signed: 0 };
+  const amounts = { draft: 0, sent: 0, viewed: 0, engaged: 0, signed: 0 };
 
-    let displayName, address;
-    if (hasClient) {
-      displayName = p.client_name;
-      address = [p.project_address, p.project_city].filter(Boolean).join(', ') || '—';
-    } else if (hasLabel) {
-      displayName = p.project_label;
-      address = [p.project_address, p.project_city].filter(Boolean).join(', ') || '—';
-    } else if (hasAddress) {
-      displayName = p.project_address;
-      address = hasCity ? p.project_city : '—';
-    } else {
-      displayName = 'Untitled draft';
-      address = '—';
-    }
+  for (const d of classifiedDeals) {
+    counts[d.stage]++;
+    amounts[d.stage] += Number(d.proposal.bid_total_amount || 0);
+  }
 
-    const status = p.status || 'draft';
-    const typeLabel = p.proposal_type ? p.proposal_type.replace('_', ' ') : '—';
-    const amount = p.bid_total_amount
-      ? '$' + Number(p.bid_total_amount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-      : '—';
-    const updated = formatDate(p.updated_at || p.created_at);
-
-    // Phase 5D.3: engagement cell — clickable, links to /admin/engagement.html.
-    const eng = engagement.get(p.id);
-    const engagementCell = renderEngagementCell(p.id, eng);
-
-    return `
-      <tr data-proposal-id="${escapeHtml(p.id)}" class="proposal-row" style="cursor: pointer;">
-        <td>
-          <div class="project-name">${escapeHtml(displayName)}</div>
-          <div class="project-address">${escapeHtml(address)}</div>
-        </td>
-        <td><span class="status-badge ${status}">${status}</span></td>
-        <td>${engagementCell}</td>
-        <td class="tnum" style="text-transform: capitalize;">${escapeHtml(typeLabel)}</td>
-        <td class="tnum">${amount}</td>
-        <td class="date">${updated}</td>
-        <td class="row-actions">
-          <button type="button" class="row-delete-btn" aria-label="Delete proposal" title="Delete proposal">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-              <path d="M2.5 4 H11.5 M5.5 4 V2.5 H8.5 V4 M3.5 4 L4 12 H10 L10.5 4"/>
-            </svg>
-          </button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  content.innerHTML = `
-    <style>
-      .row-actions { width: 44px; text-align: center; }
-      .row-delete-btn {
-        background: transparent; border: none; padding: 6px;
-        border-radius: 6px; cursor: pointer;
-        color: #b0b0b0;
-        opacity: 0.6;
-        transition: color 0.15s, background 0.15s, opacity 0.15s;
-        display: inline-flex; align-items: center; justify-content: center;
-      }
-      .proposal-row:hover .row-delete-btn { opacity: 1; }
-      .row-delete-btn:hover { background: #fef2f2; color: #b91c1c; opacity: 1; }
-      .row-delete-btn:focus-visible { outline: 2px solid #b91c1c; outline-offset: 1px; opacity: 1; }
-      .proposal-row.deleting { opacity: 0.4; pointer-events: none; transition: opacity 0.2s; }
-      .proposal-row.fading-out { opacity: 0; transition: opacity 0.3s; }
-
-      /* Phase 5D.3 engagement cell */
-      .engagement-cell {
-        display: inline-flex; align-items: center; gap: 6px;
-        font-size: 12px; text-decoration: none; color: inherit;
-        padding: 2px 6px; border-radius: 4px;
-        transition: background 0.12s;
-      }
-      .engagement-cell:hover { background: #f4f4f4; text-decoration: none; }
-      .engagement-cell-empty { color: #bbb; font-size: 13px; }
-      .engagement-dot {
-        display: inline-block; width: 8px; height: 8px;
-        border-radius: 50%; flex-shrink: 0;
-      }
-      .engagement-dot.is-live { animation: dashEngPulse 1.5s ease-in-out infinite; }
-      @keyframes dashEngPulse {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.4); opacity: 0.6; }
-      }
-      .engagement-cell-meta { color: #888; font-size: 11px; }
-    </style>
-    <table class="ledger">
-      <thead>
-        <tr>
-          <th>Project</th>
-          <th style="width: 110px;">Status</th>
-          <th style="width: 170px;">Engagement</th>
-          <th style="width: 130px;">Type</th>
-          <th style="width: 110px;">Amount</th>
-          <th style="width: 130px;">Updated</th>
-          <th style="width: 44px;"></th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-  `;
-
-  // Wire up row click → open editor; delete button + engagement link both
-  // use stopPropagation so they don't ALSO trigger the row navigate.
-  content.querySelectorAll('.proposal-row').forEach(row => {
-    const proposalId = row.dataset.proposalId;
-    const matchingProposal = proposals.find(p => p.id === proposalId);
-
-    row.addEventListener('click', () => {
-      window.location.href = `/editor?id=${proposalId}`;
-    });
-
-    const delBtn = row.querySelector('.row-delete-btn');
-    delBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      showDeleteModal(matchingProposal, row);
-    });
-
-    const engCell = row.querySelector('a.engagement-cell');
-    if (engCell) {
-      engCell.addEventListener('click', (e) => {
-        // Let the link navigate to /admin/engagement.html instead of the row's
-        // editor-navigate handler.
-        e.stopPropagation();
-      });
-    }
+  STAGES.forEach(s => {
+    const btn = funnelStages.querySelector(`.dd-fs[data-stage="${s.key}"]`);
+    if (!btn) return;
+    btn.querySelector('.dd-fs-count').textContent = counts[s.key];
+    btn.querySelector('.dd-fs-amount').textContent = amounts[s.key] > 0 ? formatUSD(amounts[s.key]) : '$0';
+    btn.classList.toggle('active', s.key === activeStage);
   });
 }
 
-// Phase 5D.3: render the engagement cell for one proposal row.
-//   No data: muted dash
-//   Has data: dot + count + recency, clickable to engagement.html
-//   Live (event in last 60s): pulsing green dot
-function renderEngagementCell(proposalId, eng) {
-  if (!eng || eng.totalEvents === 0) {
-    return '<span class="engagement-cell-empty">—</span>';
-  }
-  const lastViewMs = eng.lastView ? new Date(eng.lastView).getTime() : 0;
-  const ageMs = Date.now() - lastViewMs;
-  const isRecent = ageMs < 24 * 3600 * 1000;
-  const dotColor = eng.isLive ? '#10a04a' : (isRecent ? '#5d7e69' : '#999');
-  const dotClass = 'engagement-dot' + (eng.isLive ? ' is-live' : '');
-  const recency = eng.isLive ? 'now' : formatRelativeTime(eng.lastView);
-  const viewsLabel = `${eng.totalEvents} view${eng.totalEvents === 1 ? '' : 's'}`;
-  return `
-    <a href="/admin/engagement.html?id=${escapeHtml(proposalId)}" class="engagement-cell"
-       title="View full engagement detail">
-      <span class="${dotClass}" style="background:${dotColor};"></span>
-      <span>${viewsLabel}</span>
-      <span class="engagement-cell-meta">· ${escapeHtml(recency)}</span>
-    </a>
-  `;
-}
+function renderStageCards() {
+  const stageDeals = classifiedDeals.filter(d => d.stage === activeStage).sort(sortDealsForStage);
+  const stageDef = STAGES.find(s => s.key === activeStage);
+  stageTitle.textContent = stageDef ? stageDef.label : activeStage;
 
-// ───────────────────────────────────────────────────────────────────────────
-// Delete confirm modal
-// ───────────────────────────────────────────────────────────────────────────
-let _deleteOverlay = null;
+  const totalAmount = stageDeals.reduce((s, d) => s + Number(d.proposal.bid_total_amount || 0), 0);
+  const sortDescription = activeStage === 'engaged' || activeStage === 'viewed'
+    ? 'sorted by engagement heat'
+    : activeStage === 'signed'
+      ? 'sorted by amount'
+      : 'sorted by last update';
+  stageMeta.textContent = `${stageDeals.length} deal${stageDeals.length === 1 ? '' : 's'} · ${formatUSD(totalAmount)} total · ${sortDescription}`;
 
-function showDeleteModal(proposal, rowEl) {
-  if (!_deleteOverlay) _deleteOverlay = buildDeleteModal();
-
-  const hasClient = !!proposal.client_name;
-  const hasLabel = !!proposal.project_label;
-  const hasAddress = !!proposal.project_address;
-  let displayName, address;
-  if (hasClient) {
-    displayName = proposal.client_name;
-    address = [proposal.project_address, proposal.project_city].filter(Boolean).join(', ');
-  } else if (hasLabel) {
-    displayName = proposal.project_label;
-    address = [proposal.project_address, proposal.project_city].filter(Boolean).join(', ');
-  } else if (hasAddress) {
-    displayName = proposal.project_address;
-    address = proposal.project_city || '';
-  } else {
-    displayName = 'Untitled draft';
-    address = '';
-  }
-  const amount = proposal.bid_total_amount
-    ? '$' + Number(proposal.bid_total_amount).toLocaleString('en-US', { maximumFractionDigits: 0 })
-    : null;
-
-  _deleteOverlay.querySelector('.bpb-del-name').textContent = displayName;
-  const addrEl = _deleteOverlay.querySelector('.bpb-del-addr');
-  if (address) {
-    addrEl.textContent = address + (amount ? ' · ' + amount : '');
-    addrEl.style.display = '';
-  } else if (amount) {
-    addrEl.textContent = amount;
-    addrEl.style.display = '';
-  } else {
-    addrEl.style.display = 'none';
-  }
-
-  const errEl = _deleteOverlay.querySelector('.bpb-del-error');
-  errEl.style.display = 'none';
-  errEl.textContent = '';
-  const confirmBtn = _deleteOverlay.querySelector('.bpb-del-confirm');
-  confirmBtn.disabled = false;
-  confirmBtn.textContent = 'Yes, delete permanently';
-
-  confirmBtn.onclick = () => deleteProposal(proposal, rowEl);
-
-  _deleteOverlay.style.display = 'flex';
-}
-
-function closeDeleteModal() {
-  if (_deleteOverlay) _deleteOverlay.style.display = 'none';
-}
-
-function buildDeleteModal() {
-  const overlay = document.createElement('div');
-  overlay.id = 'bpb-del-overlay';
-  overlay.innerHTML =
-    '<style>' +
-    '#bpb-del-overlay {' +
-    '  position: fixed; inset: 0; z-index: 10000;' +
-    '  background: rgba(26, 31, 46, 0.55);' +
-    '  display: none; align-items: center; justify-content: center;' +
-    '  padding: 24px;' +
-    "  font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;" +
-    '  animation: bpbDelFade 0.18s ease-out;' +
-    '}' +
-    '@keyframes bpbDelFade { from { opacity: 0; } to { opacity: 1; } }' +
-    '@keyframes bpbDelSlide { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
-    '.bpb-del-modal {' +
-    '  background: #fff;' +
-    '  border-radius: 16px;' +
-    '  max-width: 460px; width: 100%;' +
-    '  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);' +
-    '  padding: 32px;' +
-    '  animation: bpbDelSlide 0.22s ease-out;' +
-    '  color: #353535;' +
-    '}' +
-    '.bpb-del-eyebrow {' +
-    "  font-family: 'JetBrains Mono', ui-monospace, monospace;" +
-    '  font-size: 11px; letter-spacing: 0.22em;' +
-    '  color: #b91c1c; text-transform: uppercase;' +
-    '  margin-bottom: 8px; font-weight: 600;' +
-    '}' +
-    '.bpb-del-title {' +
-    '  font-size: 22px; font-weight: 600;' +
-    '  color: #1a1f2e; letter-spacing: -0.012em;' +
-    '  margin: 0 0 16px 0;' +
-    '}' +
-    '.bpb-del-target {' +
-    '  background: #faf8f3;' +
-    '  border-radius: 10px;' +
-    '  padding: 14px 16px;' +
-    '  margin-bottom: 20px;' +
-    '}' +
-    '.bpb-del-name { font-weight: 600; color: #1a1f2e; font-size: 15px; }' +
-    '.bpb-del-addr { color: #666; font-size: 13px; margin-top: 4px; }' +
-    '.bpb-del-warning {' +
-    '  font-size: 13px; line-height: 1.6;' +
-    '  color: #353535;' +
-    '  margin-bottom: 24px;' +
-    '}' +
-    '.bpb-del-warning strong { color: #1a1f2e; }' +
-    '.bpb-del-warning ul {' +
-    '  margin: 8px 0 0 0; padding-left: 20px;' +
-    '  color: #666; font-size: 12px;' +
-    '}' +
-    '.bpb-del-warning li { padding: 2px 0; }' +
-    '.bpb-del-error {' +
-    '  background: #fef2f2; color: #b91c1c;' +
-    '  border: 1px solid #fecaca; border-radius: 8px;' +
-    '  padding: 10px 14px; font-size: 13px;' +
-    '  margin-bottom: 16px;' +
-    '}' +
-    '.bpb-del-actions {' +
-    '  display: flex; gap: 10px; justify-content: flex-end;' +
-    '}' +
-    '.bpb-del-btn {' +
-    '  padding: 11px 18px; border-radius: 10px;' +
-    '  font: inherit; font-weight: 600; font-size: 14px;' +
-    '  cursor: pointer; border: 1px solid transparent;' +
-    '  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.12s, opacity 0.15s;' +
-    '}' +
-    '.bpb-del-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }' +
-    '.bpb-del-cancel {' +
-    '  background: #fff; color: #353535;' +
-    '  border-color: #e5e5e5;' +
-    '}' +
-    '.bpb-del-cancel:hover:not(:disabled) { background: #faf8f3; border-color: #353535; }' +
-    '.bpb-del-confirm {' +
-    '  background: #b91c1c; color: #fff;' +
-    '  box-shadow: 0 6px 16px rgba(185, 28, 28, 0.22);' +
-    '}' +
-    '.bpb-del-confirm:hover:not(:disabled) { background: #991616; transform: translateY(-1px); }' +
-    '@media (max-width: 480px) {' +
-    '  .bpb-del-modal { padding: 24px 20px; }' +
-    '  .bpb-del-actions { flex-direction: column-reverse; }' +
-    '  .bpb-del-btn { width: 100%; }' +
-    '}' +
-    '</style>' +
-    '<div class="bpb-del-modal" role="dialog" aria-modal="true" aria-labelledby="bpbDelTitle">' +
-    '  <div class="bpb-del-eyebrow">Permanent action</div>' +
-    '  <h2 id="bpbDelTitle" class="bpb-del-title">Delete this proposal?</h2>' +
-    '  <div class="bpb-del-target">' +
-    '    <div class="bpb-del-name"></div>' +
-    '    <div class="bpb-del-addr"></div>' +
-    '  </div>' +
-    '  <div class="bpb-del-warning">' +
-    '    <strong>This cannot be undone.</strong> Deleting will permanently remove:' +
-    '    <ul>' +
-    '      <li>All sections, materials, photos, regions, and site plan data</li>' +
-    '      <li>Every published version (live <code>/p/&lt;slug&gt;</code> pages will 404)</li>' +
-    '      <li>All signature intents from prospects</li>' +
-    '    </ul>' +
-    '  </div>' +
-    '  <div class="bpb-del-error"></div>' +
-    '  <div class="bpb-del-actions">' +
-    '    <button type="button" class="bpb-del-btn bpb-del-cancel">Cancel</button>' +
-    '    <button type="button" class="bpb-del-btn bpb-del-confirm">Yes, delete permanently</button>' +
-    '  </div>' +
-    '</div>';
-
-  document.body.appendChild(overlay);
-
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeDeleteModal();
-  });
-  overlay.querySelector('.bpb-del-cancel').addEventListener('click', closeDeleteModal);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && _deleteOverlay && _deleteOverlay.style.display !== 'none') {
-      closeDeleteModal();
-    }
-  });
-
-  return overlay;
-}
-
-async function deleteProposal(proposal, rowEl) {
-  const confirmBtn = _deleteOverlay.querySelector('.bpb-del-confirm');
-  const cancelBtn = _deleteOverlay.querySelector('.bpb-del-cancel');
-  const errEl = _deleteOverlay.querySelector('.bpb-del-error');
-
-  confirmBtn.disabled = true;
-  cancelBtn.disabled = true;
-  confirmBtn.textContent = 'Deleting…';
-  errEl.style.display = 'none';
-
-  rowEl.classList.add('deleting');
-
-  const { error } = await supabase
-    .from('proposals')
-    .delete()
-    .eq('id', proposal.id);
-
-  if (error) {
-    rowEl.classList.remove('deleting');
-    confirmBtn.disabled = false;
-    cancelBtn.disabled = false;
-    confirmBtn.textContent = 'Yes, delete permanently';
-    errEl.textContent = 'Delete failed: ' + (error.message || 'Unknown error');
-    errEl.style.display = 'block';
+  if (stageDeals.length === 0) {
+    stageCards.innerHTML = `<div class="dd-stage-empty">${emptyMessageFor(activeStage)}</div>`;
     return;
   }
 
-  closeDeleteModal();
-  rowEl.classList.remove('deleting');
-  rowEl.classList.add('fading-out');
-  setTimeout(() => {
-    rowEl.remove();
-    if (!content.querySelector('.proposal-row')) {
-      renderEmptyState();
-    }
-  }, 320);
+  stageCards.innerHTML = `<div class="dd-stage-cards">${stageDeals.map(renderDealCard).join('')}</div>`;
+
+  stageCards.querySelectorAll('.dd-deal').forEach(el => {
+    const id = el.dataset.proposalId;
+    el.addEventListener('click', () => {
+      window.location.href = `/editor?id=${id}`;
+    });
+  });
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Create a new proposal draft and redirect to the editor
-// ───────────────────────────────────────────────────────────────────────────
+function renderDealCard(deal) {
+  const p = deal.proposal;
+  const displayName = p.client_name || p.project_label || p.project_address || 'Untitled draft';
+  const addressBits = [p.project_address, p.project_city].filter(Boolean);
+  const addressLine = addressBits.length ? addressBits.join(', ') : '';
+  const amount = formatUSD(Number(p.bid_total_amount || 0));
+  const eng = deal.engagement;
+
+  let engClass = 'none';
+  let engText = 'No views yet';
+  if (eng.isLive) {
+    engClass = 'hot';
+    engText = `🔥 viewing now`;
+  } else if (eng.totalEvents >= 8) {
+    engClass = 'hot';
+    engText = `🔥 ${eng.totalEvents} views`;
+  } else if (eng.totalEvents >= 1) {
+    engClass = eng.totalEvents >= 4 ? 'warm' : 'cold';
+    engText = `${eng.totalEvents} view${eng.totalEvents === 1 ? '' : 's'}`;
+  }
+
+  let recency = '';
+  if (deal.lastActivityMs > 0) {
+    recency = 'last view ' + formatRelativeTime(eng.lastView);
+  } else if (deal.stage === 'draft') {
+    recency = 'not yet sent';
+  } else if (deal.stage === 'sent') {
+    recency = 'sent · no views';
+  }
+
+  const pills = [];
+  if (deal.pendingSub) pills.push('<span class="dd-deal-pill sub">Sub pending</span>');
+  if (deal.pendingRedesign) pills.push('<span class="dd-deal-pill redesign">Redesign pending</span>');
+
+  const isHot = deal.stage === 'engaged' && (eng.totalEvents >= 8 || eng.isLive);
+  const hotClass = isHot ? ' hot' : '';
+
+  return `
+    <button class="dd-deal${hotClass}" data-proposal-id="${escapeAttr(p.id)}">
+      <div class="dd-deal-name">${escapeHtml(displayName)}</div>
+      <div class="dd-deal-addr">${escapeHtml(addressLine || '—')}</div>
+      <div class="dd-deal-mid">
+        <div class="dd-deal-amount">${amount}</div>
+        <div class="dd-deal-engagement ${engClass}">${engText}</div>
+      </div>
+      <div class="dd-deal-meta">
+        ${pills.join('')}
+        ${recency ? `<span>${escapeHtml(recency)}</span>` : ''}
+      </div>
+    </button>
+  `;
+}
+
+function sortDealsForStage(a, b) {
+  if (activeStage === 'engaged' || activeStage === 'viewed') {
+    if (b.engagement.totalEvents !== a.engagement.totalEvents) {
+      return b.engagement.totalEvents - a.engagement.totalEvents;
+    }
+    return b.lastActivityMs - a.lastActivityMs;
+  }
+  if (activeStage === 'signed') {
+    return Number(b.proposal.bid_total_amount || 0) - Number(a.proposal.bid_total_amount || 0);
+  }
+  const aUpdated = new Date(a.proposal.updated_at || a.proposal.created_at).getTime();
+  const bUpdated = new Date(b.proposal.updated_at || b.proposal.created_at).getTime();
+  return bUpdated - aUpdated;
+}
+
+function emptyMessageFor(stage) {
+  switch (stage) {
+    case 'draft':   return 'No drafts. Click <strong>+ New proposal</strong> in the sidebar to start one.';
+    case 'sent':    return 'No proposals sitting in <em>sent</em>. Sent proposals show up here once published, before the homeowner views them.';
+    case 'viewed':  return 'No proposals in <em>viewed</em>. Once a homeowner views a sent proposal but engages lightly (1–3 views), they show up here.';
+    case 'engaged': return 'No engaged deals yet. Deals show up here when the homeowner views the page 4+ times, submits a substitution, or requests a redesign.';
+    case 'signed':  return 'No signed deals yet.';
+    default:        return 'No deals in this stage.';
+  }
+}
+
+function setActiveStage(stage) {
+  activeStage = stage;
+  funnelStages.querySelectorAll('.dd-fs').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.stage === stage);
+  });
+  renderStageCards();
+}
+
+function renderEmptyDashboard() {
+  const isDesigner = currentProfile.role !== 'master';
+
+  statRow.innerHTML = `
+    <div class="dd-stat-card"><div class="dd-stat-label">Open value</div><div class="dd-stat-value">$0</div><div class="dd-stat-detail">0 active deals</div></div>
+    <div class="dd-stat-card"><div class="dd-stat-label">Closed total</div><div class="dd-stat-value">$0</div><div class="dd-stat-detail">0 signed deals</div></div>
+    <div class="dd-stat-card"><div class="dd-stat-label">Win rate</div><div class="dd-stat-value">—</div><div class="dd-stat-detail">no deals yet</div></div>
+    <div class="dd-stat-card"><div class="dd-stat-label">Active deals</div><div class="dd-stat-value">0</div><div class="dd-stat-detail">—</div></div>
+  `;
+
+  STAGES.forEach(s => {
+    const btn = funnelStages.querySelector(`.dd-fs[data-stage="${s.key}"]`);
+    if (btn) {
+      btn.querySelector('.dd-fs-count').textContent = '0';
+      btn.querySelector('.dd-fs-amount').textContent = '$0';
+    }
+  });
+
+  stageTitle.textContent = isDesigner ? 'Welcome' : 'No proposals';
+  stageMeta.textContent = '';
+  stageCards.innerHTML = `
+    <div class="dd-stage-empty">
+      <div style="font-size: 32px; margin-bottom: 12px; opacity: 0.4;">📐</div>
+      <div style="font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px;">
+        ${isDesigner ? "You don't have any proposals yet" : 'No proposals in the system yet'}
+      </div>
+      <div style="margin-bottom: 18px; max-width: 420px; margin-left: auto; margin-right: auto; line-height: 1.6;">
+        ${isDesigner
+          ? "Click <strong>+ New proposal</strong> in the sidebar to start your first one. Upload a JobNimbus bid PDF and you'll be on the editor in seconds."
+          : "Once designers create proposals, they'll all show up here for you to oversee."}
+      </div>
+      ${isDesigner ? '<button class="btn primary" id="ddEmptyNewBtn">Create your first proposal →</button>' : ''}
+    </div>
+  `;
+  const emptyBtn = document.getElementById('ddEmptyNewBtn');
+  if (emptyBtn) emptyBtn.addEventListener('click', createProposal);
+}
+
+async function fetchPublishedMap(proposalIds) {
+  const map = new Map();
+  if (proposalIds.length === 0) return map;
+  const { data, error } = await supabase
+    .from('published_proposals')
+    .select('proposal_id')
+    .in('proposal_id', proposalIds);
+  if (error) {
+    console.warn('[dashboard] published_proposals fetch failed:', error);
+    return map;
+  }
+  (data || []).forEach(row => map.set(row.proposal_id, true));
+  return map;
+}
+
+async function fetchPendingSubstitutions(proposalIds) {
+  const map = new Map();
+  if (proposalIds.length === 0) return map;
+  const { data, error } = await supabase
+    .from('proposal_substitutions')
+    .select('proposal_id')
+    .in('proposal_id', proposalIds)
+    .eq('status', 'submitted');
+  if (error) {
+    console.warn('[dashboard] proposal_substitutions fetch failed:', error);
+    return map;
+  }
+  (data || []).forEach(row => map.set(row.proposal_id, true));
+  return map;
+}
+
+async function fetchPendingRedesigns(proposalIds) {
+  const map = new Map();
+  if (proposalIds.length === 0) return map;
+  const { data, error } = await supabase
+    .from('proposal_redesign_requests')
+    .select('proposal_id')
+    .in('proposal_id', proposalIds)
+    .eq('status', 'submitted');
+  if (error) {
+    console.warn('[dashboard] proposal_redesign_requests fetch failed:', error);
+    return map;
+  }
+  (data || []).forEach(row => map.set(row.proposal_id, true));
+  return map;
+}
+
 async function createProposal() {
   newBtn.disabled = true;
   const btnText = newBtn.textContent;
   newBtn.textContent = 'Creating…';
 
+  const insertPayload = {
+    status: 'draft',
+    proposal_type: 'bid',
+    project_state: 'CA',
+  };
+  if (currentProfile && currentProfile.id) {
+    insertPayload.owner_user_id = currentProfile.id;
+  }
+
   const { data, error } = await supabase
     .from('proposals')
-    .insert({
-      status: 'draft',
-      proposal_type: 'bid',
-      project_state: 'CA'
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
 
   if (error) {
-    errorBox.innerHTML = `<div class="error-box">Could not create proposal: ${escapeHtml(error.message)}</div>`;
+    showError('Could not create proposal: ' + error.message);
     newBtn.disabled = false;
     newBtn.textContent = btnText;
     return;
@@ -457,20 +469,23 @@ async function createProposal() {
   window.location.href = `/editor?id=${data.id}`;
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Utilities
-// ───────────────────────────────────────────────────────────────────────────
-function formatDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now - d;
-  const diffHours = diffMs / (1000 * 60 * 60);
+function showError(msg) {
+  banner.innerHTML = `<div class="dd-banner error">${escapeHtml(msg)}</div>`;
+}
 
-  if (diffHours < 1) return 'just now';
-  if (diffHours < 24) return `${Math.floor(diffHours)}h ago`;
-  if (diffHours < 24 * 7) return `${Math.floor(diffHours / 24)}d ago`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+function formatUSD(value) {
+  const n = Number(value) || 0;
+  if (n === 0) return '$0';
+  if (n >= 1_000_000) {
+    return '$' + (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 2) + 'M';
+  }
+  if (n >= 100_000) {
+    return '$' + Math.round(n / 1000) + 'K';
+  }
+  if (n >= 10_000) {
+    return '$' + (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  }
+  return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
 function escapeHtml(str) {
@@ -483,8 +498,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Wire up
-// ───────────────────────────────────────────────────────────────────────────
-newBtn.addEventListener('click', createProposal);
-loadProposals();
+function escapeAttr(str) {
+  return escapeHtml(str);
+}
