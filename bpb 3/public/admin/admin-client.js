@@ -1,15 +1,18 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// admin-client.js — Sprint 10c-2
+// admin-client.js — Sprint 10e
 //
 // War Room layout for one client at /admin/client.html?id=<client_uuid>.
 //
-// Sprint 10c-2 changes (on top of 10c-1):
-//   - FIX: bid_total_amount is stored as dollars (numeric), not cents — the
-//     /100 divisions in the formatters were wrong. Removed them.
-//   - NEW: inline Edit modal (Name/Email/Phone/Address/Notes) on the
-//     client page itself; the Edit button no longer bounces to /admin/clients.
-//   - NEW: Notes section in the right rail (read-only display; edit via
-//     the same Edit modal).
+// Sprint 10e additions (on top of 10c-2):
+//   - Composer file picker (📎) + chips queue (image + PDF, 25MB cap)
+//   - Pre-generated message UUID via crypto.randomUUID() so files can land
+//     in {client_id}/{messageUuid}/{N}_filename BEFORE the message row
+//   - Upload → insert message → insert attachments (in that order)
+//   - Attachment rendering: 120px image thumbnails (click → fullscreen) +
+//     PDF rows with download links
+//   - Signed URL caching (1 hour TTL) to avoid re-signing every render
+//   - Realtime: 250ms delay then fetch attachments for new message_id,
+//     replace the just-appended bubble in place
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -18,6 +21,13 @@ import { getProposalEngagementBulk, formatRelativeTime } from '/js/engagement-ut
 
 const DISCOUNT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
+// Sprint 10e attachment constants
+const ATTACHMENT_BUCKET = 'client-messages';
+const MAX_FILE_SIZE = 26214400; // 25 MB
+const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+const SIGNED_URL_TTL = 3600; // 1 hour
+const REALTIME_ATTACHMENT_DELAY = 250; // ms
+
 const ctx = {
   viewer: null,
   client: null,
@@ -25,6 +35,9 @@ const ctx = {
   engagement: new Map(),
   events: [],
   messages: [],
+  attachmentsByMessageId: new Map(),  // Sprint 10e
+  signedUrlCache: new Map(),          // Sprint 10e: storage_path -> { url, expiresAt }
+  queuedFiles: [],                    // Sprint 10e: [{ id, file, error? }]
   profileCache: new Map(),
   channel: null,
 };
@@ -44,12 +57,14 @@ const ctx = {
   ctx.profileCache.set(ctx.viewer.id, ctx.viewer);
 
   ensureEditModalStyles();
+  ensureAttachmentStyles();
   await loadAll(clientId);
   if (!ctx.client) {
     showFatal('Could not load this client. They may not exist, or you may not have access.');
     return;
   }
   render();
+  hydrateSignedUrls(document.getElementById('wrMessages'));
   subscribeRealtime();
 })();
 
@@ -136,6 +151,28 @@ async function loadMessages(clientId) {
       .in('id', uncached);
     for (const p of (profs || [])) ctx.profileCache.set(p.id, p);
   }
+
+  // Sprint 10e: bulk-fetch attachments for all loaded messages
+  await loadAttachments(ctx.messages.map(m => m.id));
+}
+
+async function loadAttachments(messageIds) {
+  ctx.attachmentsByMessageId = new Map();
+  if (!messageIds || messageIds.length === 0) return;
+  const { data, error } = await supabase
+    .from('client_message_attachments')
+    .select('id, message_id, storage_path, file_name, mime_type, size_bytes')
+    .in('message_id', messageIds);
+  if (error) {
+    console.error('[admin-client] attachments load failed:', error);
+    return;
+  }
+  for (const att of (data || [])) {
+    if (!ctx.attachmentsByMessageId.has(att.message_id)) {
+      ctx.attachmentsByMessageId.set(att.message_id, []);
+    }
+    ctx.attachmentsByMessageId.get(att.message_id).push(att);
+  }
 }
 
 // ─── Render ────────────────────────────────────────────────────────────────
@@ -151,7 +188,6 @@ function render() {
   const isLive = aggEng?.isLive || false;
   const totalDevices = aggEng?.totalDevices || 0;
 
-  // Sprint 10c-2 fix: bid_total_amount is dollars, not cents — no /100 needed.
   const totalBid = ctx.clientProposals.reduce((sum, cp) => {
     return sum + Number(cp.proposal?.bid_total_amount || 0);
   }, 0);
@@ -214,7 +250,13 @@ function render() {
             <button class="wr-suggestion-chip" disabled style="opacity: 0.7;">Happy to offer a complimentary tweak</button>
           </div>
 
+          <div class="wr-file-queue" id="wrFileQueue" style="display:none;"></div>
+
           <div class="wr-composer">
+            <button type="button" class="wr-attach-btn" id="wrAttachBtn" title="Attach images or PDFs (25 MB max)">📎</button>
+            <input type="file" id="wrFileInput" multiple
+              accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+              style="display:none;">
             <textarea id="wrComposer" rows="2"
               placeholder="Reply to ${escapeHtml(c.name || 'the client')} — Enter to send, Shift+Enter for new line"></textarea>
             <button id="wrSendBtn">Send</button>
@@ -343,7 +385,12 @@ function renderOneMessage(message) {
     message.sender_role === 'designer'  ? '<span class="wr-msg-pill designer">Designer</span>' :
                                           '<span class="wr-msg-pill homeowner">Homeowner</span>';
   const time = formatMessageTime(message.created_at);
-  const bodyHtml = escapeHtml(message.body || '').replace(/\n/g, '<br>');
+  const bodyHtml = message.body ? escapeHtml(message.body).replace(/\n/g, '<br>') : '';
+
+  // Sprint 10e: render attachments below body (placeholders hydrated later)
+  const atts = ctx.attachmentsByMessageId.get(message.id) || [];
+  const attsHtml = atts.length > 0 ? renderAttachments(atts) : '';
+
   return `
     <div class="wr-msg ${isOutbound ? 'wr-msg-out' : 'wr-msg-in'}" data-message-id="${escapeAttr(message.id)}">
       <div class="wr-msg-meta">
@@ -351,9 +398,38 @@ function renderOneMessage(message) {
         ${rolePill}
         <span class="wr-msg-time">${escapeHtml(time)}</span>
       </div>
-      <div class="wr-msg-body">${bodyHtml}</div>
+      ${bodyHtml ? `<div class="wr-msg-body">${bodyHtml}</div>` : ''}
+      ${attsHtml}
     </div>
   `;
+}
+
+function renderAttachments(attachments) {
+  const html = attachments.map(att => {
+    if (att.mime_type.startsWith('image/')) {
+      return `
+        <div class="wr-msg-attachment-img"
+             data-storage-path="${escapeAttr(att.storage_path)}"
+             data-file-name="${escapeAttr(att.file_name)}">
+          <div class="wr-msg-attachment-loading">Loading…</div>
+        </div>
+      `;
+    }
+    // PDF
+    return `
+      <div class="wr-msg-attachment-pdf"
+           data-storage-path="${escapeAttr(att.storage_path)}"
+           data-file-name="${escapeAttr(att.file_name)}">
+        <span class="wr-msg-attachment-pdf-icon">📄</span>
+        <div class="wr-msg-attachment-pdf-info">
+          <div class="wr-msg-attachment-pdf-name">${escapeHtml(att.file_name)}</div>
+          <div class="wr-msg-attachment-pdf-meta">${escapeHtml(formatFileSize(att.size_bytes))} · PDF</div>
+        </div>
+        <a class="wr-msg-attachment-pdf-download" target="_blank" rel="noopener" download="${escapeAttr(att.file_name)}">Open</a>
+      </div>
+    `;
+  }).join('');
+  return `<div class="wr-msg-attachments">${html}</div>`;
 }
 
 function getSenderName(message) {
@@ -417,7 +493,6 @@ function renderQuickStats() {
   ).join('');
 }
 
-// Sprint 10c-2: read-only Notes display in right rail.
 function renderNotes() {
   const notes = ctx.client.notes || '';
   if (!notes.trim()) {
@@ -463,6 +538,8 @@ function wireHandlers() {
   const composer = document.getElementById('wrComposer');
   const sendLinkBtn = document.getElementById('wrSendLinkBtn');
   const editBtn = document.getElementById('wrEditBtn');
+  const attachBtn = document.getElementById('wrAttachBtn');
+  const fileInput = document.getElementById('wrFileInput');
 
   sendBtn?.addEventListener('click', handleSend);
   composer?.addEventListener('keydown', (e) => {
@@ -473,36 +550,165 @@ function wireHandlers() {
   });
   sendLinkBtn?.addEventListener('click', handleSendLoginLink);
   editBtn?.addEventListener('click', () => openEditModal(ctx.client));
+  attachBtn?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', handleFileSelect);
   setTimeout(() => composer?.focus(), 80);
+}
+
+function handleFileSelect(e) {
+  const files = Array.from(e.target.files || []);
+  e.target.value = ''; // allow re-selecting the same file
+  for (const file of files) {
+    let error = null;
+    if (file.size > MAX_FILE_SIZE) {
+      error = `File too large (${formatFileSize(file.size)}). Max 25 MB.`;
+    } else if (!ALLOWED_MIMES.includes(file.type)) {
+      error = `Unsupported type. Use JPG, PNG, GIF, WebP, or PDF.`;
+    }
+    ctx.queuedFiles.push({
+      id: crypto.randomUUID(),
+      file,
+      error,
+    });
+  }
+  renderFileQueue();
+}
+
+function renderFileQueue() {
+  const queueEl = document.getElementById('wrFileQueue');
+  if (!queueEl) return;
+
+  if (ctx.queuedFiles.length === 0) {
+    queueEl.innerHTML = '';
+    queueEl.style.display = 'none';
+    return;
+  }
+
+  queueEl.style.display = 'flex';
+  queueEl.innerHTML = ctx.queuedFiles.map(item => {
+    const isImage = item.file.type.startsWith('image/');
+    const sizeStr = formatFileSize(item.file.size);
+    const errorHtml = item.error ? `<div class="wr-file-chip-error">${escapeHtml(item.error)}</div>` : '';
+    return `
+      <div class="wr-file-chip ${item.error ? 'has-error' : ''}" data-chip-id="${escapeAttr(item.id)}">
+        <span class="wr-file-chip-icon">${isImage ? '🖼' : '📄'}</span>
+        <div class="wr-file-chip-info">
+          <span class="wr-file-chip-name">${escapeHtml(item.file.name)}</span>
+          <span class="wr-file-chip-meta">${escapeHtml(sizeStr)}</span>
+          ${errorHtml}
+        </div>
+        <button type="button" class="wr-file-chip-remove" aria-label="Remove">×</button>
+      </div>
+    `;
+  }).join('');
+
+  queueEl.querySelectorAll('.wr-file-chip-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const chipId = e.currentTarget.closest('.wr-file-chip').dataset.chipId;
+      ctx.queuedFiles = ctx.queuedFiles.filter(f => f.id !== chipId);
+      renderFileQueue();
+    });
+  });
+}
+
+function sanitizeFilename(name) {
+  return (name || 'file')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .substring(0, 200);
 }
 
 async function handleSend() {
   const composer = document.getElementById('wrComposer');
   const sendBtn = document.getElementById('wrSendBtn');
   const body = composer.value.trim();
-  if (!body) return;
+
+  const validFiles = ctx.queuedFiles.filter(f => !f.error);
+  const hasInvalidQueued = ctx.queuedFiles.some(f => f.error);
+
+  if (hasInvalidQueued) {
+    alert('Please remove the invalid file(s) from the queue before sending.');
+    return;
+  }
+  if (!body && validFiles.length === 0) return;
 
   sendBtn.disabled = true;
-  sendBtn.textContent = 'Sending…';
+  const messageUuid = crypto.randomUUID();
 
-  const { error } = await supabase
+  // Step 1: upload files (if any)
+  const uploaded = [];
+  if (validFiles.length > 0) {
+    for (let i = 0; i < validFiles.length; i++) {
+      const item = validFiles[i];
+      sendBtn.textContent = `Uploading ${i + 1}/${validFiles.length}…`;
+      const sanitized = sanitizeFilename(item.file.name);
+      const path = `${ctx.client.id}/${messageUuid}/${i}_${sanitized}`;
+      const { error: upErr } = await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .upload(path, item.file, {
+          contentType: item.file.type,
+          upsert: false,
+        });
+      if (upErr) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send';
+        alert(`Upload failed for "${item.file.name}": ${upErr.message}`);
+        return;
+      }
+      uploaded.push({
+        storage_path: path,
+        file_name: item.file.name,
+        mime_type: item.file.type,
+        size_bytes: item.file.size,
+      });
+    }
+  }
+
+  // Step 2: insert message row with explicit UUID
+  sendBtn.textContent = 'Sending…';
+  const { error: msgErr } = await supabase
     .from('client_messages')
     .insert({
+      id: messageUuid,
       client_id: ctx.client.id,
       sender_user_id: ctx.viewer.id,
       sender_role: ctx.viewer.role,
-      body,
+      body: body || null,
     });
 
-  sendBtn.disabled = false;
-  sendBtn.textContent = 'Send';
-
-  if (error) {
-    alert('Could not send: ' + error.message);
+  if (msgErr) {
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send';
+    alert('Could not send: ' + msgErr.message);
     return;
   }
+
+  // Step 3: bulk insert attachment rows
+  if (uploaded.length > 0) {
+    const rows = uploaded.map(u => ({
+      message_id: messageUuid,
+      storage_path: u.storage_path,
+      file_name: u.file_name,
+      mime_type: u.mime_type,
+      size_bytes: u.size_bytes,
+    }));
+    const { error: attErr } = await supabase
+      .from('client_message_attachments')
+      .insert(rows);
+    if (attErr) {
+      console.error('[admin-client] attachment row insert failed:', attErr);
+      alert(`Message sent but attachments failed to register: ${attErr.message}`);
+    }
+  }
+
+  // Reset composer state
+  sendBtn.disabled = false;
+  sendBtn.textContent = 'Send';
   composer.value = '';
+  ctx.queuedFiles = [];
+  renderFileQueue();
   composer.focus();
+  // Realtime delivers the message back; renderer adds it.
 }
 
 async function handleSendLoginLink(e) {
@@ -548,6 +754,28 @@ function subscribeRealtime() {
         if (profile) ctx.profileCache.set(profile.id, profile);
       }
       appendMessage(message);
+
+      // Sprint 10e: after a brief delay, fetch attachments for this message
+      // (attachment rows commit just after the message row, so there's a
+      // small race window where they might not be visible yet)
+      setTimeout(async () => {
+        const { data: atts } = await supabase
+          .from('client_message_attachments')
+          .select('id, message_id, storage_path, file_name, mime_type, size_bytes')
+          .eq('message_id', message.id);
+        if (atts && atts.length > 0) {
+          ctx.attachmentsByMessageId.set(message.id, atts);
+          // Re-render the just-appended bubble in place
+          const node = document.querySelector(`.wr-msg[data-message-id="${CSS.escape(message.id)}"]`);
+          if (node) {
+            const wasNearBottom = isScrolledNearBottom();
+            node.outerHTML = renderOneMessage(message);
+            const newNode = document.querySelector(`.wr-msg[data-message-id="${CSS.escape(message.id)}"]`);
+            if (newNode) hydrateSignedUrls(newNode);
+            if (wasNearBottom) scrollMessagesToBottom();
+          }
+        }
+      }, REALTIME_ATTACHMENT_DELAY);
     })
     .subscribe();
 }
@@ -555,7 +783,7 @@ function subscribeRealtime() {
 function appendMessage(message) {
   const messagesEl = document.getElementById('wrMessages');
   if (!messagesEl) return;
-  if (messagesEl.querySelector(`[data-message-id="${message.id}"]`)) return;
+  if (messagesEl.querySelector(`[data-message-id="${CSS.escape(message.id)}"]`)) return;
   const empty = messagesEl.querySelector('.wr-empty');
   if (empty) empty.remove();
   ctx.messages.push(message);
@@ -572,6 +800,72 @@ function isScrolledNearBottom() {
 function scrollMessagesToBottom() {
   const m = document.getElementById('wrMessages');
   if (m) m.scrollTop = m.scrollHeight;
+}
+
+// ─── Sprint 10e: signed URL hydration + image viewer ──────────────────────
+async function hydrateSignedUrls(scope) {
+  if (!scope) return;
+  const placeholders = scope.querySelectorAll('[data-storage-path]:not([data-hydrated])');
+  for (const el of placeholders) {
+    const path = el.dataset.storagePath;
+    const fileName = el.dataset.fileName || '';
+    const url = await getCachedSignedUrl(path);
+    if (!url) {
+      el.dataset.hydrated = 'error';
+      const loading = el.querySelector('.wr-msg-attachment-loading');
+      if (loading) loading.textContent = 'Could not load file';
+      continue;
+    }
+
+    if (el.classList.contains('wr-msg-attachment-img')) {
+      el.innerHTML = `<img src="${escapeAttr(url)}" alt="${escapeAttr(fileName)}" loading="lazy">`;
+      el.style.cursor = 'zoom-in';
+      el.addEventListener('click', () => openImageViewer(url, fileName));
+    } else if (el.classList.contains('wr-msg-attachment-pdf')) {
+      const link = el.querySelector('.wr-msg-attachment-pdf-download');
+      if (link) link.href = url;
+    }
+    el.dataset.hydrated = 'true';
+  }
+}
+
+async function getCachedSignedUrl(path) {
+  const cached = ctx.signedUrlCache.get(path);
+  if (cached && cached.expiresAt > Date.now() + 60000) return cached.url;
+
+  const { data, error } = await supabase.storage
+    .from(ATTACHMENT_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL);
+
+  if (error || !data?.signedUrl) {
+    console.error('[admin-client] signed URL failed for', path, error);
+    return null;
+  }
+
+  ctx.signedUrlCache.set(path, {
+    url: data.signedUrl,
+    expiresAt: Date.now() + (SIGNED_URL_TTL * 1000),
+  });
+  return data.signedUrl;
+}
+
+function openImageViewer(url, fileName) {
+  const overlay = document.createElement('div');
+  overlay.className = 'wr-image-viewer';
+  overlay.innerHTML = `
+    <img src="${escapeAttr(url)}" alt="${escapeAttr(fileName)}">
+    <button type="button" class="wr-image-viewer-close" aria-label="Close">×</button>
+  `;
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener('keydown', onEsc);
+  };
+  const onEsc = (e) => { if (e.key === 'Escape') close(); };
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target.classList.contains('wr-image-viewer-close')) close();
+  });
+  document.addEventListener('keydown', onEsc);
+  document.body.appendChild(overlay);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -821,6 +1115,194 @@ async function submitEditClient() {
 
   closeEditModal();
   render();
+  hydrateSignedUrls(document.getElementById('wrMessages'));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 10e — attachment styles
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ensureAttachmentStyles() {
+  if (document.getElementById('wr-attachment-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'wr-attachment-styles';
+  style.textContent = `
+    /* Composer attach button */
+    .wr-attach-btn {
+      flex-shrink: 0;
+      width: 40px; height: 40px;
+      background: transparent;
+      border: 1px solid var(--border, #e5e5e5);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 18px;
+      color: var(--charcoal, #353535);
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+      display: flex; align-items: center; justify-content: center;
+      align-self: flex-end;
+    }
+    .wr-attach-btn:hover {
+      background: #faf8f3;
+      border-color: #5d7e69;
+      color: #4a6654;
+    }
+
+    /* Queue chips above composer */
+    .wr-file-queue {
+      background: #fff;
+      border-top: 1px solid var(--border, #e5e5e5);
+      padding: 10px 22px;
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .wr-file-chip {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 8px 10px;
+      background: #faf8f3;
+      border: 1px solid var(--border, #e5e5e5);
+      border-radius: 8px;
+      max-width: 320px;
+      font-size: 12px;
+    }
+    .wr-file-chip.has-error {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+    .wr-file-chip-icon {
+      font-size: 16px; flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .wr-file-chip-info {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .wr-file-chip-name {
+      font-weight: 600;
+      color: #353535;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .wr-file-chip-meta {
+      font-size: 11px;
+      color: #888;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .wr-file-chip-error {
+      font-size: 11px;
+      color: #b91c1c;
+      margin-top: 2px;
+    }
+    .wr-file-chip-remove {
+      flex-shrink: 0;
+      background: transparent; border: 0;
+      color: #888; font-size: 16px;
+      cursor: pointer; padding: 0 4px;
+      line-height: 1; align-self: flex-start;
+    }
+    .wr-file-chip-remove:hover { color: #b91c1c; }
+
+    /* Attachments inside message bubbles */
+    .wr-msg-attachments {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-top: 6px;
+      max-width: 100%;
+    }
+    .wr-msg-attachment-img {
+      width: 120px; height: 120px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #ece9dd;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .wr-msg-attachment-img:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14);
+    }
+    .wr-msg-attachment-img img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .wr-msg-attachment-loading {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; height: 100%;
+      font-size: 11px;
+      color: #888;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .wr-msg-attachment-pdf {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: #fff;
+      border: 1px solid var(--border, #e5e5e5);
+      border-radius: 10px;
+      max-width: 320px;
+      transition: border-color 0.12s;
+    }
+    .wr-msg-out .wr-msg-attachment-pdf {
+      background: rgba(255, 255, 255, 0.94);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .wr-msg-attachment-pdf:hover {
+      border-color: #5d7e69;
+    }
+    .wr-msg-attachment-pdf-icon { font-size: 22px; flex-shrink: 0; }
+    .wr-msg-attachment-pdf-info {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .wr-msg-attachment-pdf-name {
+      font-size: 13px; font-weight: 600;
+      color: #353535;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .wr-msg-attachment-pdf-meta {
+      font-size: 11px;
+      color: #888;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .wr-msg-attachment-pdf-download {
+      background: #5d7e69;
+      color: #fff;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-decoration: none;
+      flex-shrink: 0;
+      transition: background 0.12s;
+    }
+    .wr-msg-attachment-pdf-download:hover { background: #4a6654; color: #fff; }
+
+    /* Fullscreen image viewer */
+    .wr-image-viewer {
+      position: fixed; inset: 0;
+      z-index: 1300;
+      background: rgba(0, 0, 0, 0.88);
+      display: flex; align-items: center; justify-content: center;
+      cursor: zoom-out;
+      animation: wrViewerFade 0.16s ease-out;
+    }
+    @keyframes wrViewerFade { from { opacity: 0; } to { opacity: 1; } }
+    .wr-image-viewer img {
+      max-width: 92vw; max-height: 92vh;
+      object-fit: contain;
+      border-radius: 6px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+    }
+    .wr-image-viewer-close {
+      position: fixed; top: 20px; right: 24px;
+      width: 40px; height: 40px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 0; color: #fff;
+      border-radius: 50%;
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+      transition: background 0.12s;
+    }
+    .wr-image-viewer-close:hover { background: rgba(255, 255, 255, 0.3); }
+  `;
+  document.head.appendChild(style);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -839,13 +1321,19 @@ function getDisplayAddress(proposal) {
   return proposal?.address || proposal?.project_address || 'Untitled proposal';
 }
 
-// Sprint 10c-2 fix: bid_total_amount is dollars, not cents.
 function formatBidShort(amount) {
   if (amount >= 1000) return '$' + Math.round(amount / 1000) + 'K';
   return '$' + amount.toFixed(0);
 }
 function formatBidFull(amount) {
   return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatFileSize(bytes) {
+  if (bytes == null) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
 }
 
 function formatDiscountRemaining(ms) {
