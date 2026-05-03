@@ -160,9 +160,11 @@ function renderCard(t) {
     ? `<span class="nt-meta-tag">${escapeHtml(PROJECT_TYPE_LABELS[t.project_type_filter] || t.project_type_filter)} only</span>`
     : '';
   const inactiveTag = t.is_active ? '' : '<span class="nt-meta-tag inactive">Inactive</span>';
-  // Strip simple markdown punctuation for the inline preview tease
+  // Strip simple markdown punctuation for the inline preview tease.
+  // NOTE: do NOT strip underscores — they're part of merge field names
+  // like {{client_first_name}} and need to render verbatim in the teaser.
   const preview = (t.body_md || '')
-    .replace(/[#*_`>\[\]\-]/g, '')
+    .replace(/[#*`>\[\]\-]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 160);
