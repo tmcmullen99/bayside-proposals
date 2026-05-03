@@ -1,17 +1,22 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// admin-client.js — Sprint 12
+// admin-client.js — Sprint 14C.2
 //
 // War Room layout for one client at /admin/client.html?id=<client_uuid>.
 // Optional URL params: &mode=outreach&bucket=<drafted|never_opened|ghosted|manual>
 //
-// Sprint 12 additions (on top of Sprint 11):
-//   - Reads mode/bucket from URL params; passes to suggest-replies Worker
-//   - In outreach mode, suggestion chips load with re-engagement drafts
-//   - Tracks which chip was tapped + whether designer edited the text
-//   - Logs every outreach send (and any reply that started from a chip)
-//     to outreach_send_log for Sprint 14 nurture template inference
-//   - After outreach send, regenerates suggestions so designer can
-//     follow up if needed
+// Sprint 14C.2 additions (on top of Sprint 12):
+//   - Nurture panel in the right side rail (between Active Proposals and
+//     Quick Stats). Reads nurture_get_war_room_state RPC on load, surfaces
+//     phase + last sent + next queued + status pill.
+//   - Inline action buttons: Pause (1w / 1m / indefinite / clear), Skip
+//     next queued, Send now (bypasses 4pm cron timing). Each calls a
+//     SECURITY DEFINER RPC and reloads the panel on completion.
+//   - History modal: full nurture_sends list for this client with
+//     status/subject/date/phase/day. Click a sent row to inline-expand
+//     the rendered body.
+//
+// 14C.3 will add Edit individual + Send Now ad-hoc (any active template);
+// those require worker changes and are deferred.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -26,6 +31,11 @@ const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'ap
 const SIGNED_URL_TTL = 3600;
 const REALTIME_ATTACHMENT_DELAY = 250;
 
+// 14C.2: how long to wait after Send Now before re-polling nurture state.
+// The worker is fire-and-forget via pg_net; rows usually transition to
+// 'sent' within 1–2s, but a Resend slowdown could take longer.
+const SEND_NOW_REFRESH_DELAY = 3500;
+
 const FALLBACK_SUGGESTIONS_REPLY = [
   "Happy to schedule a quick call to walk you through it — what's a good time?",
   "Great question — let me look into that and get back to you shortly.",
@@ -37,7 +47,14 @@ const FALLBACK_SUGGESTIONS_OUTREACH = [
   "If it'd help, I can hop on a quick 15-min call to walk through the proposal together.",
 ];
 
-// Sprint 12: read mode/bucket once on page load
+const PHASE_LABELS = {
+  pre_consult: 'Pre-consult',
+  design_in_progress: 'Design in progress',
+  post_review: 'Post-review',
+  cooling: 'Cooling',
+  dead: 'Dead',
+};
+
 const _params = new URLSearchParams(window.location.search);
 const _outreachMode = _params.get('mode') === 'outreach';
 const _validBuckets = ['drafted', 'never_opened', 'ghosted', 'manual'];
@@ -47,7 +64,7 @@ const _outreachBucket = _validBuckets.includes(_bucketParam) ? _bucketParam : 'm
 const ctx = {
   outreachMode: _outreachMode,
   outreachBucket: _outreachBucket,
-  lastSuggestionUsed: null,  // {index, text} when designer taps a chip
+  lastSuggestionUsed: null,
   viewer: null,
   client: null,
   clientProposals: [],
@@ -61,6 +78,10 @@ const ctx = {
   channel: null,
   suggestions: null,
   suggestionsLoading: false,
+  // 14C.2 nurture state
+  nurture: null,           // result of nurture_get_war_room_state RPC, or null on fail
+  nurtureLoading: true,
+  nurtureUi: { showPauseOptions: false },
 };
 
 // ─── Bootstrap ─────────────────────────────────────────────────────────────
@@ -79,6 +100,7 @@ const ctx = {
 
   ensureEditModalStyles();
   ensureAttachmentStyles();
+  ensureNurtureStyles();
   await loadAll(clientId);
   if (!ctx.client) {
     showFatal('Could not load this client. They may not exist, or you may not have access.');
@@ -122,6 +144,7 @@ async function loadAll(clientId) {
     loadEngagement(proposalIds),
     loadRecentEvents(proposalIds),
     loadMessages(client.id),
+    loadNurture(client.id),
   ]);
 }
 
@@ -196,6 +219,33 @@ async function loadAttachments(messageIds) {
   }
 }
 
+// 14C.2: nurture state via SECURITY DEFINER RPC
+async function loadNurture(clientId) {
+  ctx.nurtureLoading = true;
+  const { data, error } = await supabase.rpc('nurture_get_war_room_state', {
+    p_client_id: clientId,
+  });
+  if (error) {
+    console.warn('[admin-client] nurture state load failed:', error);
+    ctx.nurture = null;
+  } else {
+    ctx.nurture = data || null;
+  }
+  ctx.nurtureLoading = false;
+}
+
+async function reloadNurture() {
+  await loadNurture(ctx.client.id);
+  rerenderNurturePanel();
+}
+
+function rerenderNurturePanel() {
+  const el = document.getElementById('wrNurturePanel');
+  if (!el) return;
+  el.innerHTML = renderNurturePanelInner();
+  wireNurtureHandlers();
+}
+
 // ─── Render ────────────────────────────────────────────────────────────────
 function render() {
   document.getElementById('wrCrumbName').textContent = ctx.client.name || '(unnamed)';
@@ -219,7 +269,6 @@ function render() {
     ? formatDiscountRemaining(activeDiscount.remainingMs)
     : '—';
 
-  // Sprint 12: outreach mode banner
   const outreachBannerHtml = ctx.outreachMode ? renderOutreachBanner() : '';
 
   const mainHtml = `
@@ -291,6 +340,10 @@ function render() {
             ${renderProposalCards()}
           </div>
           <div class="wr-side-section">
+            <h4>Nurture</h4>
+            <div class="wr-nurture-panel" id="wrNurturePanel">${renderNurturePanelInner()}</div>
+          </div>
+          <div class="wr-side-section">
             <h4>Quick Stats</h4>
             ${renderQuickStats()}
           </div>
@@ -312,7 +365,6 @@ function render() {
   wireHandlers();
 }
 
-// Sprint 12: banner that surfaces why this is an outreach session
 function renderOutreachBanner() {
   const meta = {
     drafted:      { label: 'Drafted, not sent', icon: '📝' },
@@ -478,7 +530,7 @@ function getSenderName(message) {
   return profile?.display_name || profile?.email || 'Designer';
 }
 
-// ─── Smart-reply suggestions (Sprint 11 + Sprint 12) ──────────────────────
+// ─── Smart-reply suggestions ──────────────────────────────────────────────
 function renderSuggestions() {
   const labelText = ctx.outreachMode ? 'Outreach drafts' : 'Suggested replies';
   const headerHtml = `
@@ -574,7 +626,6 @@ function wireSuggestionHandlers() {
       composer.value = text;
       composer.focus();
       composer.setSelectionRange(composer.value.length, composer.value.length);
-      // Sprint 12: remember which suggestion was tapped to log edit-vs-verbatim on send
       ctx.lastSuggestionUsed = { index: idx, text };
     });
   });
@@ -674,6 +725,376 @@ function describeEvent(e) {
   return map[e.event_type] || `Event: ${e.event_type}`;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 14C.2 Nurture panel — render + actions + history modal
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderNurturePanelInner() {
+  if (ctx.nurtureLoading) {
+    return '<div class="wr-empty-side">Loading nurture state…</div>';
+  }
+  const n = ctx.nurture;
+  if (!n) {
+    return '<div class="wr-empty-side">Could not load nurture state.</div>';
+  }
+
+  const isOptedOut = !!n.opted_out_at;
+  const isPaused = n.paused_until && new Date(n.paused_until) > new Date();
+  const isEnrolled = !!n.phase;
+
+  // Status pill
+  let statusPill;
+  if (isOptedOut)      statusPill = '<span class="wr-nur-pill optout">Opted out</span>';
+  else if (isPaused)   statusPill = '<span class="wr-nur-pill paused">Paused</span>';
+  else if (isEnrolled) statusPill = '<span class="wr-nur-pill active">Active</span>';
+  else                 statusPill = '<span class="wr-nur-pill gray">Not enrolled</span>';
+
+  // Body
+  let bodyHtml = '';
+  if (isOptedOut) {
+    const since = formatRelativeShort(n.opted_out_at);
+    bodyHtml = `
+      <div class="wr-nur-state">
+        <div class="wr-nur-row"><span>Opted out</span><span>${escapeHtml(since)} ago</span></div>
+        <div class="wr-nur-note">No further nurture emails will fire automatically. Master can clear via SQL if a homeowner reverses course.</div>
+      </div>
+    `;
+  } else if (!isEnrolled) {
+    bodyHtml = `<div class="wr-empty-side">Not in the nurture sequence yet. Add via <a href="/admin/nurture-clients.html">Nurture clients</a>.</div>`;
+  } else {
+    const phaseLabel = PHASE_LABELS[n.phase] || n.phase;
+    const daysIn = n.phase_entered_at ? daysSince(n.phase_entered_at) : null;
+    const phaseLine = daysIn !== null
+      ? `${escapeHtml(phaseLabel)} (${daysIn} day${daysIn === 1 ? '' : 's'})`
+      : escapeHtml(phaseLabel);
+
+    const pauseLine = isPaused
+      ? `<div class="wr-nur-row paused-row"><span>Paused until</span><span>${escapeHtml(formatDate(n.paused_until))}</span></div>`
+      : '';
+
+    const lastSentHtml = renderLastSentBlock(n.last_sent);
+    const nextQueuedHtml = renderNextQueuedBlock(n.next_queued);
+
+    bodyHtml = `
+      <div class="wr-nur-state">
+        <div class="wr-nur-row"><span>Phase</span><span>${phaseLine}</span></div>
+        ${pauseLine}
+      </div>
+      ${lastSentHtml}
+      ${nextQueuedHtml}
+    `;
+  }
+
+  // Action buttons
+  let actionsHtml = '';
+  if (!isOptedOut && isEnrolled) {
+    actionsHtml = ctx.nurtureUi.showPauseOptions
+      ? renderPauseOptions(isPaused)
+      : renderNurtureActionButtons(isPaused, n.next_queued);
+  }
+
+  // History link (always available if any rows ever existed for this client —
+  // we don't know without a separate count, so just always show it; the modal
+  // will show "no history" if empty)
+  const historyHtml = `
+    <button type="button" class="wr-nur-history-link" id="wrNurHistoryBtn">View nurture history →</button>
+  `;
+
+  return `
+    <div class="wr-nur-head">
+      <span class="wr-nur-title">Sequence</span>
+      ${statusPill}
+    </div>
+    ${bodyHtml}
+    ${actionsHtml}
+    ${historyHtml}
+  `;
+}
+
+function renderLastSentBlock(lastSent) {
+  if (!lastSent) {
+    return `<div class="wr-nur-card-empty">No emails sent yet.</div>`;
+  }
+  const subject = lastSent.rendered_subject || lastSent.template_subject || '(no subject)';
+  const when = lastSent.sent_at
+    ? `${formatRelativeShort(lastSent.sent_at)} ago`
+    : '—';
+  return `
+    <div class="wr-nur-card">
+      <div class="wr-nur-card-label">✓ Last sent · ${escapeHtml(when)}</div>
+      <div class="wr-nur-card-subject">${escapeHtml(subject)}</div>
+    </div>
+  `;
+}
+
+function renderNextQueuedBlock(nextQueued) {
+  if (!nextQueued) {
+    return `<div class="wr-nur-card-empty">No upcoming sends queued.</div>`;
+  }
+  const subject = nextQueued.template_subject || '(no subject)';
+  // The cron fires at 23:00 UTC (queue) + 23:05 UTC (send). For simplicity,
+  // describe next send as "next 4pm PT cron run" — exact timezone math gets
+  // messy across DST and isn't worth the precision.
+  return `
+    <div class="wr-nur-card queued">
+      <div class="wr-nur-card-label">⏱ Next · 4pm PT cron run</div>
+      <div class="wr-nur-card-subject">${escapeHtml(subject)}</div>
+    </div>
+  `;
+}
+
+function renderNurtureActionButtons(isPaused, nextQueued) {
+  const hasQueued = !!nextQueued;
+  const pauseLabel = isPaused ? 'Unpause' : 'Pause ▾';
+  const pauseAction = isPaused ? 'unpause' : 'open-pause';
+
+  return `
+    <div class="wr-nur-actions">
+      <button type="button" class="wr-mini-btn" data-nur-action="${pauseAction}">${escapeHtml(pauseLabel)}</button>
+      <button type="button" class="wr-mini-btn" data-nur-action="skip" ${hasQueued ? '' : 'disabled'} title="${hasQueued ? 'Skip the next queued email' : 'Nothing queued to skip'}">Skip next</button>
+      <button type="button" class="wr-mini-btn primary" data-nur-action="send-now" ${hasQueued ? '' : 'disabled'} title="${hasQueued ? 'Send the next queued email now (test mode redirects apply)' : 'Nothing queued to send'}">Send now</button>
+    </div>
+  `;
+}
+
+function renderPauseOptions(isPaused) {
+  // Shown when designer has clicked "Pause" — replaces the main action row.
+  return `
+    <div class="wr-nur-pause-options">
+      <button type="button" class="wr-mini-btn" data-nur-action="pause-1w">1 week</button>
+      <button type="button" class="wr-mini-btn" data-nur-action="pause-1m">1 month</button>
+      <button type="button" class="wr-mini-btn" data-nur-action="pause-indef">Indefinitely</button>
+      <button type="button" class="wr-mini-btn cancel" data-nur-action="pause-cancel">Cancel</button>
+    </div>
+  `;
+}
+
+function wireNurtureHandlers() {
+  document.querySelectorAll('[data-nur-action]').forEach(btn => {
+    btn.addEventListener('click', onNurtureActionClick);
+  });
+  const histBtn = document.getElementById('wrNurHistoryBtn');
+  histBtn?.addEventListener('click', openHistoryModal);
+}
+
+async function onNurtureActionClick(e) {
+  const btn = e.currentTarget;
+  const action = btn.dataset.nurAction;
+
+  switch (action) {
+    case 'open-pause':
+      ctx.nurtureUi.showPauseOptions = true;
+      rerenderNurturePanel();
+      return;
+    case 'pause-cancel':
+      ctx.nurtureUi.showPauseOptions = false;
+      rerenderNurturePanel();
+      return;
+    case 'pause-1w':
+      await applyPause(daysFromNow(7));
+      return;
+    case 'pause-1m':
+      await applyPause(daysFromNow(30));
+      return;
+    case 'pause-indef':
+      await applyPause(daysFromNow(365 * 10));
+      return;
+    case 'unpause':
+      await applyPause(null);
+      return;
+    case 'skip':
+      await applySkip();
+      return;
+    case 'send-now':
+      await applySendNow();
+      return;
+  }
+}
+
+async function applyPause(untilDate) {
+  const isoOrNull = untilDate instanceof Date ? untilDate.toISOString() : null;
+  const { data, error } = await supabase.rpc('nurture_pause_client', {
+    p_client_id: ctx.client.id,
+    p_until: isoOrNull,
+  });
+  if (error) {
+    alert('Could not update pause: ' + error.message);
+    return;
+  }
+  ctx.nurtureUi.showPauseOptions = false;
+  await reloadNurture();
+}
+
+async function applySkip() {
+  const subject = ctx.nurture?.next_queued?.template_subject || 'the next queued email';
+  if (!confirm(`Skip "${subject}"?\n\nIt will be marked as skipped and won't send. The sequence continues normally on the next match.`)) {
+    return;
+  }
+  const { data, error } = await supabase.rpc('nurture_skip_next', {
+    p_client_id: ctx.client.id,
+  });
+  if (error) {
+    alert('Could not skip: ' + error.message);
+    return;
+  }
+  if (data && data.skipped === false) {
+    alert('Nothing queued to skip — the panel may be stale. Refreshing.');
+  }
+  await reloadNurture();
+}
+
+async function applySendNow() {
+  const subject = ctx.nurture?.next_queued?.template_subject || 'the next queued email';
+  if (!confirm(`Send "${subject}" now?\n\nBypasses the 4pm cron. Test mode redirects still apply if test mode is ON.`)) {
+    return;
+  }
+
+  // Optimistic UI: disable Send Now button and label it "Sending…"
+  const sendBtn = document.querySelector('[data-nur-action="send-now"]');
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending…';
+  }
+
+  const { data, error } = await supabase.rpc('nurture_send_now', {
+    p_client_id: ctx.client.id,
+  });
+  if (error) {
+    alert('Could not send: ' + error.message);
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send now'; }
+    return;
+  }
+  if (data && data.sent === false) {
+    alert('Nothing queued to send — the panel may be stale.');
+    await reloadNurture();
+    return;
+  }
+
+  // The worker is async (pg_net fires; Resend takes ~1–2s). Wait, then
+  // reload so the row transitions from "queued" to "sent" in the panel.
+  setTimeout(() => { reloadNurture(); }, SEND_NOW_REFRESH_DELAY);
+}
+
+// ─── History modal ───────────────────────────────────────────────────────
+let _nurHistoryOverlay = null;
+
+async function openHistoryModal() {
+  if (!_nurHistoryOverlay) _nurHistoryOverlay = buildHistoryModal();
+  _nurHistoryOverlay.querySelector('#wrNurHistList').innerHTML =
+    '<div class="wr-empty-side" style="padding:30px 0;">Loading…</div>';
+  _nurHistoryOverlay.style.display = 'flex';
+
+  const { data, error } = await supabase.rpc('nurture_get_history', {
+    p_client_id: ctx.client.id,
+    p_limit: 100,
+  });
+  const listEl = _nurHistoryOverlay.querySelector('#wrNurHistList');
+
+  if (error) {
+    listEl.innerHTML = `<div class="wr-empty-side" style="padding:30px 0;color:var(--danger);">Could not load history: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  const rows = Array.isArray(data) ? data : [];
+  if (rows.length === 0) {
+    listEl.innerHTML = '<div class="wr-empty-side" style="padding:30px 0;">No nurture activity yet.</div>';
+    return;
+  }
+  listEl.innerHTML = rows.map(renderHistoryRow).join('');
+
+  // Wire body-toggle for sent rows with rendered_body
+  listEl.querySelectorAll('[data-nur-toggle-body]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const rowEl = btn.closest('.wr-nur-hist-row');
+      const bodyEl = rowEl.querySelector('.wr-nur-hist-body');
+      if (!bodyEl) return;
+      const open = bodyEl.style.display === 'block';
+      bodyEl.style.display = open ? 'none' : 'block';
+      btn.textContent = open ? 'Show body ▾' : 'Hide body ▴';
+    });
+  });
+}
+
+function renderHistoryRow(r) {
+  const subject = r.rendered_subject || r.template_subject || '(no subject)';
+  const phaseLabel = PHASE_LABELS[r.phase] || r.phase || 'unknown';
+  const dateIso = r.sent_at || r.created_at;
+  const dateLabel = dateIso ? formatDate(dateIso) : '—';
+  const phaseDay = `${escapeHtml(phaseLabel)} · day ${r.day_offset}`;
+
+  let pillClass = 'gray';
+  let pillLabel = r.status;
+  if (r.status === 'sent')         { pillClass = 'sent';    pillLabel = '✓ Sent'; }
+  else if (r.status === 'skipped') { pillClass = 'skipped'; pillLabel = '⏭ Skipped'; }
+  else if (r.status === 'failed')  { pillClass = 'failed';  pillLabel = '⚠ Failed'; }
+  else if (r.status === 'bounced') { pillClass = 'failed';  pillLabel = '↩ Bounced'; }
+  else if (r.status === 'would_send') { pillClass = 'queued'; pillLabel = '⏱ Queued'; }
+
+  let extraHtml = '';
+  if (r.skip_reason) {
+    extraHtml += `<div class="wr-nur-hist-extra">Reason: ${escapeHtml(r.skip_reason)}</div>`;
+  }
+  if (r.error_message) {
+    extraHtml += `<div class="wr-nur-hist-extra error">Error: ${escapeHtml(r.error_message)}</div>`;
+  }
+
+  let bodyToggleHtml = '';
+  let bodyHtml = '';
+  if (r.status === 'sent' && r.rendered_body) {
+    bodyToggleHtml = `<button type="button" class="wr-nur-hist-body-btn" data-nur-toggle-body>Show body ▾</button>`;
+    bodyHtml = `<div class="wr-nur-hist-body">${escapeHtml(r.rendered_body).replace(/\n/g, '<br>')}</div>`;
+  }
+
+  return `
+    <div class="wr-nur-hist-row">
+      <div class="wr-nur-hist-meta">
+        <span class="wr-nur-hist-pill ${pillClass}">${escapeHtml(pillLabel)}</span>
+        <span class="wr-nur-hist-date">${escapeHtml(dateLabel)}</span>
+        <span class="wr-nur-hist-phase">${phaseDay}</span>
+      </div>
+      <div class="wr-nur-hist-subject">${escapeHtml(subject)}</div>
+      ${extraHtml}
+      ${bodyToggleHtml}
+      ${bodyHtml}
+    </div>
+  `;
+}
+
+function buildHistoryModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'wr-nur-hist-overlay';
+  overlay.innerHTML = `
+    <div class="wr-nur-hist-modal" role="dialog" aria-modal="true">
+      <button type="button" class="wr-nur-hist-close" aria-label="Close">×</button>
+      <div class="wr-nur-hist-head">
+        <div class="wr-nur-hist-eyebrow">Nurture history</div>
+        <h2 class="wr-nur-hist-title">All emails for ${escapeHtml(ctx.client.name || 'this client')}</h2>
+      </div>
+      <div class="wr-nur-hist-body-scroll" id="wrNurHistList"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = () => { overlay.style.display = 'none'; };
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector('.wr-nur-hist-close').addEventListener('click', close);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+  });
+
+  return overlay;
+}
+
+function daysFromNow(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function daysSince(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  return Math.max(0, Math.floor(ms / 86400000));
+}
+
 // ─── Send + realtime ──────────────────────────────────────────────────────
 function wireHandlers() {
   const sendBtn = document.getElementById('wrSendBtn');
@@ -695,6 +1116,7 @@ function wireHandlers() {
   attachBtn?.addEventListener('click', () => fileInput?.click());
   fileInput?.addEventListener('change', handleFileSelect);
   wireSuggestionHandlers();
+  wireNurtureHandlers();
   setTimeout(() => composer?.focus(), 80);
 }
 
@@ -841,11 +1263,6 @@ async function handleSend() {
     }
   }
 
-  // Sprint 12: log to outreach_send_log for any send that's either:
-  //   (a) in outreach mode, OR
-  //   (b) started from a tapped suggestion chip
-  // Captures suggestion_text vs final_text so we can later see which AI
-  // drafts designers accept verbatim vs rewrite (Sprint 14 training signal).
   if (body && (ctx.outreachMode || ctx.lastSuggestionUsed)) {
     const used = ctx.lastSuggestionUsed;
     const wasEdited = used ? body !== used.text : false;
@@ -870,8 +1287,6 @@ async function handleSend() {
   ctx.queuedFiles = [];
   renderFileQueue();
 
-  // Sprint 12: regenerate suggestions after outreach send so designer
-  // can immediately follow up with a different angle if needed
   if (ctx.outreachMode) {
     setTimeout(() => loadSuggestions(), 400);
   }
@@ -1509,7 +1924,6 @@ function ensureAttachmentStyles() {
     }
     @keyframes wrSugSpin { to { transform: rotate(360deg); } }
 
-    /* Sprint 12: outreach mode banner */
     .wr-outreach-banner {
       display: flex; align-items: center; gap: 12px;
       padding: 14px 24px;
@@ -1544,6 +1958,190 @@ function ensureAttachmentStyles() {
     .wr-outreach-back:hover {
       border-color: #5d7e69;
       color: #4a6654;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 14C.2 Nurture panel + history modal styles
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ensureNurtureStyles() {
+  if (document.getElementById('wr-nur-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'wr-nur-styles';
+  style.textContent = `
+    .wr-nur-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .wr-nur-title { font-size: 13px; font-weight: 600; color: #353535; }
+    .wr-nur-pill {
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .wr-nur-pill.active { background: #e8eee9; color: #4a6654; }
+    .wr-nur-pill.paused { background: #fff4d4; color: #7a5a10; }
+    .wr-nur-pill.optout { background: #fbe6e6; color: #8a2a2a; }
+    .wr-nur-pill.gray   { background: #f0f0f0; color: #888; }
+
+    .wr-nur-state { margin-bottom: 12px; }
+    .wr-nur-row {
+      display: flex; justify-content: space-between;
+      padding: 6px 0; font-size: 13px;
+      border-bottom: 1px solid #ece9dd;
+    }
+    .wr-nur-row:last-child { border-bottom: 0; }
+    .wr-nur-row > span:first-child { color: #666; }
+    .wr-nur-row > span:last-child  { color: #353535; font-weight: 500; text-align: right; }
+    .wr-nur-row.paused-row > span:last-child { color: #7a5a10; }
+
+    .wr-nur-note {
+      font-size: 11px; color: #888; line-height: 1.5;
+      margin-top: 6px; font-style: italic;
+    }
+
+    .wr-nur-card {
+      background: #faf8f3; border-radius: 8px;
+      padding: 9px 12px; margin-bottom: 8px;
+    }
+    .wr-nur-card.queued { background: #f4f8f5; border-left: 3px solid #5d7e69; }
+    .wr-nur-card-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; color: #666;
+      margin-bottom: 3px; font-weight: 500;
+    }
+    .wr-nur-card-subject {
+      font-size: 13px; font-weight: 500; color: #1a1f2e;
+      line-height: 1.35;
+      overflow: hidden; text-overflow: ellipsis;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .wr-nur-card-empty {
+      font-size: 12px; color: #888; font-style: italic;
+      padding: 6px 0; margin-bottom: 6px;
+    }
+
+    .wr-nur-actions, .wr-nur-pause-options {
+      display: flex; gap: 5px; flex-wrap: wrap;
+      margin: 10px 0 6px;
+    }
+    .wr-nur-actions .wr-mini-btn,
+    .wr-nur-pause-options .wr-mini-btn {
+      flex: 1; min-width: 0;
+      text-align: center;
+      padding: 7px 6px;
+      font-size: 11px;
+      transition: border-color 0.12s, background 0.12s, color 0.12s;
+    }
+    .wr-nur-actions .wr-mini-btn.primary {
+      background: #5d7e69; color: #fff; border-color: #5d7e69;
+    }
+    .wr-nur-actions .wr-mini-btn.primary:hover:not(:disabled) {
+      background: #4a6654; color: #fff;
+    }
+    .wr-nur-pause-options .wr-mini-btn.cancel {
+      background: #f4f4ef; color: #666;
+    }
+    .wr-mini-btn:disabled {
+      opacity: 0.4; cursor: not-allowed;
+    }
+    .wr-mini-btn:disabled:hover {
+      border-color: #e5e5e5; color: #353535;
+    }
+
+    .wr-nur-history-link {
+      display: block; width: 100%;
+      background: transparent; border: 0;
+      padding: 8px 0 0; margin-top: 4px;
+      font-size: 12px; color: #5d7e69;
+      text-align: left; cursor: pointer;
+      font-family: inherit; font-weight: 600;
+    }
+    .wr-nur-history-link:hover { color: #4a6654; text-decoration: underline; }
+
+    /* History modal */
+    .wr-nur-hist-overlay {
+      position: fixed; inset: 0; z-index: 1250;
+      background: rgba(26, 31, 46, 0.55);
+      display: none; align-items: flex-start; justify-content: center;
+      padding: 56px 20px 20px; overflow-y: auto;
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .wr-nur-hist-modal {
+      background: #fff; border-radius: 14px;
+      max-width: 720px; width: 100%;
+      max-height: calc(100vh - 76px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+      color: #353535; overflow: hidden;
+      display: flex; flex-direction: column; position: relative;
+    }
+    .wr-nur-hist-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 32px; height: 32px;
+      background: transparent; border: 0; cursor: pointer;
+      font-size: 18px; color: #888;
+      border-radius: 6px;
+    }
+    .wr-nur-hist-close:hover { background: #f4f4ef; color: #353535; }
+    .wr-nur-hist-head { padding: 22px 28px 16px; border-bottom: 1px solid #e8e6dd; }
+    .wr-nur-hist-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 0.18em;
+      color: #5d7e69; text-transform: uppercase;
+      margin-bottom: 6px; font-weight: 600;
+    }
+    .wr-nur-hist-title { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+    .wr-nur-hist-body-scroll {
+      flex: 1; overflow-y: auto;
+      padding: 16px 28px 26px;
+    }
+
+    .wr-nur-hist-row {
+      padding: 14px 0;
+      border-bottom: 1px solid #ece9dd;
+    }
+    .wr-nur-hist-row:last-child { border-bottom: 0; }
+    .wr-nur-hist-meta {
+      display: flex; gap: 10px; align-items: center;
+      flex-wrap: wrap; margin-bottom: 4px;
+    }
+    .wr-nur-hist-pill {
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .wr-nur-hist-pill.sent    { background: #e8eee9; color: #4a6654; }
+    .wr-nur-hist-pill.skipped { background: #f0f0f0; color: #666; }
+    .wr-nur-hist-pill.failed  { background: #fbe6e6; color: #8a2a2a; }
+    .wr-nur-hist-pill.queued  { background: #fff4d4; color: #7a5a10; }
+    .wr-nur-hist-pill.gray    { background: #f0f0f0; color: #888; }
+    .wr-nur-hist-date  { font-size: 12px; color: #888; }
+    .wr-nur-hist-phase { font-size: 11px; color: #aaa; font-family: 'JetBrains Mono', monospace; }
+    .wr-nur-hist-subject {
+      font-size: 14px; font-weight: 600;
+      color: #1a1f2e; margin-bottom: 4px;
+    }
+    .wr-nur-hist-extra {
+      font-size: 12px; color: #888; margin-top: 2px;
+    }
+    .wr-nur-hist-extra.error { color: #b91c1c; }
+    .wr-nur-hist-body-btn {
+      background: transparent; border: 0; padding: 4px 0;
+      font-size: 12px; color: #5d7e69; cursor: pointer;
+      font-family: inherit; font-weight: 600;
+    }
+    .wr-nur-hist-body-btn:hover { color: #4a6654; }
+    .wr-nur-hist-body {
+      display: none;
+      margin-top: 8px; padding: 12px 14px;
+      background: #faf8f3; border-radius: 8px;
+      font-size: 13px; line-height: 1.55;
+      color: #353535; white-space: pre-wrap; word-wrap: break-word;
     }
   `;
   document.head.appendChild(style);
