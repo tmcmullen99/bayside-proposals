@@ -1,24 +1,20 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// suggest-replies.js — Sprint 11
+// suggest-replies.js — Sprint 11 + Sprint 12
 //
 // Cloudflare Pages Function at POST /api/suggest-replies.
-// Generates 3 contextual reply suggestions for a designer in the War Room.
+// Generates 3 contextual reply OR outreach suggestions for the War Room.
 //
-// Input:  { client_id: <uuid> }
+// Input:
+//   { client_id: <uuid>, mode?: 'reply' | 'outreach', bucket?: string }
+//
+//   mode='reply'    (default) — respond to last message in thread
+//   mode='outreach' — draft a re-engagement message to a cold lead
+//   bucket          — optional context tag for outreach mode
+//                     ('drafted' | 'never_opened' | 'ghosted' | 'manual')
+//
 // Auth:   Bearer <designer/master access_token>
-// Output: { ok: true, suggestions: [string, string, string] }
-//      or { ok: false, error: "human-readable" }
-//
-// Flow:
-//   1. Verify caller is master/designer via auth-util pattern (call
-//      Supabase REST with their token, look up their profile)
-//   2. Load thread context: last 6 messages + client + active proposal
-//      + free revision state + discount window status
-//   3. Build a tight prompt and call Anthropic Haiku 4.5
-//   4. Parse strict JSON response and return suggestions
-//
-// Fallback: any failure returns ok=false with a benign error message and
-// a static fallback set, so the chips still render something usable.
+// Output: { ok: true, mode, suggestions: [string, string, string] }
+//      or { ok: false, error: "human-readable", suggestions: [...fallback] }
 // ═══════════════════════════════════════════════════════════════════════════
 
 const SUPABASE_URL = 'https://gfgbypcnxkschnfsitfb.supabase.co';
@@ -26,16 +22,23 @@ const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
 const RECENT_MESSAGE_COUNT = 6;
 const DISCOUNT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
-const FALLBACK_SUGGESTIONS = [
+const FALLBACK_REPLY = [
   "Happy to schedule a quick call to walk you through it — what's a good time?",
   "Great question — let me look into that and get back to you shortly.",
   "I can put together a quick comparison if that would help.",
 ];
 
+const FALLBACK_OUTREACH = [
+  "Hey, just circling back on your project — is now still a good time to chat about next steps?",
+  "Wanted to check in and see if any questions have come up since we last connected.",
+  "If it'd help, I can hop on a quick 15-min call to walk through the proposal together.",
+];
+
 export async function onRequestPost({ request, env }) {
+  let mode = 'reply';
   try {
     if (!env.ANTHROPIC_API_KEY) {
-      return jsonResponse({ ok: false, error: 'API key not configured', suggestions: FALLBACK_SUGGESTIONS }, 200);
+      return jsonResponse({ ok: false, error: 'API key not configured', suggestions: FALLBACK_REPLY }, 200);
     }
 
     const auth = request.headers.get('Authorization') || '';
@@ -46,13 +49,13 @@ export async function onRequestPost({ request, env }) {
 
     const body = await request.json().catch(() => ({}));
     const clientId = body.client_id;
+    mode = body.mode === 'outreach' ? 'outreach' : 'reply';
+    const bucket = typeof body.bucket === 'string' ? body.bucket : null;
+
     if (!clientId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId)) {
       return jsonResponse({ ok: false, error: 'Invalid client_id' }, 400);
     }
 
-    // Verify caller is staff. profiles RLS: only the user themselves can SELECT
-    // their own row (or master sees all). If we get a row back with the right
-    // role, we know the caller is staff.
     const profile = await sbFetchSingle(
       `${SUPABASE_URL}/rest/v1/profiles?select=id,role,display_name,is_active&limit=1`,
       accessToken,
@@ -61,7 +64,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ ok: false, error: 'Staff access required' }, 403);
     }
 
-    // Load context (RLS scopes everything to what this caller can see)
     const [client, messages, proposalLinks] = await Promise.all([
       sbFetchSingle(
         `${SUPABASE_URL}/rest/v1/clients?id=eq.${clientId}&select=id,name,email`,
@@ -84,20 +86,23 @@ export async function onRequestPost({ request, env }) {
     const promptContext = buildPromptContext({
       designer: profile,
       client,
-      messages: (messages || []).reverse(), // chronological for prompt
+      messages: (messages || []).reverse(),
       proposalLinks: proposalLinks || [],
+      mode,
+      bucket,
     });
 
     const suggestions = await callAnthropic(env.ANTHROPIC_API_KEY, promptContext);
 
-    return jsonResponse({ ok: true, suggestions });
+    return jsonResponse({ ok: true, mode, suggestions });
 
   } catch (err) {
     console.error('[suggest-replies] error:', err);
     return jsonResponse({
       ok: false,
       error: err.message || 'Unknown error',
-      suggestions: FALLBACK_SUGGESTIONS,
+      mode,
+      suggestions: mode === 'outreach' ? FALLBACK_OUTREACH : FALLBACK_REPLY,
     }, 200);
   }
 }
@@ -123,11 +128,9 @@ async function sbFetchList(url, accessToken) {
 }
 
 // ─── Prompt construction ──────────────────────────────────────────────────
-function buildPromptContext({ designer, client, messages, proposalLinks }) {
+function buildPromptContext({ designer, client, messages, proposalLinks, mode, bucket }) {
   const designerName = designer.display_name || 'the designer';
 
-  // Pick the most relevant proposal: prefer "sent" not yet signed; fall back
-  // to most recently sent
   const sortedProps = [...proposalLinks]
     .filter(cp => cp.proposal)
     .sort((a, b) => (b.sent_at || '').localeCompare(a.sent_at || ''));
@@ -136,12 +139,21 @@ function buildPromptContext({ designer, client, messages, proposalLinks }) {
   let proposalLine = 'No active proposal.';
   let discountNote = '';
   let revisionNote = '';
+  let daysSinceSentNote = '';
+
   if (activeCp && activeCp.proposal) {
     const p = activeCp.proposal;
     const addr = p.address || p.project_address || 'their project';
-    const bid = p.bid_total_amount ? `$${Number(p.bid_total_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'unspecified amount';
+    const bid = p.bid_total_amount
+      ? `$${Number(p.bid_total_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : 'unspecified amount';
     const status = activeCp.status || 'in progress';
     proposalLine = `Active proposal: ${addr} (${bid}, ${status}).`;
+
+    if (activeCp.sent_at) {
+      const days = Math.floor((Date.now() - new Date(activeCp.sent_at).getTime()) / 86400000);
+      if (days > 0) daysSinceSentNote = `Proposal was sent ${days} day${days === 1 ? '' : 's'} ago.`;
+    }
 
     if (p.show_signing_discount !== false) {
       const pubs = Array.isArray(p.published_proposals) ? p.published_proposals : [];
@@ -175,16 +187,73 @@ function buildPromptContext({ designer, client, messages, proposalLinks }) {
   return {
     designerName,
     clientName: client.name || 'the homeowner',
+    clientFirstName: (client.name || '').split(/\s+/)[0] || 'them',
     proposalLine,
     discountNote,
     revisionNote,
+    daysSinceSentNote,
     transcript,
+    messageCount: messages.length,
+    mode,
+    bucket,
   };
 }
 
 // ─── Anthropic call ────────────────────────────────────────────────────────
 async function callAnthropic(apiKey, ctx) {
-  const systemPrompt = [
+  const systemPrompt = ctx.mode === 'outreach'
+    ? buildOutreachPrompt(ctx)
+    : buildReplyPrompt(ctx);
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 500,
+      messages: [
+        { role: 'user', content: systemPrompt },
+      ],
+    }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`Anthropic ${resp.status}: ${text.slice(0, 200)}`);
+  }
+  const data = await resp.json();
+  const textBlock = (data.content || []).find(b => b.type === 'text');
+  if (!textBlock?.text) {
+    throw new Error('No text in Anthropic response');
+  }
+
+  const cleaned = textBlock.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    throw new Error('Model returned malformed JSON');
+  }
+
+  const list = Array.isArray(parsed?.suggestions) ? parsed.suggestions : [];
+  const fallback = ctx.mode === 'outreach' ? FALLBACK_OUTREACH : FALLBACK_REPLY;
+  const cleanedList = list
+    .map(s => typeof s === 'string' ? s.trim() : '')
+    .filter(s => s.length > 0 && s.length <= 220)
+    .slice(0, 3);
+
+  while (cleanedList.length < 3) {
+    cleanedList.push(fallback[cleanedList.length] || fallback[0]);
+  }
+  return cleanedList;
+}
+
+function buildReplyPrompt(ctx) {
+  return [
     `You are helping ${ctx.designerName}, a Bayside Pavers designer, write quick reply suggestions in a chat with a homeowner.`,
     `Bayside Pavers installs hardscape: pavers, porcelain decking, retaining walls, fire features, pool decks. ICPI-certified install.`,
     ``,
@@ -206,58 +275,55 @@ async function callAnthropic(apiKey, ctx) {
     `Return ONLY a JSON object with this exact shape, no preamble or markdown:`,
     `{"suggestions":["text 1","text 2","text 3"]}`,
   ].filter(Boolean).join('\n');
-
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 400,
-      messages: [
-        { role: 'user', content: systemPrompt },
-      ],
-    }),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => '');
-    throw new Error(`Anthropic ${resp.status}: ${text.slice(0, 200)}`);
-  }
-  const data = await resp.json();
-  const textBlock = (data.content || []).find(b => b.type === 'text');
-  if (!textBlock?.text) {
-    throw new Error('No text in Anthropic response');
-  }
-
-  // Strip any markdown fences just in case
-  const cleaned = textBlock.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  let parsed;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch (err) {
-    throw new Error('Model returned malformed JSON');
-  }
-
-  const list = Array.isArray(parsed?.suggestions) ? parsed.suggestions : [];
-  const cleanedList = list
-    .map(s => typeof s === 'string' ? s.trim() : '')
-    .filter(s => s.length > 0 && s.length <= 200)
-    .slice(0, 3);
-
-  if (cleanedList.length < 3) {
-    // Pad to 3 with fallbacks if model under-delivered
-    while (cleanedList.length < 3) {
-      cleanedList.push(FALLBACK_SUGGESTIONS[cleanedList.length] || FALLBACK_SUGGESTIONS[0]);
-    }
-  }
-  return cleanedList;
 }
 
-// ─── HTTP helper ───────────────────────────────────────────────────────────
+// Sprint 12: outreach mode — draft a fresh re-engagement message to a cold lead.
+// The designer hasn't said anything yet (or the thread is stale). We're not
+// "responding" — we're opening or re-opening a conversation.
+//
+// Forward-compat with Sprint 14: prompt asks for messages that read like
+// reusable opening templates (specific enough to feel personal, general
+// enough to lift into a nurture template later).
+function buildOutreachPrompt(ctx) {
+  const bucketLine = {
+    drafted:      `This client has a DRAFT proposal that ${ctx.designerName} never sent. Goal: nudge them to schedule the design review so the proposal can be finalized and presented.`,
+    never_opened: `${ctx.daysSinceSentNote || 'The proposal was sent some time ago.'} They never opened it. Goal: re-engage with a low-pressure check-in. Don't shame them for not opening.`,
+    ghosted:      `They opened the proposal at least once but haven't responded recently. Goal: gentle re-engagement, surface a reason to reconnect (questions? want a walkthrough? something specific).`,
+    manual:       `${ctx.designerName} is reaching out manually — purpose unspecified. Goal: a friendly opener that creates a reason for them to respond.`,
+  }[ctx.bucket] || `${ctx.designerName} is reaching out manually — keep it warm and create a reason to respond.`;
+
+  const transcriptLine = ctx.messageCount === 0
+    ? '(No prior chat messages — this is the first contact in the thread.)'
+    : `Last messages exchanged (oldest first, may be stale):\n${ctx.transcript}`;
+
+  return [
+    `You are helping ${ctx.designerName}, a Bayside Pavers designer, draft an OUTREACH message to a homeowner who has gone cold.`,
+    `Bayside Pavers installs hardscape: pavers, porcelain decking, retaining walls, fire features, pool decks. ICPI-certified install.`,
+    ``,
+    `Situation: ${bucketLine}`,
+    ``,
+    `Context:`,
+    `Client first name: ${ctx.clientFirstName}`,
+    `${ctx.proposalLine}`,
+    ctx.daysSinceSentNote ? `${ctx.daysSinceSentNote}` : '',
+    ctx.discountNote ? `${ctx.discountNote} (Don't lead with discount pressure unless natural.)` : '',
+    ctx.revisionNote ? `${ctx.revisionNote}` : '',
+    ``,
+    transcriptLine,
+    ``,
+    `Generate 3 distinct outreach drafts ${ctx.designerName} could send to re-engage. Each must be:`,
+    `- Under 200 characters`,
+    `- Written in first person, conversational tone, no formal greeting like "Dear" or "Hello [name]"`,
+    `- Address the homeowner by first name only ("${ctx.clientFirstName}") at most once, ideally not at all`,
+    `- Genuine and low-pressure — never pushy, never desperate, never guilt-trip`,
+    `- Each one a different angle: one warm/checking-in, one offering value (walkthrough call, comparison, tweak), one with a specific small ask (a single question they can easily answer)`,
+    `- Phrased generally enough that a fellow designer could reuse them as templates with minor tweaks — but specific enough to feel personal`,
+    ``,
+    `Return ONLY a JSON object with this exact shape, no preamble or markdown:`,
+    `{"suggestions":["text 1","text 2","text 3"]}`,
+  ].filter(Boolean).join('\n');
+}
+
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
