@@ -1,5 +1,14 @@
+---
+
+### File 3 — UPDATE `bpb 3/public/admin/admin-shell.js`
+
+**Step G.** Open the existing file in edit mode: [https://github.com/tmcmullen99/bayside-proposals/edit/main/bpb%203/public/admin/admin-shell.js](https://github.com/tmcmullen99/bayside-proposals/edit/main/bpb%203/public/admin/admin-shell.js)
+
+**Step H.** Cmd+A (selects the whole existing file), Cmd+V with this entire block (full rewrite — only changes are the header comment update + the new `nurture-templates` tab entry between `nurture` and `outreach`):
+
+```javascript
 // ═══════════════════════════════════════════════════════════════════════════
-// /admin/admin-shell.js — Sprint 14A
+// /admin/admin-shell.js — Sprint 14B
 //
 // The master admin shell. Renders:
 //   1. The role badge + email in the topbar
@@ -7,11 +16,11 @@
 //   3. The landing-page tile grid (only when on /admin/ itself, not nested
 //      pages — those swap in their own content)
 //
-// Sprint 14A: added Nurture tab to 'operations' group (designer-accessible)
-// for the new nurture pipeline visibility page. Also retroactively added
-// the Outreach tab from Sprint 12, which was deployed but never wired into
-// the navigation. Tab order in operations: Pipeline → Nurture → Outreach →
-// Clients → Substitutions → Redesigns → Create homeowner → Site map.
+// Sprint 14B: added master-only Nurture templates tab to the 'operations'
+// group, immediately after Nurture, for the new template-authoring page.
+// (Sprint 14A added Nurture; Sprint 12 added Outreach.)
+// Operations tab order: Pipeline → Nurture → Nurture templates (M) →
+// Outreach → Clients → Substitutions → Redesigns → Create homeowner → Site map.
 //
 // Adding a future admin tool:
 //   1. Add an entry to TABS below
@@ -52,6 +61,15 @@ const TABS = [
     group: 'operations',
     icon: '🌱',
     description: 'Track every client through the nurture phase pipeline. Auto-transitions on consultation, publish, and signing. Manual override for paused or opted-out clients.',
+  },
+  {
+    id: 'nurture-templates',
+    label: 'Nurture templates',
+    href: '/admin/nurture-templates.html',
+    role: 'master',
+    group: 'operations',
+    icon: '✉',
+    description: 'Author the email content sent at each phase + day-offset of the nurture sequence. Markdown body with merge fields, project-type filtering, day-offset scheduling. Master-only — controls outbound messaging across all designers.',
   },
   {
     id: 'outreach',
@@ -364,3 +382,6 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function escapeAttr(str) { return escapeHtml(str); }
+```
+
+**Step I.** Verify line 2 reads `// /admin/admin-shell.js — Sprint 14B`. Commit message:
