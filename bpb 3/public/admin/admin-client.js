@@ -16,7 +16,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
-import { requireAdmin, sendMagicLink } from '/js/auth-util.js';
+import { requireDesigner, sendMagicLink } from '/js/auth-util.js';
 import { getProposalEngagementBulk, formatRelativeTime } from '/js/engagement-utils.js';
 
 const DISCOUNT_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -44,7 +44,9 @@ const ctx = {
 
 // ─── Bootstrap ─────────────────────────────────────────────────────────────
 (async function init() {
-  ctx.viewer = await requireAdmin();
+  const auth = await requireDesigner();
+  if (!auth) return;
+  ctx.viewer = { ...auth.user, role: auth.profile.role };
   if (!ctx.viewer) return;
 
   const params = new URLSearchParams(window.location.search);
