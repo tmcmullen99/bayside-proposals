@@ -1,18 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// admin-client.js — Sprint 10e
+// admin-client.js — Sprint 11
 //
 // War Room layout for one client at /admin/client.html?id=<client_uuid>.
 //
-// Sprint 10e additions (on top of 10c-2):
-//   - Composer file picker (📎) + chips queue (image + PDF, 25MB cap)
-//   - Pre-generated message UUID via crypto.randomUUID() so files can land
-//     in {client_id}/{messageUuid}/{N}_filename BEFORE the message row
-//   - Upload → insert message → insert attachments (in that order)
-//   - Attachment rendering: 120px image thumbnails (click → fullscreen) +
-//     PDF rows with download links
-//   - Signed URL caching (1 hour TTL) to avoid re-signing every render
-//   - Realtime: 250ms delay then fetch attachments for new message_id,
-//     replace the just-appended bubble in place
+// Sprint 11 additions (on top of 10e):
+//   - Smart-reply chips wired to /api/suggest-replies (Anthropic Haiku)
+//   - Fires once on load + after each new homeowner message arrives
+//   - Refresh button to regenerate on demand
+//   - Tap chip → inserts text into composer (does NOT auto-send)
+//   - Loading state, error fallback to static placeholders
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -21,12 +17,18 @@ import { getProposalEngagementBulk, formatRelativeTime } from '/js/engagement-ut
 
 const DISCOUNT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
-// Sprint 10e attachment constants
 const ATTACHMENT_BUCKET = 'client-messages';
-const MAX_FILE_SIZE = 26214400; // 25 MB
+const MAX_FILE_SIZE = 26214400;
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
-const SIGNED_URL_TTL = 3600; // 1 hour
-const REALTIME_ATTACHMENT_DELAY = 250; // ms
+const SIGNED_URL_TTL = 3600;
+const REALTIME_ATTACHMENT_DELAY = 250;
+
+// Sprint 11 fallback chips (used if API fails)
+const FALLBACK_SUGGESTIONS = [
+  "Happy to schedule a quick call to walk you through it — what's a good time?",
+  "Great question — let me look into that and get back to you shortly.",
+  "I can put together a quick comparison if that would help.",
+];
 
 const ctx = {
   viewer: null,
@@ -35,11 +37,14 @@ const ctx = {
   engagement: new Map(),
   events: [],
   messages: [],
-  attachmentsByMessageId: new Map(),  // Sprint 10e
-  signedUrlCache: new Map(),          // Sprint 10e: storage_path -> { url, expiresAt }
-  queuedFiles: [],                    // Sprint 10e: [{ id, file, error? }]
+  attachmentsByMessageId: new Map(),
+  signedUrlCache: new Map(),
+  queuedFiles: [],
   profileCache: new Map(),
   channel: null,
+  // Sprint 11
+  suggestions: null,        // null = not loaded yet, [] = loading, [a,b,c] = ready
+  suggestionsLoading: false,
 };
 
 // ─── Bootstrap ─────────────────────────────────────────────────────────────
@@ -47,7 +52,6 @@ const ctx = {
   const auth = await requireDesigner();
   if (!auth) return;
   ctx.viewer = { ...auth.user, role: auth.profile.role };
-  if (!ctx.viewer) return;
 
   const params = new URLSearchParams(window.location.search);
   const clientId = params.get('id');
@@ -67,6 +71,7 @@ const ctx = {
   }
   render();
   hydrateSignedUrls(document.getElementById('wrMessages'));
+  loadSuggestions();
   subscribeRealtime();
 })();
 
@@ -154,7 +159,6 @@ async function loadMessages(clientId) {
     for (const p of (profs || [])) ctx.profileCache.set(p.id, p);
   }
 
-  // Sprint 10e: bulk-fetch attachments for all loaded messages
   await loadAttachments(ctx.messages.map(m => m.id));
 }
 
@@ -245,11 +249,8 @@ function render() {
             ${renderMessages()}
           </div>
 
-          <div class="wr-suggestions">
-            <div class="wr-suggestions-label">⚡ Suggested replies <span style="opacity: 0.5; text-transform: none; letter-spacing: 0; font-family: inherit;">(coming soon)</span></div>
-            <button class="wr-suggestion-chip" disabled style="opacity: 0.7;">Want to schedule a call to walk through?</button>
-            <button class="wr-suggestion-chip" disabled style="opacity: 0.7;">I'll send over a quick comparison PDF</button>
-            <button class="wr-suggestion-chip" disabled style="opacity: 0.7;">Happy to offer a complimentary tweak</button>
+          <div class="wr-suggestions" id="wrSuggestionsBox">
+            ${renderSuggestions()}
           </div>
 
           <div class="wr-file-queue" id="wrFileQueue" style="display:none;"></div>
@@ -389,7 +390,6 @@ function renderOneMessage(message) {
   const time = formatMessageTime(message.created_at);
   const bodyHtml = message.body ? escapeHtml(message.body).replace(/\n/g, '<br>') : '';
 
-  // Sprint 10e: render attachments below body (placeholders hydrated later)
   const atts = ctx.attachmentsByMessageId.get(message.id) || [];
   const attsHtml = atts.length > 0 ? renderAttachments(atts) : '';
 
@@ -417,7 +417,6 @@ function renderAttachments(attachments) {
         </div>
       `;
     }
-    // PDF
     return `
       <div class="wr-msg-attachment-pdf"
            data-storage-path="${escapeAttr(att.storage_path)}"
@@ -438,6 +437,99 @@ function getSenderName(message) {
   if (message.sender_role === 'homeowner') return ctx.client.name || 'Homeowner';
   const profile = ctx.profileCache.get(message.sender_user_id);
   return profile?.display_name || profile?.email || 'Designer';
+}
+
+// ─── Sprint 11: Smart-reply suggestions ───────────────────────────────────
+function renderSuggestions() {
+  const headerHtml = `
+    <div class="wr-suggestions-label">
+      <span>⚡ Suggested replies</span>
+      <button type="button" class="wr-suggestions-refresh" id="wrSuggestionsRefresh"
+        title="Regenerate suggestions" ${ctx.suggestionsLoading ? 'disabled' : ''}>↻</button>
+    </div>
+  `;
+
+  if (ctx.suggestionsLoading) {
+    return headerHtml + `
+      <div class="wr-suggestions-loading">
+        <span class="wr-suggestions-spinner"></span>
+        Reading the conversation…
+      </div>
+    `;
+  }
+
+  const list = (ctx.suggestions && ctx.suggestions.length > 0) ? ctx.suggestions : FALLBACK_SUGGESTIONS;
+  const chips = list.map(text => `
+    <button type="button" class="wr-suggestion-chip">${escapeHtml(text)}</button>
+  `).join('');
+
+  return headerHtml + chips;
+}
+
+async function loadSuggestions() {
+  if (ctx.suggestionsLoading) return;
+  ctx.suggestionsLoading = true;
+  rerenderSuggestions();
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      ctx.suggestions = FALLBACK_SUGGESTIONS;
+      return;
+    }
+
+    const resp = await fetch('/api/suggest-replies', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+      body: JSON.stringify({ client_id: ctx.client.id }),
+    });
+    const data = await resp.json().catch(() => ({}));
+
+    if (data?.suggestions && Array.isArray(data.suggestions) && data.suggestions.length >= 3) {
+      ctx.suggestions = data.suggestions.slice(0, 3);
+    } else {
+      ctx.suggestions = FALLBACK_SUGGESTIONS;
+      if (!data?.ok) {
+        console.warn('[admin-client] suggest-replies returned non-ok:', data?.error);
+      }
+    }
+  } catch (err) {
+    console.warn('[admin-client] suggest-replies fetch failed:', err);
+    ctx.suggestions = FALLBACK_SUGGESTIONS;
+  } finally {
+    ctx.suggestionsLoading = false;
+    rerenderSuggestions();
+  }
+}
+
+function rerenderSuggestions() {
+  const box = document.getElementById('wrSuggestionsBox');
+  if (!box) return;
+  box.innerHTML = renderSuggestions();
+  wireSuggestionHandlers();
+}
+
+function wireSuggestionHandlers() {
+  const refreshBtn = document.getElementById('wrSuggestionsRefresh');
+  refreshBtn?.addEventListener('click', () => {
+    if (!ctx.suggestionsLoading) loadSuggestions();
+  });
+
+  const box = document.getElementById('wrSuggestionsBox');
+  if (!box) return;
+  box.querySelectorAll('.wr-suggestion-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const composer = document.getElementById('wrComposer');
+      if (!composer) return;
+      composer.value = chip.textContent.trim();
+      composer.focus();
+      // Move cursor to end so designer can edit/extend
+      composer.setSelectionRange(composer.value.length, composer.value.length);
+    });
+  });
 }
 
 function renderProposalCards() {
@@ -554,12 +646,13 @@ function wireHandlers() {
   editBtn?.addEventListener('click', () => openEditModal(ctx.client));
   attachBtn?.addEventListener('click', () => fileInput?.click());
   fileInput?.addEventListener('change', handleFileSelect);
+  wireSuggestionHandlers();
   setTimeout(() => composer?.focus(), 80);
 }
 
 function handleFileSelect(e) {
   const files = Array.from(e.target.files || []);
-  e.target.value = ''; // allow re-selecting the same file
+  e.target.value = '';
   for (const file of files) {
     let error = null;
     if (file.size > MAX_FILE_SIZE) {
@@ -637,7 +730,6 @@ async function handleSend() {
   sendBtn.disabled = true;
   const messageUuid = crypto.randomUUID();
 
-  // Step 1: upload files (if any)
   const uploaded = [];
   if (validFiles.length > 0) {
     for (let i = 0; i < validFiles.length; i++) {
@@ -666,7 +758,6 @@ async function handleSend() {
     }
   }
 
-  // Step 2: insert message row with explicit UUID
   sendBtn.textContent = 'Sending…';
   const { error: msgErr } = await supabase
     .from('client_messages')
@@ -685,7 +776,6 @@ async function handleSend() {
     return;
   }
 
-  // Step 3: bulk insert attachment rows
   if (uploaded.length > 0) {
     const rows = uploaded.map(u => ({
       message_id: messageUuid,
@@ -703,14 +793,12 @@ async function handleSend() {
     }
   }
 
-  // Reset composer state
   sendBtn.disabled = false;
   sendBtn.textContent = 'Send';
   composer.value = '';
   ctx.queuedFiles = [];
   renderFileQueue();
   composer.focus();
-  // Realtime delivers the message back; renderer adds it.
 }
 
 async function handleSendLoginLink(e) {
@@ -757,9 +845,13 @@ function subscribeRealtime() {
       }
       appendMessage(message);
 
-      // Sprint 10e: after a brief delay, fetch attachments for this message
-      // (attachment rows commit just after the message row, so there's a
-      // small race window where they might not be visible yet)
+      // Sprint 11: regenerate suggestions when homeowner messages arrive
+      // (no point regenerating after our own outbound messages)
+      if (message.sender_role === 'homeowner' && message.sender_user_id !== ctx.viewer.id) {
+        // Wait briefly so loadSuggestions sees the new message
+        setTimeout(() => loadSuggestions(), 400);
+      }
+
       setTimeout(async () => {
         const { data: atts } = await supabase
           .from('client_message_attachments')
@@ -767,7 +859,6 @@ function subscribeRealtime() {
           .eq('message_id', message.id);
         if (atts && atts.length > 0) {
           ctx.attachmentsByMessageId.set(message.id, atts);
-          // Re-render the just-appended bubble in place
           const node = document.querySelector(`.wr-msg[data-message-id="${CSS.escape(message.id)}"]`);
           if (node) {
             const wasNearBottom = isScrolledNearBottom();
@@ -804,7 +895,7 @@ function scrollMessagesToBottom() {
   if (m) m.scrollTop = m.scrollHeight;
 }
 
-// ─── Sprint 10e: signed URL hydration + image viewer ──────────────────────
+// ─── Signed URL hydration + image viewer ──────────────────────────────────
 async function hydrateSignedUrls(scope) {
   if (!scope) return;
   const placeholders = scope.querySelectorAll('[data-storage-path]:not([data-hydrated])');
@@ -1121,7 +1212,7 @@ async function submitEditClient() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Sprint 10e — attachment styles
+// Sprint 10e — attachment styles + Sprint 11 suggestion styles
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureAttachmentStyles() {
@@ -1129,7 +1220,6 @@ function ensureAttachmentStyles() {
   const style = document.createElement('style');
   style.id = 'wr-attachment-styles';
   style.textContent = `
-    /* Composer attach button */
     .wr-attach-btn {
       flex-shrink: 0;
       width: 40px; height: 40px;
@@ -1149,7 +1239,6 @@ function ensureAttachmentStyles() {
       color: #4a6654;
     }
 
-    /* Queue chips above composer */
     .wr-file-queue {
       background: #fff;
       border-top: 1px solid var(--border, #e5e5e5);
@@ -1201,7 +1290,6 @@ function ensureAttachmentStyles() {
     }
     .wr-file-chip-remove:hover { color: #b91c1c; }
 
-    /* Attachments inside message bubbles */
     .wr-msg-attachments {
       display: flex; flex-wrap: wrap; gap: 8px;
       margin-top: 6px;
@@ -1275,7 +1363,6 @@ function ensureAttachmentStyles() {
     }
     .wr-msg-attachment-pdf-download:hover { background: #4a6654; color: #fff; }
 
-    /* Fullscreen image viewer */
     .wr-image-viewer {
       position: fixed; inset: 0;
       z-index: 1300;
@@ -1303,6 +1390,50 @@ function ensureAttachmentStyles() {
       transition: background 0.12s;
     }
     .wr-image-viewer-close:hover { background: rgba(255, 255, 255, 0.3); }
+
+    /* Sprint 11: smart-reply suggestions */
+    .wr-suggestions-label {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+    }
+    .wr-suggestions-refresh {
+      background: transparent;
+      border: 1px solid #e5e5e5;
+      color: #888;
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.4s;
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit;
+    }
+    .wr-suggestions-refresh:hover:not(:disabled) {
+      background: #faf8f3;
+      border-color: #5d7e69;
+      color: #4a6654;
+      transform: rotate(180deg);
+    }
+    .wr-suggestions-refresh:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .wr-suggestions-loading {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 0;
+      font-size: 12px;
+      color: #888;
+      font-style: italic;
+    }
+    .wr-suggestions-spinner {
+      width: 12px; height: 12px;
+      border: 2px solid #e5e5e5;
+      border-top-color: #5d7e69;
+      border-radius: 50%;
+      animation: wrSugSpin 0.8s linear infinite;
+    }
+    @keyframes wrSugSpin { to { transform: rotate(360deg); } }
   `;
   document.head.appendChild(style);
 }
