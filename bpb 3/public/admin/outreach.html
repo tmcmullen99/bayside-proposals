@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Outreach · Admin · Bayside Proposal Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin-shell.css">
+  <style>
+    :root {
+      --green: #5d7e69;
+      --green-dark: #4a6654;
+      --green-soft: #e8eee9;
+      --green-tint: #f4f8f5;
+      --green-pulse: #10a04a;
+      --charcoal: #353535;
+      --tan: #faf8f3;
+      --tan-dark: #ece9dd;
+      --navy: #1a1f2e;
+      --border: #e5e5e5;
+      --muted: #666;
+      --muted-2: #888;
+      --danger: #b04040;
+      --warn-soft: #fff4d4;
+      --warn-text: #7a5a10;
+    }
+    body { background: var(--tan); }
+
+    .out-page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+    .out-intro { margin-bottom: 28px; }
+    .out-intro h1 {
+      font-size: 26px; font-weight: 600;
+      letter-spacing: -0.014em;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+    .out-intro p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+      max-width: 720px;
+    }
+
+    .out-loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .out-loading-spinner {
+      width: 28px; height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: outSpin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes outSpin { to { transform: rotate(360deg); } }
+
+    .out-bucket {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-bottom: 22px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+    .out-bucket-head {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .out-bucket-head-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .out-bucket-icon {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .out-bucket-icon.drafted { background: #fff7e6; color: #c5a050; }
+    .out-bucket-icon.never_opened { background: #eef3f8; color: #2b4a73; }
+    .out-bucket-icon.ghosted { background: #fbeeee; color: var(--danger); }
+    .out-bucket-title {
+      font-size: 16px; font-weight: 600;
+      color: var(--charcoal);
+      margin-bottom: 2px;
+    }
+    .out-bucket-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .out-bucket-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green-dark);
+      padding: 4px 10px;
+      background: var(--green-soft);
+      border-radius: 999px;
+    }
+    .out-bucket-count.zero {
+      color: var(--muted);
+      background: var(--tan);
+    }
+    .out-bucket-body {
+      padding: 0;
+    }
+
+    .out-empty {
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .out-empty-strong { color: var(--green-dark); font-weight: 600; }
+
+    .out-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--tan-dark);
+      align-items: center;
+    }
+    .out-row:last-child { border-bottom: 0; }
+    .out-row:hover { background: var(--tan); }
+
+    .out-row-info { min-width: 0; }
+    .out-row-name {
+      font-size: 14px; font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+    .out-row-meta {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .out-row-meta .out-row-bid { color: var(--green-dark); font-weight: 600; }
+    .out-row-meta .out-row-stale {
+      color: var(--warn-text);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+
+    .out-row-actions {
+      display: flex; gap: 8px;
+      flex-shrink: 0;
+    }
+    .out-btn {
+      padding: 7px 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--charcoal);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: inherit;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+    }
+    .out-btn:hover {
+      border-color: var(--green);
+      color: var(--green-dark);
+      background: var(--tan);
+    }
+    .out-btn-primary {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+    .out-btn-primary:hover {
+      background: var(--green-dark);
+      color: #fff;
+      border-color: var(--green-dark);
+    }
+
+    .out-summary {
+      background: var(--green-tint);
+      border: 1px solid var(--green-soft);
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-bottom: 22px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--charcoal);
+    }
+    .out-summary-num {
+      font-weight: 700;
+      color: var(--green-dark);
+      font-size: 14px;
+    }
+    .out-summary p { margin: 0; }
+    .out-summary p + p { margin-top: 6px; }
+
+    .out-error {
+      max-width: 720px;
+      margin: 30px auto;
+      background: #fbe6e6;
+      color: var(--danger);
+      padding: 18px 22px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.55;
+      border-left: 4px solid var(--danger);
+    }
+  </style>
+</head>
+<body>
+
+<header class="ash-topbar">
+  <div class="ash-topbar-inner">
+    <a href="/admin/" class="ash-brand">
+      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-divider">/</span>
+      <span class="ash-brand-section">Admin</span>
+    </a>
+    <div class="ash-topbar-right">
+      <span class="ash-role-badge is-loading" id="ashRoleBadge">…</span>
+      <span class="ash-user-email" id="ashUserEmail"></span>
+      <a class="ash-link-back" href="/dashboard">← Editor</a>
+      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
+    </div>
+  </div>
+</header>
+<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections"></nav>
+
+<main class="out-page">
+  <div class="out-intro">
+    <h1>Outreach</h1>
+    <p>
+      Clients who need a nudge. Each row is a chance to re-engage a lead that's already in your funnel.
+      Click <strong>Outreach</strong> to open their War Room with AI-drafted re-engagement messages ready to go.
+    </p>
+  </div>
+
+  <div id="outContent">
+    <div class="out-loading">
+      <div class="out-loading-spinner"></div>
+      <div>Finding clients who need follow-up…</div>
+    </div>
+  </div>
+</main>
+
+<script type="module" src="/admin/admin-shell.js"></script>
+<script type="module" src="/admin/admin-outreach.js"></script>
+
+</body>
+</html>
