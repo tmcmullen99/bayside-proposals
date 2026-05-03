@@ -1,14 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// admin-client.js — Sprint 11
+// admin-client.js — Sprint 12
 //
 // War Room layout for one client at /admin/client.html?id=<client_uuid>.
+// Optional URL params: &mode=outreach&bucket=<drafted|never_opened|ghosted|manual>
 //
-// Sprint 11 additions (on top of 10e):
-//   - Smart-reply chips wired to /api/suggest-replies (Anthropic Haiku)
-//   - Fires once on load + after each new homeowner message arrives
-//   - Refresh button to regenerate on demand
-//   - Tap chip → inserts text into composer (does NOT auto-send)
-//   - Loading state, error fallback to static placeholders
+// Sprint 12 additions (on top of Sprint 11):
+//   - Reads mode/bucket from URL params; passes to suggest-replies Worker
+//   - In outreach mode, suggestion chips load with re-engagement drafts
+//   - Tracks which chip was tapped + whether designer edited the text
+//   - Logs every outreach send (and any reply that started from a chip)
+//     to outreach_send_log for Sprint 14 nurture template inference
+//   - After outreach send, regenerates suggestions so designer can
+//     follow up if needed
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -23,14 +26,28 @@ const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'ap
 const SIGNED_URL_TTL = 3600;
 const REALTIME_ATTACHMENT_DELAY = 250;
 
-// Sprint 11 fallback chips (used if API fails)
-const FALLBACK_SUGGESTIONS = [
+const FALLBACK_SUGGESTIONS_REPLY = [
   "Happy to schedule a quick call to walk you through it — what's a good time?",
   "Great question — let me look into that and get back to you shortly.",
   "I can put together a quick comparison if that would help.",
 ];
+const FALLBACK_SUGGESTIONS_OUTREACH = [
+  "Hey, just circling back on your project — is now still a good time to chat about next steps?",
+  "Wanted to check in and see if any questions have come up since we last connected.",
+  "If it'd help, I can hop on a quick 15-min call to walk through the proposal together.",
+];
+
+// Sprint 12: read mode/bucket once on page load
+const _params = new URLSearchParams(window.location.search);
+const _outreachMode = _params.get('mode') === 'outreach';
+const _validBuckets = ['drafted', 'never_opened', 'ghosted', 'manual'];
+const _bucketParam = _params.get('bucket');
+const _outreachBucket = _validBuckets.includes(_bucketParam) ? _bucketParam : 'manual';
 
 const ctx = {
+  outreachMode: _outreachMode,
+  outreachBucket: _outreachBucket,
+  lastSuggestionUsed: null,  // {index, text} when designer taps a chip
   viewer: null,
   client: null,
   clientProposals: [],
@@ -42,8 +59,7 @@ const ctx = {
   queuedFiles: [],
   profileCache: new Map(),
   channel: null,
-  // Sprint 11
-  suggestions: null,        // null = not loaded yet, [] = loading, [a,b,c] = ready
+  suggestions: null,
   suggestionsLoading: false,
 };
 
@@ -53,8 +69,7 @@ const ctx = {
   if (!auth) return;
   ctx.viewer = { ...auth.user, role: auth.profile.role };
 
-  const params = new URLSearchParams(window.location.search);
-  const clientId = params.get('id');
+  const clientId = _params.get('id');
   if (!clientId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId)) {
     showFatal('Missing or invalid client ID. Returning to client list…');
     setTimeout(() => { window.location.href = '/admin/clients'; }, 1600);
@@ -204,8 +219,12 @@ function render() {
     ? formatDiscountRemaining(activeDiscount.remainingMs)
     : '—';
 
+  // Sprint 12: outreach mode banner
+  const outreachBannerHtml = ctx.outreachMode ? renderOutreachBanner() : '';
+
   const mainHtml = `
     <div class="wr-card">
+      ${outreachBannerHtml}
       <div class="wr-header">
         <div class="wr-avatar">${escapeHtml(initials)}</div>
         <div class="wr-header-info">
@@ -261,7 +280,7 @@ function render() {
               accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
               style="display:none;">
             <textarea id="wrComposer" rows="2"
-              placeholder="Reply to ${escapeHtml(c.name || 'the client')} — Enter to send, Shift+Enter for new line"></textarea>
+              placeholder="${ctx.outreachMode ? 'Outreach to' : 'Reply to'} ${escapeHtml(c.name || 'the client')} — Enter to send, Shift+Enter for new line"></textarea>
             <button id="wrSendBtn">Send</button>
           </div>
         </div>
@@ -291,6 +310,26 @@ function render() {
   document.getElementById('wrContent').innerHTML = mainHtml;
   scrollMessagesToBottom();
   wireHandlers();
+}
+
+// Sprint 12: banner that surfaces why this is an outreach session
+function renderOutreachBanner() {
+  const meta = {
+    drafted:      { label: 'Drafted, not sent', icon: '📝' },
+    never_opened: { label: 'Sent, never opened', icon: '📬' },
+    ghosted:      { label: 'Engaged then ghosted', icon: '👻' },
+    manual:       { label: 'Manual outreach', icon: '👋' },
+  }[ctx.outreachBucket] || { label: 'Outreach', icon: '👋' };
+
+  return `
+    <div class="wr-outreach-banner">
+      <span class="wr-outreach-icon">${meta.icon}</span>
+      <div class="wr-outreach-text">
+        <strong>Outreach mode</strong> · ${escapeHtml(meta.label)} — suggested replies are tuned to re-engage this client.
+      </div>
+      <a class="wr-outreach-back" href="/admin/outreach.html">← Back to outreach</a>
+    </div>
+  `;
 }
 
 function aggregateEngagement() {
@@ -439,26 +478,29 @@ function getSenderName(message) {
   return profile?.display_name || profile?.email || 'Designer';
 }
 
-// ─── Sprint 11: Smart-reply suggestions ───────────────────────────────────
+// ─── Smart-reply suggestions (Sprint 11 + Sprint 12) ──────────────────────
 function renderSuggestions() {
+  const labelText = ctx.outreachMode ? 'Outreach drafts' : 'Suggested replies';
   const headerHtml = `
     <div class="wr-suggestions-label">
-      <span>⚡ Suggested replies</span>
+      <span>⚡ ${escapeHtml(labelText)}</span>
       <button type="button" class="wr-suggestions-refresh" id="wrSuggestionsRefresh"
         title="Regenerate suggestions" ${ctx.suggestionsLoading ? 'disabled' : ''}>↻</button>
     </div>
   `;
 
   if (ctx.suggestionsLoading) {
+    const subText = ctx.outreachMode ? 'Drafting outreach options…' : 'Reading the conversation…';
     return headerHtml + `
       <div class="wr-suggestions-loading">
         <span class="wr-suggestions-spinner"></span>
-        Reading the conversation…
+        ${escapeHtml(subText)}
       </div>
     `;
   }
 
-  const list = (ctx.suggestions && ctx.suggestions.length > 0) ? ctx.suggestions : FALLBACK_SUGGESTIONS;
+  const fallback = ctx.outreachMode ? FALLBACK_SUGGESTIONS_OUTREACH : FALLBACK_SUGGESTIONS_REPLY;
+  const list = (ctx.suggestions && ctx.suggestions.length > 0) ? ctx.suggestions : fallback;
   const chips = list.map(text => `
     <button type="button" class="wr-suggestion-chip">${escapeHtml(text)}</button>
   `).join('');
@@ -474,7 +516,7 @@ async function loadSuggestions() {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      ctx.suggestions = FALLBACK_SUGGESTIONS;
+      ctx.suggestions = ctx.outreachMode ? FALLBACK_SUGGESTIONS_OUTREACH : FALLBACK_SUGGESTIONS_REPLY;
       return;
     }
 
@@ -484,21 +526,25 @@ async function loadSuggestions() {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + session.access_token,
       },
-      body: JSON.stringify({ client_id: ctx.client.id }),
+      body: JSON.stringify({
+        client_id: ctx.client.id,
+        mode: ctx.outreachMode ? 'outreach' : 'reply',
+        bucket: ctx.outreachMode ? ctx.outreachBucket : null,
+      }),
     });
     const data = await resp.json().catch(() => ({}));
 
     if (data?.suggestions && Array.isArray(data.suggestions) && data.suggestions.length >= 3) {
       ctx.suggestions = data.suggestions.slice(0, 3);
     } else {
-      ctx.suggestions = FALLBACK_SUGGESTIONS;
+      ctx.suggestions = ctx.outreachMode ? FALLBACK_SUGGESTIONS_OUTREACH : FALLBACK_SUGGESTIONS_REPLY;
       if (!data?.ok) {
         console.warn('[admin-client] suggest-replies returned non-ok:', data?.error);
       }
     }
   } catch (err) {
     console.warn('[admin-client] suggest-replies fetch failed:', err);
-    ctx.suggestions = FALLBACK_SUGGESTIONS;
+    ctx.suggestions = ctx.outreachMode ? FALLBACK_SUGGESTIONS_OUTREACH : FALLBACK_SUGGESTIONS_REPLY;
   } finally {
     ctx.suggestionsLoading = false;
     rerenderSuggestions();
@@ -520,14 +566,16 @@ function wireSuggestionHandlers() {
 
   const box = document.getElementById('wrSuggestionsBox');
   if (!box) return;
-  box.querySelectorAll('.wr-suggestion-chip').forEach(chip => {
+  box.querySelectorAll('.wr-suggestion-chip').forEach((chip, idx) => {
     chip.addEventListener('click', () => {
       const composer = document.getElementById('wrComposer');
       if (!composer) return;
-      composer.value = chip.textContent.trim();
+      const text = chip.textContent.trim();
+      composer.value = text;
       composer.focus();
-      // Move cursor to end so designer can edit/extend
       composer.setSelectionRange(composer.value.length, composer.value.length);
+      // Sprint 12: remember which suggestion was tapped to log edit-vs-verbatim on send
+      ctx.lastSuggestionUsed = { index: idx, text };
     });
   });
 }
@@ -793,11 +841,41 @@ async function handleSend() {
     }
   }
 
+  // Sprint 12: log to outreach_send_log for any send that's either:
+  //   (a) in outreach mode, OR
+  //   (b) started from a tapped suggestion chip
+  // Captures suggestion_text vs final_text so we can later see which AI
+  // drafts designers accept verbatim vs rewrite (Sprint 14 training signal).
+  if (body && (ctx.outreachMode || ctx.lastSuggestionUsed)) {
+    const used = ctx.lastSuggestionUsed;
+    const wasEdited = used ? body !== used.text : false;
+    supabase.from('outreach_send_log').insert({
+      client_id: ctx.client.id,
+      message_id: messageUuid,
+      sent_by_user_id: ctx.viewer.id,
+      suggestion_index: used ? used.index : null,
+      suggestion_text: used ? used.text : null,
+      final_text: body,
+      was_edited: wasEdited,
+      bucket: ctx.outreachMode ? ctx.outreachBucket : null,
+    }).then(({ error }) => {
+      if (error) console.warn('[admin-client] outreach_send_log insert failed:', error);
+    });
+    ctx.lastSuggestionUsed = null;
+  }
+
   sendBtn.disabled = false;
   sendBtn.textContent = 'Send';
   composer.value = '';
   ctx.queuedFiles = [];
   renderFileQueue();
+
+  // Sprint 12: regenerate suggestions after outreach send so designer
+  // can immediately follow up with a different angle if needed
+  if (ctx.outreachMode) {
+    setTimeout(() => loadSuggestions(), 400);
+  }
+
   composer.focus();
 }
 
@@ -845,10 +923,7 @@ function subscribeRealtime() {
       }
       appendMessage(message);
 
-      // Sprint 11: regenerate suggestions when homeowner messages arrive
-      // (no point regenerating after our own outbound messages)
       if (message.sender_role === 'homeowner' && message.sender_user_id !== ctx.viewer.id) {
-        // Wait briefly so loadSuggestions sees the new message
         setTimeout(() => loadSuggestions(), 400);
       }
 
@@ -962,7 +1037,7 @@ function openImageViewer(url, fileName) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Sprint 10c-2 — Edit Client modal
+// Edit Client modal
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureEditModalStyles() {
@@ -1212,7 +1287,7 @@ async function submitEditClient() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Sprint 10e — attachment styles + Sprint 11 suggestion styles
+// Attachment + suggestion + outreach-banner styles
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureAttachmentStyles() {
@@ -1391,7 +1466,6 @@ function ensureAttachmentStyles() {
     }
     .wr-image-viewer-close:hover { background: rgba(255, 255, 255, 0.3); }
 
-    /* Sprint 11: smart-reply suggestions */
     .wr-suggestions-label {
       display: flex; align-items: center; justify-content: space-between;
       gap: 8px;
@@ -1434,6 +1508,43 @@ function ensureAttachmentStyles() {
       animation: wrSugSpin 0.8s linear infinite;
     }
     @keyframes wrSugSpin { to { transform: rotate(360deg); } }
+
+    /* Sprint 12: outreach mode banner */
+    .wr-outreach-banner {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 24px;
+      background: linear-gradient(135deg, #fff7e6 0%, #fffaf0 100%);
+      border-bottom: 1px solid #f0e0b8;
+      font-size: 13.5px;
+      color: #353535;
+    }
+    .wr-outreach-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .wr-outreach-text {
+      flex: 1;
+      line-height: 1.45;
+    }
+    .wr-outreach-text strong {
+      color: #7a5a10;
+    }
+    .wr-outreach-back {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      color: #353535;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: border-color 0.12s, color 0.12s;
+      flex-shrink: 0;
+    }
+    .wr-outreach-back:hover {
+      border-color: #5d7e69;
+      color: #4a6654;
+    }
   `;
   document.head.appendChild(style);
 }
