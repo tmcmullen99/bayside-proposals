@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /admin/admin-shell.js — Phase 5A + 5B Part 1 + 5C + Phase 4 closeout + 5F + 6.2 + 6.3A
+// /admin/admin-shell.js — Sprint 14A
 //
 // The master admin shell. Renders:
 //   1. The role badge + email in the topbar
@@ -7,15 +7,11 @@
 //   3. The landing-page tile grid (only when on /admin/ itself, not nested
 //      pages — those swap in their own content)
 //
-// 5B Part 1: added Designers tab (master-only) + new 'team' group.
-// 5C: added Events tab (designer-accessible) + new 'analytics' group.
-// Phase 4 closeout: added Substitutions tab into 'operations'.
-// 5F.3: added Notifications tab to 'analytics'.
-// Phase 6.2: added Redesigns tab to 'operations'.
-// Phase 6.3A: added Pipeline tab as the FIRST entry in 'operations' so it's
-//     the natural landing for daily work — central command center showing
-//     every proposal with computed funnel stage, last activity, and quick
-//     links into engagement / substitutions / redesigns queues.
+// Sprint 14A: added Nurture tab to 'operations' group (designer-accessible)
+// for the new nurture pipeline visibility page. Also retroactively added
+// the Outreach tab from Sprint 12, which was deployed but never wired into
+// the navigation. Tab order in operations: Pipeline → Nurture → Outreach →
+// Clients → Substitutions → Redesigns → Create homeowner → Site map.
 //
 // Adding a future admin tool:
 //   1. Add an entry to TABS below
@@ -47,6 +43,24 @@ const TABS = [
     group: 'operations',
     icon: '◉',
     description: 'Every proposal in one place. Computed funnel stage, last activity, pending substitutions and redesigns, with quick links into every other admin view.',
+  },
+  {
+    id: 'nurture',
+    label: 'Nurture',
+    href: '/admin/nurture-clients.html',
+    role: 'designer',
+    group: 'operations',
+    icon: '🌱',
+    description: 'Track every client through the nurture phase pipeline. Auto-transitions on consultation, publish, and signing. Manual override for paused or opted-out clients.',
+  },
+  {
+    id: 'outreach',
+    label: 'Outreach',
+    href: '/admin/outreach.html',
+    role: 'designer',
+    group: 'operations',
+    icon: '📨',
+    description: 'Cold lead pipeline. Drafted-not-sent, sent-never-opened, and engaged-then-ghosted clients. AI-drafted re-engagement messages.',
   },
   {
     id: 'clients',
