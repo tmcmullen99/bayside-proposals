@@ -39,6 +39,9 @@
       color: var(--muted); font-size: 14px; line-height: 1.55;
       margin: 0; max-width: 760px;
     }
+    .nt-header-actions {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
 
     .nt-new-btn {
       background: var(--green); color: #fff; border: none;
@@ -47,6 +50,38 @@
       transition: background 0.12s;
     }
     .nt-new-btn:hover { background: var(--green-dark); }
+
+    /* Test/live mode toggle pill */
+    .nt-mode-toggle {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid;
+      font: inherit; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .nt-mode-toggle.is-test {
+      background: #fff4d4; border-color: #c5a050; color: #7a5a10;
+    }
+    .nt-mode-toggle.is-test:hover { background: #ffe8a8; }
+    .nt-mode-toggle.is-live {
+      background: #fbe6e6; border-color: #b04040; color: #8a2a2a;
+    }
+    .nt-mode-toggle.is-live:hover { background: #f5cccc; }
+    .nt-mode-toggle.is-loading {
+      background: #f4f4f4; border-color: var(--border); color: var(--muted);
+      cursor: wait;
+    }
+    .nt-mode-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: currentColor;
+    }
+    .nt-mode-toggle.is-live .nt-mode-dot {
+      box-shadow: 0 0 0 3px rgba(176, 64, 64, 0.18);
+    }
 
     .nt-warn {
       background: var(--warn-soft); border-left: 3px solid #c5a050;
@@ -59,6 +94,12 @@
       font-family: 'JetBrains Mono', monospace; font-size: 12px;
       background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 3px;
     }
+    .nt-warn.is-live {
+      background: #fbe6e6; border-left-color: var(--danger);
+      color: #8a2a2a;
+    }
+    .nt-warn.is-live strong { color: var(--danger); }
+    .nt-warn.is-live code { background: rgba(176, 64, 64, 0.10); }
 
     .nt-loading { text-align: center; padding: 60px 20px; color: var(--muted); }
 
@@ -157,9 +198,7 @@
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
       display: flex; flex-direction: column; overflow: hidden;
     }
-    .nte-head {
-      padding: 18px 24px; border-bottom: 1px solid var(--border);
-    }
+    .nte-head { padding: 18px 24px; border-bottom: 1px solid var(--border); }
     .nte-eyebrow {
       font-family: 'JetBrains Mono', monospace;
       font-size: 11px; letter-spacing: 0.18em;
@@ -176,9 +215,7 @@
       flex: 1; overflow-y: auto;
       display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
     }
-    .nte-side {
-      display: flex; flex-direction: column; gap: 14px; min-width: 0;
-    }
+    .nte-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     .nte-side h3 {
       margin: 0; font-size: 12px; font-weight: 600;
       letter-spacing: 0.08em; text-transform: uppercase;
@@ -302,11 +339,17 @@
       <h1>Nurture templates</h1>
       <p>The email content that fires at each phase + day-offset of the nurture sequence. Use merge fields to personalize. Project-type filters target the email at clients with that project type only.</p>
     </div>
-    <button class="nt-new-btn" id="ntNewBtn" type="button">+ New template</button>
+    <div class="nt-header-actions">
+      <button class="nt-mode-toggle is-loading" id="ntModeToggle" type="button" title="Click to toggle test/live mode">
+        <span class="nt-mode-dot"></span>
+        <span id="ntModeLabel">…</span>
+      </button>
+      <button class="nt-new-btn" id="ntNewBtn" type="button">+ New template</button>
+    </div>
   </header>
 
-  <div class="nt-warn">
-    <strong>Sprint 14B — dry run only.</strong> The cron is scheduled (daily 23:00 UTC = 4pm PDT / 3pm PST) and writes <code>would_send</code> rows to <code>nurture_sends</code>, but no emails fire. 14C will pick up <code>would_send</code> rows and actually send via Resend.
+  <div class="nt-warn" id="ntModeBanner">
+    Loading mode status…
   </div>
 
   <div id="ntContent">
