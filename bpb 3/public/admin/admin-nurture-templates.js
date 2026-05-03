@@ -1,17 +1,20 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// admin-nurture-templates.js — Sprint 14B
+// admin-nurture-templates.js — Sprint 14C.1
 //
 // Master-only template authoring at /admin/nurture-templates.html.
 // CRUD over nurture_templates with markdown body + live preview, merge
 // field substitution, project-type filter, day-offset, and is_active toggle.
 //
+// Sprint 14C.1: added test/live mode toggle in the page header. Reads
+// nurture_config.test_mode on load, lets master flip the switch, and
+// renders an explanatory banner + colored pill that reflects current state.
+// Going LIVE prompts a confirmation dialog (cost of mistake = real emails
+// to real homeowners).
+//
 // Companion to admin-nurture-clients.js (Sprint 14A): that page tracks
 // client phases; this page authors the email content sent at each phase.
-//
-// The dry-run cron (nurture_daily_run at 23:00 UTC) reads the active
-// templates here and inserts 'would_send' rows into nurture_sends for
-// every client whose phase + days-in-phase + project_types match.
-// Sprint 14B does NOT actually send; 14C will.
+// The send worker at /api/nurture-send (Sprint 14C.1) reads the active
+// templates here and posts them to Resend daily at 23:05 UTC.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -53,6 +56,7 @@ const ctx = {
   templates: [],
   editing: null,         // template object, or null for new
   showInactive: false,
+  config: null,          // nurture_config row {test_mode, test_redirect_email, ...}
 };
 
 (async function init() {
@@ -60,9 +64,11 @@ const ctx = {
   if (!auth) return;
   ctx.viewer = { ...auth.user, role: auth.profile.role };
 
-  await loadTemplates();
+  await Promise.all([loadTemplates(), loadConfig()]);
   render();
+  renderModeUi();
   wireEditorModal();
+  wireModeToggle();
 
   document.getElementById('ntNewBtn').addEventListener('click', () => openEditor(null));
 })();
@@ -82,6 +88,21 @@ async function loadTemplates() {
   }
 
   ctx.templates = data || [];
+}
+
+async function loadConfig() {
+  const { data, error } = await supabase
+    .from('nurture_config')
+    .select('test_mode, test_redirect_email')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[nurture-templates] config load failed:', error);
+    ctx.config = null;
+    return;
+  }
+  ctx.config = data;
 }
 
 function render() {
@@ -185,6 +206,92 @@ function renderCard(t) {
       </div>
     </div>
   `;
+}
+
+// ─── Test/Live mode UI ────────────────────────────────────────────────────
+function renderModeUi() {
+  const pill = document.getElementById('ntModeToggle');
+  const label = document.getElementById('ntModeLabel');
+  const banner = document.getElementById('ntModeBanner');
+  if (!pill || !label || !banner) return;
+
+  // If config didn't load, show neutral state and disable the toggle.
+  if (!ctx.config) {
+    pill.className = 'nt-mode-toggle is-loading';
+    label.textContent = 'Mode unavailable';
+    pill.disabled = true;
+    banner.className = 'nt-warn';
+    banner.innerHTML = 'Could not load <code>nurture_config</code>. Toggle is disabled. Check master role + RLS.';
+    return;
+  }
+
+  const isTest = ctx.config.test_mode !== false;
+  pill.disabled = false;
+
+  if (isTest) {
+    pill.className = 'nt-mode-toggle is-test';
+    label.textContent = 'Test mode · ON';
+    banner.className = 'nt-warn';
+    const redirect = ctx.config.test_redirect_email || 'tim@mcmullen.properties';
+    banner.innerHTML =
+      '<strong>Test mode — ON.</strong> Sends fire daily at 23:05 UTC, but every email is redirected to ' +
+      '<code>' + escapeHtml(redirect) + '</code> with a <code>[TEST → real recipient: …]</code> subject prefix. ' +
+      'Click the pill to go live when ready.';
+  } else {
+    pill.className = 'nt-mode-toggle is-live';
+    label.textContent = 'LIVE · sending';
+    banner.className = 'nt-warn is-live';
+    banner.innerHTML =
+      '<strong>LIVE — sending to real homeowners.</strong> Every active template whose phase + day-offset matches ' +
+      'an enrolled client will queue at 23:00 UTC and email at 23:05 UTC. ' +
+      'Click the pill to switch back to test mode.';
+  }
+}
+
+function wireModeToggle() {
+  const pill = document.getElementById('ntModeToggle');
+  if (!pill) return;
+  pill.addEventListener('click', toggleTestMode);
+}
+
+async function toggleTestMode() {
+  if (!ctx.config) return;
+  const currentlyTest = ctx.config.test_mode !== false;
+  const newTestMode = !currentlyTest;
+
+  // Confirm before going LIVE — the cost of a mistake is real emails.
+  if (currentlyTest) {
+    const ok = confirm(
+      'Going LIVE.\n\n' +
+      'After this, the next 23:05 UTC cron run (and every "Send Now" action) will email real homeowners ' +
+      'at the addresses on their client records.\n\n' +
+      'Make sure your active templates are ready for production.\n\n' +
+      'Continue?'
+    );
+    if (!ok) return;
+  }
+
+  const pill = document.getElementById('ntModeToggle');
+  const label = document.getElementById('ntModeLabel');
+  pill.className = 'nt-mode-toggle is-loading';
+  pill.disabled = true;
+  label.textContent = 'Saving…';
+
+  const { error } = await supabase
+    .from('nurture_config')
+    .update({ test_mode: newTestMode, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+
+  if (error) {
+    console.error('[nurture-templates] mode toggle failed:', error);
+    alert('Could not update mode: ' + error.message);
+    // Re-render whatever the previous state was
+    renderModeUi();
+    return;
+  }
+
+  ctx.config.test_mode = newTestMode;
+  renderModeUi();
 }
 
 // ─── Editor modal ─────────────────────────────────────────────────────────
