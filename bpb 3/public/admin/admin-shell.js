@@ -1,12 +1,3 @@
----
-
-### File 3 — UPDATE `bpb 3/public/admin/admin-shell.js`
-
-**Step G.** Open the existing file in edit mode: [https://github.com/tmcmullen99/bayside-proposals/edit/main/bpb%203/public/admin/admin-shell.js](https://github.com/tmcmullen99/bayside-proposals/edit/main/bpb%203/public/admin/admin-shell.js)
-
-**Step H.** Cmd+A (selects the whole existing file), Cmd+V with this entire block (full rewrite — only changes are the header comment update + the new `nurture-templates` tab entry between `nurture` and `outreach`):
-
-```javascript
 // ═══════════════════════════════════════════════════════════════════════════
 // /admin/admin-shell.js — Sprint 14B
 //
@@ -382,6 +373,3 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function escapeAttr(str) { return escapeHtml(str); }
-```
-
-**Step I.** Verify line 2 reads `// /admin/admin-shell.js — Sprint 14B`. Commit message:
