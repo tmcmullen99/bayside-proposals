@@ -1,22 +1,47 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// admin-client.js — Sprint 14C.2
+// admin-client.js — Sprint 14C.2 + 14C.3 + War Room Level A
 //
 // War Room layout for one client at /admin/client.html?id=<client_uuid>.
 // Optional URL params: &mode=outreach&bucket=<drafted|never_opened|ghosted|manual>
 //
-// Sprint 14C.2 additions (on top of Sprint 12):
-//   - Nurture panel in the right side rail (between Active Proposals and
-//     Quick Stats). Reads nurture_get_war_room_state RPC on load, surfaces
-//     phase + last sent + next queued + status pill.
-//   - Inline action buttons: Pause (1w / 1m / indefinite / clear), Skip
-//     next queued, Send now (bypasses 4pm cron timing). Each calls a
-//     SECURITY DEFINER RPC and reloads the panel on completion.
-//   - History modal: full nurture_sends list for this client with
-//     status/subject/date/phase/day. Click a sent row to inline-expand
-//     the rendered body.
+// Sprint 14C.2 (shipped): Nurture panel — phase + last sent + next queued +
+// status pill, inline Pause/Skip/Send Now actions, history modal.
 //
-// 14C.3 will add Edit individual + Send Now ad-hoc (any active template);
-// those require worker changes and are deferred.
+// Sprint 14C.3 additions:
+//   - Edit individual: pencil on next-queued card opens a modal with subject /
+//     body / recipient_email pre-filled (from rendered_* if present, else
+//     template default). Save calls nurture_edit_queued RPC.
+//   - Send Now ad-hoc: replaces the simple confirm with a template-picker
+//     modal listing all is_active=true templates from nurture_templates
+//     (RLS allows designer reads). Pre-selects the next queued's template
+//     when present. Confirm calls nurture_send_adhoc RPC.
+//
+// War Room Level A additions:
+//   - Role-aware back link: master sees "← All clients", designer sees
+//     "← Pipeline" (linking /admin/pipeline.html).
+//   - "+ New proposal" header button → /dashboard new tab.
+//   - Per-proposal-card controls: Edit button → /editor?id=X new tab,
+//     Status dropdown writing client_proposals.status, Mark sent button
+//     when sent_at is null, Discount toggle pill flipping
+//     proposals.show_signing_discount, inline pencil-rename for project
+//     address writing proposals.address.
+//   - Engagement panel REPLACES Recent Events: live pulse + total event
+//     count, mini timeline of last 8 events with relative timestamps, and
+//     a "View full timeline →" expand modal with up to 50 events.
+//   - Substitutions panel: count badge of pending proposal_substitutions
+//     (status submitted|reviewed) + "Review →" link to
+//     /admin/substitutions.html?client_id=X.
+//   - Redesigns panel: count badge of pending proposal_redesign_requests
+//     (status submitted|reviewed) + "Review →" link to
+//     /admin/client-redesigns.html?client_id=X.
+//   - Side rail final order: Active Proposals → Engagement → Nurture →
+//     Substitutions → Redesigns → Quick Stats → Notes.
+//
+// Bug fix riding along: loadRecentEvents was selecting created_at/metadata
+// from proposal_events, but the actual columns are occurred_at/payload.
+// describeEvent's map was also using event types (proposal_view,
+// material_swap_submit, sign_intent…) that don't match the check
+// constraint. Both fixed against the real schema.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -55,6 +80,33 @@ const PHASE_LABELS = {
   dead: 'Dead',
 };
 
+// Level A: client_proposals.status check constraint allows these six values.
+// Handoff originally listed "cancelled / lost" too, but the DB constraint
+// rejects them (would 23514). Widen the constraint first if you want them.
+const PROPOSAL_STATUS_OPTIONS = ['draft', 'sent', 'viewed', 'signed', 'in_progress', 'complete'];
+const PROPOSAL_STATUS_LABELS = {
+  draft:       'Draft',
+  sent:        'Sent',
+  viewed:      'Viewed',
+  signed:      'Signed',
+  in_progress: 'In progress',
+  complete:    'Complete',
+};
+
+// Level A: proposal_substitutions and proposal_redesign_requests both use
+// 'submitted' as the initial state and 'reviewed' as designer-acknowledged-
+// but-not-yet-actioned. Either qualifies as "pending designer action" for
+// the war-room badge. The 'pending' value mentioned in the handoff is not
+// in the DB check constraint for either table.
+const SUB_PENDING_STATUSES = ['submitted', 'reviewed'];
+const REDESIGN_PENDING_STATUSES = ['submitted', 'reviewed'];
+
+// Level A: how many recent events to load for the Engagement panel. The
+// inline timeline shows 8; the "View full timeline →" modal shows all of
+// these. 50 is enough for any active homeowner short of weeks of intense
+// engagement; if a client exceeds it the modal can paginate later.
+const ENGAGEMENT_EVENTS_LIMIT = 50;
+
 const _params = new URLSearchParams(window.location.search);
 const _outreachMode = _params.get('mode') === 'outreach';
 const _validBuckets = ['drafted', 'never_opened', 'ghosted', 'manual'];
@@ -82,6 +134,12 @@ const ctx = {
   nurture: null,           // result of nurture_get_war_room_state RPC, or null on fail
   nurtureLoading: true,
   nurtureUi: { showPauseOptions: false },
+  // Level A state
+  subsCount: 0,            // # of pending proposal_substitutions for this client
+  redesignsCount: 0,       // # of pending proposal_redesign_requests for this client
+  proposalUi: new Map(),   // proposal_id → { editingAddress: bool, savingStatus: bool, ... }
+  // 14C.3 state (lazy)
+  activeTemplates: null,   // populated on first picker open
 };
 
 // ─── Bootstrap ─────────────────────────────────────────────────────────────
@@ -101,6 +159,7 @@ const ctx = {
   ensureEditModalStyles();
   ensureAttachmentStyles();
   ensureNurtureStyles();
+  ensureLevelAStyles();
   await loadAll(clientId);
   if (!ctx.client) {
     showFatal('Could not load this client. They may not exist, or you may not have access.');
@@ -145,6 +204,8 @@ async function loadAll(clientId) {
     loadRecentEvents(proposalIds),
     loadMessages(client.id),
     loadNurture(client.id),
+    loadSubstitutionsCount(proposalIds),
+    loadRedesignsCount(proposalIds),
   ]);
 }
 
@@ -155,18 +216,74 @@ async function loadEngagement(proposalIds) {
 
 async function loadRecentEvents(proposalIds) {
   if (proposalIds.length === 0) { ctx.events = []; return; }
+  // Schema fix: proposal_events uses occurred_at + payload, NOT created_at +
+  // metadata. Limit bumped from 12 to ENGAGEMENT_EVENTS_LIMIT so the
+  // "View full timeline →" modal has data without a second round trip.
   const { data, error } = await supabase
     .from('proposal_events')
-    .select('id, proposal_id, event_type, created_at, metadata')
+    .select('id, proposal_id, event_type, occurred_at, payload')
     .in('proposal_id', proposalIds)
-    .order('created_at', { ascending: false })
-    .limit(12);
+    .order('occurred_at', { ascending: false })
+    .limit(ENGAGEMENT_EVENTS_LIMIT);
   if (error) {
     console.error('[admin-client] events load failed:', error);
     ctx.events = [];
     return;
   }
   ctx.events = data || [];
+}
+
+// Level A: count pending substitutions across all proposals for this
+// client. RLS designer_select_assigned_subs already covers the read for
+// designers; master sees all. Uses head:true to avoid pulling rows.
+async function loadSubstitutionsCount(proposalIds) {
+  if (proposalIds.length === 0) { ctx.subsCount = 0; return; }
+  const { count, error } = await supabase
+    .from('proposal_substitutions')
+    .select('id', { count: 'exact', head: true })
+    .in('proposal_id', proposalIds)
+    .in('status', SUB_PENDING_STATUSES);
+  if (error) {
+    console.warn('[admin-client] subs count failed:', error);
+    ctx.subsCount = 0;
+    return;
+  }
+  ctx.subsCount = count || 0;
+}
+
+// Level A: count pending redesigns across all proposals for this client.
+// Designer-or-master RLS handles access.
+async function loadRedesignsCount(proposalIds) {
+  if (proposalIds.length === 0) { ctx.redesignsCount = 0; return; }
+  const { count, error } = await supabase
+    .from('proposal_redesign_requests')
+    .select('id', { count: 'exact', head: true })
+    .in('proposal_id', proposalIds)
+    .in('status', REDESIGN_PENDING_STATUSES);
+  if (error) {
+    console.warn('[admin-client] redesigns count failed:', error);
+    ctx.redesignsCount = 0;
+    return;
+  }
+  ctx.redesignsCount = count || 0;
+}
+
+// 14C.3: lazy-load all active templates for the Send Now picker. Cached
+// on ctx after first call. RLS allows designer SELECT on nurture_templates.
+async function loadActiveTemplates() {
+  if (ctx.activeTemplates) return ctx.activeTemplates;
+  const { data, error } = await supabase
+    .from('nurture_templates')
+    .select('id, phase, day_offset, subject, project_type_filter')
+    .eq('is_active', true)
+    .order('phase', { ascending: true })
+    .order('day_offset', { ascending: true });
+  if (error) {
+    console.warn('[admin-client] templates load failed:', error);
+    return [];
+  }
+  ctx.activeTemplates = data || [];
+  return ctx.activeTemplates;
 }
 
 async function loadMessages(clientId) {
@@ -246,6 +363,32 @@ function rerenderNurturePanel() {
   wireNurtureHandlers();
 }
 
+// Level A: re-render only the proposal-cards list inside Active Proposals.
+// Used after status / mark-sent / discount / address writes so we don't
+// blow away scroll position or the chat composer focus.
+function rerenderProposalCards() {
+  const wrap = document.querySelector('[data-wr-proposal-cards]');
+  if (!wrap) return;
+  wrap.innerHTML = renderProposalCards();
+  wireProposalCardHandlers();
+}
+
+// Level A: re-render the Substitutions and Redesigns side panels after a
+// count refresh. Cheap; called after a re-fetch.
+function rerenderSidePanels() {
+  const subsEl = document.getElementById('wrSubsPanel');
+  if (subsEl) subsEl.innerHTML = renderSubstitutionsPanel();
+  const reEl = document.getElementById('wrRedesignsPanel');
+  if (reEl) reEl.innerHTML = renderRedesignsPanel();
+}
+
+function rerenderEngagementPanel() {
+  const el = document.getElementById('wrEngagementPanel');
+  if (!el) return;
+  el.innerHTML = renderEngagementPanelInner();
+  wireEngagementHandlers();
+}
+
 // ─── Render ────────────────────────────────────────────────────────────────
 function render() {
   document.getElementById('wrCrumbName').textContent = ctx.client.name || '(unnamed)';
@@ -271,8 +414,18 @@ function render() {
 
   const outreachBannerHtml = ctx.outreachMode ? renderOutreachBanner() : '';
 
+  // Level A: role-aware back link. Master goes back to /admin/clients (the
+  // full alphabetical list). Designer goes to /admin/pipeline.html (their
+  // active-pipeline view). The shell may already render a breadcrumb back
+  // link via <a id="wrCrumbBack"> elsewhere; we update that in place if it
+  // exists, otherwise our top-of-card link is the fallback.
+  const isMaster = ctx.viewer.role === 'master';
+  const backHref = isMaster ? '/admin/clients' : '/admin/pipeline.html';
+  const backLabel = isMaster ? '← All clients' : '← Pipeline';
+
   const mainHtml = `
     <div class="wr-card">
+      <a class="wr-back-link" id="wrBackLink" href="${escapeAttr(backHref)}">${escapeHtml(backLabel)}</a>
       ${outreachBannerHtml}
       <div class="wr-header">
         <div class="wr-avatar">${escapeHtml(initials)}</div>
@@ -286,6 +439,7 @@ function render() {
         </div>
         <div class="wr-header-actions">
           <button class="wr-action-btn" id="wrSendLinkBtn">${c.user_id ? 'Resend login' : 'Send login link'}</button>
+          <a class="wr-action-btn primary" id="wrNewProposalBtn" href="/dashboard" target="_blank" rel="noopener">+ New proposal</a>
           <button class="wr-action-btn" id="wrEditBtn">Edit</button>
         </div>
       </div>
@@ -337,11 +491,23 @@ function render() {
         <aside class="wr-side">
           <div class="wr-side-section">
             <h4>Active Proposals</h4>
-            ${renderProposalCards()}
+            <div data-wr-proposal-cards>${renderProposalCards()}</div>
+          </div>
+          <div class="wr-side-section">
+            <h4>Engagement</h4>
+            <div id="wrEngagementPanel">${renderEngagementPanelInner()}</div>
           </div>
           <div class="wr-side-section">
             <h4>Nurture</h4>
             <div class="wr-nurture-panel" id="wrNurturePanel">${renderNurturePanelInner()}</div>
+          </div>
+          <div class="wr-side-section">
+            <h4>Substitutions</h4>
+            <div id="wrSubsPanel">${renderSubstitutionsPanel()}</div>
+          </div>
+          <div class="wr-side-section">
+            <h4>Redesigns</h4>
+            <div id="wrRedesignsPanel">${renderRedesignsPanel()}</div>
           </div>
           <div class="wr-side-section">
             <h4>Quick Stats</h4>
@@ -351,16 +517,20 @@ function render() {
             <h4>Notes</h4>
             ${renderNotes()}
           </div>
-          <div class="wr-side-section">
-            <h4>Recent Events</h4>
-            ${renderRecentEvents()}
-          </div>
         </aside>
       </div>
     </div>
   `;
 
   document.getElementById('wrContent').innerHTML = mainHtml;
+
+  // If the shell renders its own back link (id wrCrumbBack), update it in
+  // place to match our role-aware target. Harmless if absent.
+  const shellBack = document.getElementById('wrCrumbBack');
+  if (shellBack) {
+    shellBack.setAttribute('href', backHref);
+    shellBack.textContent = backLabel;
+  }
   scrollMessagesToBottom();
   wireHandlers();
 }
@@ -643,6 +813,9 @@ function renderProposalCards() {
     const bid = Number(p.bid_total_amount || 0);
     const bidLabel = bid > 0 ? formatBidFull(bid) : '';
     const sentDate = cp.sent_at ? formatDate(cp.sent_at) : null;
+    const ui = ctx.proposalUi.get(p.id) || {};
+    const editingAddr = !!ui.editingAddress;
+    const discountOn = p.show_signing_discount !== false;
 
     let engLine = '';
     if (eng && eng.totalEvents > 0) {
@@ -657,15 +830,60 @@ function renderProposalCards() {
       engLine = '<div class="wr-proposal-card-eng" style="color: var(--muted);">Not viewed yet</div>';
     }
 
+    // Address row: display mode shows text + pencil; edit mode shows input + save/cancel
+    const displayAddr = getDisplayAddress(p);
+    const addrHtml = editingAddr
+      ? `
+        <div class="wr-paddr-edit">
+          <input type="text" class="wr-paddr-input" data-proposal-id="${escapeAttr(p.id)}" value="${escapeAttr(displayAddr)}" placeholder="Project address">
+          <button type="button" class="wr-mini-btn primary" data-pcard-action="save-addr" data-proposal-id="${escapeAttr(p.id)}">Save</button>
+          <button type="button" class="wr-mini-btn cancel" data-pcard-action="cancel-addr" data-proposal-id="${escapeAttr(p.id)}">Cancel</button>
+        </div>
+      `
+      : `
+        <div class="wr-proposal-card-addr">
+          <span class="wr-paddr-label">${escapeHtml(displayAddr)}</span>
+          <button type="button" class="wr-paddr-pencil" data-pcard-action="edit-addr" data-proposal-id="${escapeAttr(p.id)}" title="Rename project address" aria-label="Rename project address">✏️</button>
+        </div>
+      `;
+
+    // Status dropdown (writes client_proposals.status)
+    const statusOptionsHtml = PROPOSAL_STATUS_OPTIONS.map(s =>
+      `<option value="${escapeAttr(s)}" ${s === cp.status ? 'selected' : ''}>${escapeHtml(PROPOSAL_STATUS_LABELS[s])}</option>`
+    ).join('');
+
+    // Mark-sent button (only when sent_at is null)
+    const markSentHtml = cp.sent_at
+      ? ''
+      : `<button type="button" class="wr-mini-btn" data-pcard-action="mark-sent" data-cp-id="${escapeAttr(cp.id)}" title="Mark this proposal as sent (sets sent_at = now())">Mark sent</button>`;
+
+    // Discount toggle pill (flips proposals.show_signing_discount)
+    const discountTitle = discountOn
+      ? 'Signing discount visible. Click to hide. (Republish proposal for change to take effect on the public page.)'
+      : 'Signing discount hidden. Click to show. (Republish proposal for change to take effect on the public page.)';
+    const discountPillHtml = `
+      <button type="button" class="wr-discount-pill ${discountOn ? 'on' : 'off'}" data-pcard-action="toggle-discount" data-proposal-id="${escapeAttr(p.id)}" title="${escapeAttr(discountTitle)}">
+        ${discountOn ? '🏷️ Discount on' : '⭕ Discount off'}
+      </button>
+    `;
+
     return `
-      <div class="wr-proposal-card">
-        <div class="wr-proposal-card-addr">${escapeHtml(getDisplayAddress(p))}</div>
+      <div class="wr-proposal-card" data-proposal-id="${escapeAttr(p.id)}">
+        ${addrHtml}
         <div class="wr-proposal-card-meta">
           ${bidLabel ? `${bidLabel}${sentDate ? ' · Sent ' + escapeHtml(sentDate) : ''}` : (sentDate ? 'Sent ' + escapeHtml(sentDate) : 'Draft')}
         </div>
         ${engLine}
+        <div class="wr-proposal-card-controls">
+          <select class="wr-paddr-status" data-pcard-action="status" data-cp-id="${escapeAttr(cp.id)}" data-proposal-id="${escapeAttr(p.id)}" aria-label="Proposal status">
+            ${statusOptionsHtml}
+          </select>
+          ${markSentHtml}
+          ${discountPillHtml}
+        </div>
         <div class="wr-proposal-card-actions">
           ${slug ? `<a class="wr-mini-btn" href="/p/${escapeAttr(slug)}" target="_blank" rel="noopener">View</a>` : ''}
+          <a class="wr-mini-btn" href="/editor?id=${escapeAttr(p.id)}" target="_blank" rel="noopener" title="Open this proposal in the editor (new tab)">Edit</a>
           <a class="wr-mini-btn" href="/admin/engagement.html?id=${escapeAttr(p.id)}">Engagement →</a>
         </div>
       </div>
@@ -694,33 +912,124 @@ function renderNotes() {
   return `<div class="wr-notes-display">${escapeHtml(notes).replace(/\n/g, '<br>')}</div>`;
 }
 
-function renderRecentEvents() {
-  if (ctx.events.length === 0) {
+// Level A: Engagement panel replaces "Recent Events". Shows live pulse +
+// total event count in the header, mini timeline of last 8 events with
+// relative timestamps, and a "View full timeline →" link that opens a
+// modal with up to ENGAGEMENT_EVENTS_LIMIT events.
+function renderEngagementPanelInner() {
+  const aggEng = aggregateEngagement();
+  const totalEvents = aggEng?.totalEvents || 0;
+  const isLive = aggEng?.isLive || false;
+  const lastViewMs = aggEng?.lastViewMs || 0;
+
+  if (totalEvents === 0 && ctx.events.length === 0) {
     return '<div class="wr-empty-side">No proposal activity yet.</div>';
   }
-  return ctx.events.slice(0, 8).map(e => {
-    const time = formatRelativeShort(e.created_at);
-    const desc = describeEvent(e);
-    return `
-      <div class="wr-event">
-        <span class="wr-event-time">${escapeHtml(time)}</span>
-        <span class="wr-event-body">${escapeHtml(desc)}</span>
+
+  const recencyHtml = lastViewMs > 0
+    ? `<span class="wr-eng-recency">Last ${escapeHtml(formatRelativeTime(new Date(lastViewMs).toISOString()))}</span>`
+    : '';
+
+  const headerHtml = `
+    <div class="wr-eng-head">
+      <div class="wr-eng-count">
+        ${isLive ? '<span class="wr-pulse-dot"></span>' : ''}
+        <strong>${totalEvents}</strong> event${totalEvents === 1 ? '' : 's'}
+        ${isLive ? '<span class="wr-eng-live-tag">live now</span>' : ''}
+      </div>
+      ${recencyHtml}
+    </div>
+  `;
+
+  const recent = ctx.events.slice(0, 8);
+  let timelineHtml;
+  if (recent.length === 0) {
+    timelineHtml = '<div class="wr-empty-side" style="padding:6px 0;">Aggregate set, but event log empty.</div>';
+  } else {
+    timelineHtml = `
+      <div class="wr-eng-timeline">
+        ${recent.map(e => {
+          const time = formatRelativeShort(e.occurred_at);
+          const desc = describeEvent(e);
+          return `
+            <div class="wr-eng-row">
+              <span class="wr-eng-time">${escapeHtml(time)}</span>
+              <span class="wr-eng-body">${escapeHtml(desc)}</span>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
-  }).join('');
+  }
+
+  const expandHtml = ctx.events.length > 8
+    ? `<button type="button" class="wr-eng-expand" id="wrEngExpandBtn">View full timeline →</button>`
+    : '';
+
+  return headerHtml + timelineHtml + expandHtml;
 }
 
+// Level A: Substitutions side panel. Shows pending count + Review link to
+// the standalone designer page where actual swap acceptance happens.
+function renderSubstitutionsPanel() {
+  const count = ctx.subsCount || 0;
+  const reviewHref = `/admin/substitutions.html?client_id=${escapeAttr(ctx.client.id)}`;
+  if (count === 0) {
+    return `
+      <div class="wr-side-row">
+        <span class="wr-side-row-label">No pending substitutions.</span>
+        <a class="wr-side-mini-link" href="${reviewHref}">View all →</a>
+      </div>
+    `;
+  }
+  return `
+    <div class="wr-side-row">
+      <span class="wr-side-badge amber">${count} pending</span>
+      <a class="wr-side-mini-link primary" href="${reviewHref}">Review →</a>
+    </div>
+  `;
+}
+
+// Level A: Redesigns side panel. Mirrors the Substitutions panel layout.
+function renderRedesignsPanel() {
+  const count = ctx.redesignsCount || 0;
+  const reviewHref = `/admin/client-redesigns.html?client_id=${escapeAttr(ctx.client.id)}`;
+  if (count === 0) {
+    return `
+      <div class="wr-side-row">
+        <span class="wr-side-row-label">No pending redesigns.</span>
+        <a class="wr-side-mini-link" href="${reviewHref}">View all →</a>
+      </div>
+    `;
+  }
+  return `
+    <div class="wr-side-row">
+      <span class="wr-side-badge amber">${count} pending</span>
+      <a class="wr-side-mini-link primary" href="${reviewHref}">Review →</a>
+    </div>
+  `;
+}
+
+// Level A bug fix: the previous map used event types (proposal_view,
+// material_swap_submit, sign_intent…) that don't appear in the
+// proposal_events.event_type CHECK constraint. The constraint allows:
+//   page_view / section_view / bid_section_click / swap_modal_open /
+//   swap_save / referral_share_click / sign_in_cta_click /
+//   quality_tab_click / accept_proposal_click
+// Updated to match the real values so events render readable copy.
 function describeEvent(e) {
   const proposal = ctx.clientProposals.find(cp => cp.proposal?.id === e.proposal_id)?.proposal;
   const addr = proposal ? getDisplayAddress(proposal) : 'a proposal';
   const map = {
-    proposal_view: `Viewed ${addr}`,
-    section_view: `Browsed ${addr}`,
-    material_swap_submit: `Requested material swap on ${addr}`,
-    redesign_request: `Requested redesign on ${addr}`,
-    sign_intent: `Started signing ${addr}`,
-    sign_complete: `Signed ${addr} 🎉`,
-    referral_invite_send: `Sent a referral invite`,
+    page_view:            `Viewed ${addr}`,
+    section_view:         `Browsed scope on ${addr}`,
+    bid_section_click:    `Clicked into bid section on ${addr}`,
+    swap_modal_open:      `Opened material swap on ${addr}`,
+    swap_save:            `Saved a material swap on ${addr}`,
+    referral_share_click: `Tapped referral share on ${addr}`,
+    sign_in_cta_click:    `Tapped Sign-in CTA on ${addr}`,
+    quality_tab_click:    `Opened Quality tab on ${addr}`,
+    accept_proposal_click:`Tapped Accept Proposal on ${addr} 🎉`,
   };
   return map[e.event_type] || `Event: ${e.event_type}`;
 }
@@ -835,9 +1144,14 @@ function renderNextQueuedBlock(nextQueued) {
   // The cron fires at 23:00 UTC (queue) + 23:05 UTC (send). For simplicity,
   // describe next send as "next 4pm PT cron run" — exact timezone math gets
   // messy across DST and isn't worth the precision.
+  // 14C.3: Edit pencil opens a modal with subject/body/recipient_email
+  // pre-filled from rendered_* (if previously edited) or template defaults.
   return `
     <div class="wr-nur-card queued">
-      <div class="wr-nur-card-label">⏱ Next · 4pm PT cron run</div>
+      <div class="wr-nur-card-head">
+        <div class="wr-nur-card-label">⏱ Next · 4pm PT cron run</div>
+        <button type="button" class="wr-nur-edit-btn" data-nur-action="edit-queued" title="Edit subject, body, or recipient before this sends">✏️ Edit</button>
+      </div>
       <div class="wr-nur-card-subject">${escapeHtml(subject)}</div>
     </div>
   `;
@@ -906,7 +1220,13 @@ async function onNurtureActionClick(e) {
       await applySkip();
       return;
     case 'send-now':
-      await applySendNow();
+      // 14C.3: open the template picker instead of the simple confirm.
+      // Pre-selects the next-queued template if one is queued.
+      await openSendNowPickerModal();
+      return;
+    case 'edit-queued':
+      // 14C.3: open the edit-individual modal for the next queued send.
+      await openEditQueuedModal();
       return;
   }
 }
@@ -943,36 +1263,494 @@ async function applySkip() {
   await reloadNurture();
 }
 
-async function applySendNow() {
-  const subject = ctx.nurture?.next_queued?.template_subject || 'the next queued email';
-  if (!confirm(`Send "${subject}" now?\n\nBypasses the 4pm cron. Test mode redirects still apply if test mode is ON.`)) {
-    return;
+// 14C.3: replaces the simple "are you sure?" send-now confirm with a
+// template-picker modal, then calls nurture_send_adhoc(client_id,
+// template_id) on confirm. The picker pre-selects the next queued
+// template if one is queued; otherwise no default selection.
+async function applySendAdhoc(templateId) {
+  if (!templateId) return;
+
+  // Find the picker confirm button to optimistically disable it.
+  const confirmBtn = _sendNowPickerOverlay?.querySelector('#wrSnpConfirm');
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Sending…';
   }
 
-  // Optimistic UI: disable Send Now button and label it "Sending…"
-  const sendBtn = document.querySelector('[data-nur-action="send-now"]');
-  if (sendBtn) {
-    sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending…';
-  }
-
-  const { data, error } = await supabase.rpc('nurture_send_now', {
+  const { data, error } = await supabase.rpc('nurture_send_adhoc', {
     p_client_id: ctx.client.id,
+    p_template_id: templateId,
   });
   if (error) {
     alert('Could not send: ' + error.message);
-    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send now'; }
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Send now';
+    }
     return;
   }
   if (data && data.sent === false) {
-    alert('Nothing queued to send — the panel may be stale.');
-    await reloadNurture();
+    alert('Could not send: ' + (data.reason || 'unknown reason'));
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Send now';
+    }
     return;
   }
 
-  // The worker is async (pg_net fires; Resend takes ~1–2s). Wait, then
-  // reload so the row transitions from "queued" to "sent" in the panel.
+  closeSendNowPickerModal();
+
+  // Worker is async (pg_net + Resend ~1–2s). Wait, then reload so the row
+  // transitions from queued to sent.
   setTimeout(() => { reloadNurture(); }, SEND_NOW_REFRESH_DELAY);
+}
+
+// ─── 14C.3 Send Now picker modal ──────────────────────────────────────────
+let _sendNowPickerOverlay = null;
+
+async function openSendNowPickerModal() {
+  if (!_sendNowPickerOverlay) _sendNowPickerOverlay = buildSendNowPickerModal();
+  const listEl = _sendNowPickerOverlay.querySelector('#wrSnpList');
+  const confirmBtn = _sendNowPickerOverlay.querySelector('#wrSnpConfirm');
+  listEl.innerHTML = '<div class="wr-empty-side" style="padding:30px 0;">Loading templates…</div>';
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Send now';
+  _sendNowPickerOverlay.style.display = 'flex';
+
+  const templates = await loadActiveTemplates();
+  if (!templates || templates.length === 0) {
+    listEl.innerHTML = '<div class="wr-empty-side" style="padding:30px 0;">No active templates. Activate one in <a href="/admin/nurture-templates.html">Nurture templates</a> first.</div>';
+    return;
+  }
+
+  const preselected = ctx.nurture?.next_queued?.template_id || null;
+  listEl.innerHTML = templates.map(t => {
+    const phase = PHASE_LABELS[t.phase] || t.phase;
+    const filterLabel = t.project_type_filter ? ` · ${escapeHtml(t.project_type_filter)} only` : '';
+    const isSelected = t.id === preselected;
+    return `
+      <label class="wr-snp-row ${isSelected ? 'selected' : ''}">
+        <input type="radio" name="wrSnpTpl" value="${escapeAttr(t.id)}" ${isSelected ? 'checked' : ''}>
+        <div class="wr-snp-row-info">
+          <div class="wr-snp-row-subject">${escapeHtml(t.subject || '(no subject)')}</div>
+          <div class="wr-snp-row-meta">${escapeHtml(phase)} · day ${t.day_offset}${filterLabel}</div>
+        </div>
+      </label>
+    `;
+  }).join('');
+
+  confirmBtn.disabled = !preselected;
+
+  listEl.querySelectorAll('input[name="wrSnpTpl"]').forEach(input => {
+    input.addEventListener('change', () => {
+      // visual selected state
+      listEl.querySelectorAll('.wr-snp-row').forEach(r => r.classList.remove('selected'));
+      input.closest('.wr-snp-row')?.classList.add('selected');
+      confirmBtn.disabled = false;
+    });
+  });
+}
+
+function buildSendNowPickerModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'wr-snp-overlay';
+  overlay.innerHTML = `
+    <div class="wr-snp-modal" role="dialog" aria-modal="true" aria-labelledby="wrSnpTitle">
+      <button type="button" class="wr-snp-close" aria-label="Close">×</button>
+      <div class="wr-snp-head">
+        <div class="wr-snp-eyebrow">Send now</div>
+        <h2 id="wrSnpTitle" class="wr-snp-title">Pick a template to send to ${escapeHtml(ctx.client?.name || 'this client')}</h2>
+        <div class="wr-snp-sub">Bypasses the 4pm cron. Test mode redirects still apply if test mode is ON.</div>
+      </div>
+      <div class="wr-snp-body" id="wrSnpList"></div>
+      <div class="wr-snp-foot">
+        <button type="button" class="wrace-btn wrace-cancel" id="wrSnpCancel">Cancel</button>
+        <button type="button" class="wrace-btn wrace-save" id="wrSnpConfirm" disabled>Send now</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSendNowPickerModal(); });
+  overlay.querySelector('.wr-snp-close').addEventListener('click', closeSendNowPickerModal);
+  overlay.querySelector('#wrSnpCancel').addEventListener('click', closeSendNowPickerModal);
+  overlay.querySelector('#wrSnpConfirm').addEventListener('click', () => {
+    const checked = overlay.querySelector('input[name="wrSnpTpl"]:checked');
+    if (!checked) return;
+    applySendAdhoc(checked.value);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && _sendNowPickerOverlay && _sendNowPickerOverlay.style.display !== 'none') {
+      closeSendNowPickerModal();
+    }
+  });
+  return overlay;
+}
+
+function closeSendNowPickerModal() {
+  if (_sendNowPickerOverlay) _sendNowPickerOverlay.style.display = 'none';
+}
+
+// ─── 14C.3 Edit queued send modal ─────────────────────────────────────────
+let _editQueuedOverlay = null;
+let _editQueuedRowId = null;
+
+async function openEditQueuedModal() {
+  // Fetch the next queued row plus its template (for fallback subject/body).
+  const { data: row, error } = await supabase
+    .from('nurture_sends')
+    .select('id, template_id, rendered_subject, rendered_body, recipient_override_email, scheduled_for, nurture_templates(subject, body_md)')
+    .eq('client_id', ctx.client.id)
+    .eq('status', 'would_send')
+    .order('scheduled_for', { ascending: true, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    alert('Could not load queued send: ' + error.message);
+    return;
+  }
+  if (!row) {
+    alert('No queued email to edit.');
+    return;
+  }
+
+  if (!_editQueuedOverlay) _editQueuedOverlay = buildEditQueuedModal();
+
+  const tmpl = row.nurture_templates || {};
+  const initialSubject = row.rendered_subject ?? tmpl.subject ?? '';
+  const initialBody    = row.rendered_body    ?? tmpl.body_md ?? '';
+  const initialEmail   = row.recipient_override_email ?? ctx.client.email ?? '';
+
+  _editQueuedRowId = row.id;
+  _editQueuedOverlay.querySelector('#wrEqSubject').value = initialSubject;
+  _editQueuedOverlay.querySelector('#wrEqBody').value    = initialBody;
+  _editQueuedOverlay.querySelector('#wrEqEmail').value   = initialEmail;
+
+  const err = _editQueuedOverlay.querySelector('#wrEqErr');
+  err.classList.add('hidden');
+  err.textContent = '';
+
+  const saveBtn = _editQueuedOverlay.querySelector('#wrEqSave');
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Save edits';
+
+  _editQueuedOverlay.style.display = 'flex';
+  setTimeout(() => _editQueuedOverlay.querySelector('#wrEqSubject').focus(), 50);
+}
+
+function buildEditQueuedModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'wr-eq-overlay';
+  overlay.innerHTML = `
+    <div class="wr-eq-modal" role="dialog" aria-modal="true" aria-labelledby="wrEqTitle">
+      <button type="button" class="wr-eq-close" aria-label="Close">×</button>
+      <div class="wr-eq-head">
+        <div class="wr-eq-eyebrow">Edit queued nurture email</div>
+        <h2 id="wrEqTitle" class="wr-eq-title">Override before next send</h2>
+        <div class="wr-eq-sub">Saves to nurture_sends.rendered_subject / rendered_body / recipient_override_email. Worker will use these verbatim instead of the template.</div>
+      </div>
+      <div class="wr-eq-body">
+        <div class="wr-eq-error hidden" id="wrEqErr"></div>
+        <div class="wr-eq-field">
+          <label>Subject</label>
+          <input type="text" id="wrEqSubject" autocomplete="off">
+        </div>
+        <div class="wr-eq-field">
+          <label>Recipient email <span style="text-transform:none; font-weight:400; color:#aaa;">(blank = use the client's email)</span></label>
+          <input type="email" id="wrEqEmail" autocomplete="off">
+        </div>
+        <div class="wr-eq-field">
+          <label>Body (markdown)</label>
+          <textarea id="wrEqBody" rows="14" autocomplete="off"></textarea>
+        </div>
+      </div>
+      <div class="wr-eq-foot">
+        <button type="button" class="wrace-btn wrace-cancel" id="wrEqCancel">Cancel</button>
+        <button type="button" class="wrace-btn wrace-save" id="wrEqSave">Save edits</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeEditQueuedModal(); });
+  overlay.querySelector('.wr-eq-close').addEventListener('click', closeEditQueuedModal);
+  overlay.querySelector('#wrEqCancel').addEventListener('click', closeEditQueuedModal);
+  overlay.querySelector('#wrEqSave').addEventListener('click', submitEditQueued);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && _editQueuedOverlay && _editQueuedOverlay.style.display !== 'none') {
+      closeEditQueuedModal();
+    }
+  });
+  return overlay;
+}
+
+function closeEditQueuedModal() {
+  if (_editQueuedOverlay) _editQueuedOverlay.style.display = 'none';
+  _editQueuedRowId = null;
+}
+
+async function submitEditQueued() {
+  if (!_editQueuedRowId) return;
+  const subject = _editQueuedOverlay.querySelector('#wrEqSubject').value.trim();
+  const body    = _editQueuedOverlay.querySelector('#wrEqBody').value;
+  const email   = _editQueuedOverlay.querySelector('#wrEqEmail').value.trim();
+  const err     = _editQueuedOverlay.querySelector('#wrEqErr');
+  err.classList.add('hidden');
+
+  if (!subject) {
+    err.textContent = 'Subject is required.';
+    err.classList.remove('hidden');
+    return;
+  }
+  if (email && !email.includes('@')) {
+    err.textContent = 'Recipient email looks invalid.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  const saveBtn = _editQueuedOverlay.querySelector('#wrEqSave');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+
+  const { error } = await supabase.rpc('nurture_edit_queued', {
+    p_send_id: _editQueuedRowId,
+    p_subject: subject,
+    p_body: body,
+    p_recipient_email: email || null,
+  });
+
+  if (error) {
+    err.textContent = 'Could not save: ' + error.message;
+    err.classList.remove('hidden');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save edits';
+    return;
+  }
+
+  closeEditQueuedModal();
+  await reloadNurture();
+}
+
+// ─── Engagement full-log modal ────────────────────────────────────────────
+let _engagementLogOverlay = null;
+
+function openEngagementFullLogModal() {
+  if (!_engagementLogOverlay) _engagementLogOverlay = buildEngagementLogModal();
+  const list = _engagementLogOverlay.querySelector('#wrEngLogList');
+  if (ctx.events.length === 0) {
+    list.innerHTML = '<div class="wr-empty-side" style="padding:30px 0;">No events logged yet.</div>';
+  } else {
+    list.innerHTML = ctx.events.map(e => {
+      const time = formatRelativeShort(e.occurred_at);
+      const date = formatDate(e.occurred_at);
+      const desc = describeEvent(e);
+      return `
+        <div class="wr-eng-log-row">
+          <div class="wr-eng-log-time">
+            <span class="wr-eng-log-rel">${escapeHtml(time)}</span>
+            <span class="wr-eng-log-abs">${escapeHtml(date)}</span>
+          </div>
+          <span class="wr-eng-log-body">${escapeHtml(desc)}</span>
+        </div>
+      `;
+    }).join('');
+  }
+  _engagementLogOverlay.style.display = 'flex';
+}
+
+function buildEngagementLogModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'wr-eng-log-overlay';
+  overlay.innerHTML = `
+    <div class="wr-eng-log-modal" role="dialog" aria-modal="true">
+      <button type="button" class="wr-eng-log-close" aria-label="Close">×</button>
+      <div class="wr-eng-log-head">
+        <div class="wr-eng-log-eyebrow">Engagement timeline</div>
+        <h2 class="wr-eng-log-title">All events for ${escapeHtml(ctx.client?.name || 'this client')}</h2>
+        <div class="wr-eng-log-sub">Showing the most recent ${ENGAGEMENT_EVENTS_LIMIT} proposal_events across all assigned proposals.</div>
+      </div>
+      <div class="wr-eng-log-body" id="wrEngLogList"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = () => { overlay.style.display = 'none'; };
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector('.wr-eng-log-close').addEventListener('click', close);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+  });
+  return overlay;
+}
+
+function wireEngagementHandlers() {
+  const expandBtn = document.getElementById('wrEngExpandBtn');
+  expandBtn?.addEventListener('click', openEngagementFullLogModal);
+}
+
+// ─── Proposal-card handlers (Level A) ─────────────────────────────────────
+function wireProposalCardHandlers() {
+  document.querySelectorAll('[data-pcard-action]').forEach(el => {
+    const action = el.dataset.pcardAction;
+    if (action === 'status') {
+      el.addEventListener('change', onProposalStatusChange);
+    } else {
+      el.addEventListener('click', onProposalCardClick);
+    }
+  });
+  // Enter-to-save on the address input
+  document.querySelectorAll('.wr-paddr-input').forEach(input => {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const proposalId = input.dataset.proposalId;
+        savePoposalAddress(proposalId, input.value);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        const proposalId = input.dataset.proposalId;
+        cancelProposalAddressEdit(proposalId);
+      }
+    });
+    setTimeout(() => input.focus(), 30);
+  });
+}
+
+async function onProposalCardClick(e) {
+  const btn = e.currentTarget;
+  const action = btn.dataset.pcardAction;
+  const proposalId = btn.dataset.proposalId;
+  const cpId = btn.dataset.cpId;
+
+  switch (action) {
+    case 'edit-addr':
+      setProposalUi(proposalId, { editingAddress: true });
+      rerenderProposalCards();
+      return;
+    case 'cancel-addr':
+      cancelProposalAddressEdit(proposalId);
+      return;
+    case 'save-addr': {
+      const input = document.querySelector(`.wr-paddr-input[data-proposal-id="${CSS.escape(proposalId)}"]`);
+      if (!input) return;
+      await savePoposalAddress(proposalId, input.value);
+      return;
+    }
+    case 'mark-sent':
+      await markProposalSent(cpId);
+      return;
+    case 'toggle-discount':
+      await toggleProposalDiscount(proposalId);
+      return;
+  }
+}
+
+async function onProposalStatusChange(e) {
+  const sel = e.currentTarget;
+  const cpId = sel.dataset.cpId;
+  const newStatus = sel.value;
+  if (!cpId || !newStatus) return;
+
+  sel.disabled = true;
+  const { error } = await supabase
+    .from('client_proposals')
+    .update({ status: newStatus })
+    .eq('id', cpId);
+  sel.disabled = false;
+
+  if (error) {
+    alert('Could not update status: ' + error.message);
+    // Revert local select to whatever the cp.status was
+    const cp = ctx.clientProposals.find(x => x.id === cpId);
+    if (cp) sel.value = cp.status;
+    return;
+  }
+  // Update local state so subsequent re-renders are correct
+  const cp = ctx.clientProposals.find(x => x.id === cpId);
+  if (cp) cp.status = newStatus;
+}
+
+async function markProposalSent(cpId) {
+  if (!cpId) return;
+  const cp = ctx.clientProposals.find(x => x.id === cpId);
+  if (!cp) return;
+  if (cp.sent_at) return; // already sent — button shouldn't have rendered
+  const nowIso = new Date().toISOString();
+  // If status is still draft, also bump it to sent (matches the natural flow)
+  const updates = { sent_at: nowIso };
+  if (cp.status === 'draft') updates.status = 'sent';
+
+  const { error } = await supabase
+    .from('client_proposals')
+    .update(updates)
+    .eq('id', cpId);
+  if (error) {
+    alert('Could not mark as sent: ' + error.message);
+    return;
+  }
+  cp.sent_at = nowIso;
+  if (updates.status) cp.status = updates.status;
+  rerenderProposalCards();
+}
+
+async function toggleProposalDiscount(proposalId) {
+  if (!proposalId) return;
+  const cp = ctx.clientProposals.find(x => x.proposal?.id === proposalId);
+  const p = cp?.proposal;
+  if (!p) return;
+  const next = !(p.show_signing_discount !== false); // flip with NULL-treated-as-true semantics
+  const { error } = await supabase
+    .from('proposals')
+    .update({ show_signing_discount: next })
+    .eq('id', proposalId);
+  if (error) {
+    alert('Could not toggle discount: ' + error.message);
+    return;
+  }
+  p.show_signing_discount = next;
+  rerenderProposalCards();
+  // Discount-left hot stat may change; re-render the whole shell so the
+  // top stat row stays in sync. Cheap; preserves chat scroll because we
+  // don't touch the messages container content.
+  render();
+  hydrateSignedUrls(document.getElementById('wrMessages'));
+}
+
+async function savePoposalAddress(proposalId, value) {
+  if (!proposalId) return;
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    alert('Address cannot be empty.');
+    return;
+  }
+  const { error } = await supabase
+    .from('proposals')
+    .update({ address: trimmed })
+    .eq('id', proposalId);
+  if (error) {
+    alert('Could not save address: ' + error.message);
+    return;
+  }
+  const cp = ctx.clientProposals.find(x => x.proposal?.id === proposalId);
+  if (cp?.proposal) cp.proposal.address = trimmed;
+  setProposalUi(proposalId, { editingAddress: false });
+  rerenderProposalCards();
+}
+
+function cancelProposalAddressEdit(proposalId) {
+  setProposalUi(proposalId, { editingAddress: false });
+  rerenderProposalCards();
+}
+
+function setProposalUi(proposalId, patch) {
+  const prev = ctx.proposalUi.get(proposalId) || {};
+  ctx.proposalUi.set(proposalId, { ...prev, ...patch });
+}
+
+// Legacy applySendNow retained as no-op so any external callers don't error.
+// All UI paths now route through applySendAdhoc via openSendNowPickerModal.
+async function applySendNow() {
+  await openSendNowPickerModal();
 }
 
 // ─── History modal ───────────────────────────────────────────────────────
@@ -1117,6 +1895,8 @@ function wireHandlers() {
   fileInput?.addEventListener('change', handleFileSelect);
   wireSuggestionHandlers();
   wireNurtureHandlers();
+  wireProposalCardHandlers();
+  wireEngagementHandlers();
   setTimeout(() => composer?.focus(), 80);
 }
 
@@ -1958,6 +2738,419 @@ function ensureAttachmentStyles() {
     .wr-outreach-back:hover {
       border-color: #5d7e69;
       color: #4a6654;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// War Room Level A + 14C.3 styles — back link, header buttons, proposal-
+// card controls, Engagement panel, Substitutions/Redesigns rows, and the
+// three new modals (Send Now picker, Edit queued, Engagement full log).
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ensureLevelAStyles() {
+  if (document.getElementById('wr-leva-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'wr-leva-styles';
+  style.textContent = `
+    /* ─── Back link + +New proposal button ─────────────────────────── */
+    .wr-back-link {
+      display: inline-flex; align-items: center;
+      padding: 14px 24px 0;
+      font-size: 12px; font-weight: 600;
+      color: #5d7e69;
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      transition: color 0.12s;
+    }
+    .wr-back-link:hover { color: #4a6654; text-decoration: underline; }
+    .wr-action-btn.primary {
+      background: #5d7e69; color: #fff;
+      border-color: #5d7e69;
+      box-shadow: 0 2px 6px rgba(93, 126, 105, 0.2);
+    }
+    .wr-action-btn.primary:hover {
+      background: #4a6654; border-color: #4a6654; color: #fff;
+    }
+
+    /* ─── Proposal-card Level A controls ───────────────────────────── */
+    .wr-proposal-card-addr {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; color: #1a1f2e;
+      line-height: 1.35;
+    }
+    .wr-paddr-label { flex: 1; min-width: 0; word-break: break-word; }
+    .wr-paddr-pencil {
+      flex-shrink: 0;
+      background: transparent; border: 0;
+      width: 22px; height: 22px;
+      cursor: pointer; opacity: 0.55;
+      font-size: 11px; line-height: 1;
+      border-radius: 4px;
+      transition: opacity 0.12s, background 0.12s;
+    }
+    .wr-paddr-pencil:hover { opacity: 1; background: #faf8f3; }
+
+    .wr-paddr-edit {
+      display: flex; flex-wrap: wrap; gap: 5px;
+      align-items: center; margin-bottom: 4px;
+    }
+    .wr-paddr-input {
+      flex: 1 1 100%;
+      font: inherit; font-size: 13px; font-weight: 600;
+      padding: 6px 8px;
+      border: 1px solid #5d7e69;
+      border-radius: 6px;
+      box-shadow: 0 0 0 3px #e8eee9;
+      box-sizing: border-box;
+      color: #1a1f2e;
+    }
+    .wr-paddr-input:focus { outline: none; }
+
+    .wr-proposal-card-controls {
+      display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+      margin-top: 6px; padding-top: 6px;
+      border-top: 1px solid #ece9dd;
+    }
+    .wr-paddr-status {
+      font: inherit; font-size: 11px;
+      padding: 4px 6px;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      background: #fff; color: #353535;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: border-color 0.12s;
+    }
+    .wr-paddr-status:hover { border-color: #5d7e69; }
+    .wr-paddr-status:focus { outline: none; border-color: #5d7e69; box-shadow: 0 0 0 2px #e8eee9; }
+
+    .wr-discount-pill {
+      font: inherit; font-size: 11px; font-weight: 600;
+      padding: 4px 9px; border-radius: 999px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      font-family: inherit;
+    }
+    .wr-discount-pill.on {
+      background: #fff4d4; color: #7a5a10; border-color: #f0e0b8;
+    }
+    .wr-discount-pill.on:hover { background: #ffe9b5; }
+    .wr-discount-pill.off {
+      background: #f0f0f0; color: #888; border-color: #e5e5e5;
+    }
+    .wr-discount-pill.off:hover { background: #e5e5e5; color: #555; }
+
+    .wr-mini-btn.cancel { background: #f4f4ef; color: #666; }
+    .wr-mini-btn.cancel:hover { background: #e8e6dd; }
+    .wr-mini-btn.primary {
+      background: #5d7e69; color: #fff; border-color: #5d7e69;
+    }
+    .wr-mini-btn.primary:hover { background: #4a6654; color: #fff; }
+
+    /* ─── Engagement panel ─────────────────────────────────────────── */
+    .wr-eng-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 8px; flex-wrap: wrap;
+      padding-bottom: 8px; margin-bottom: 8px;
+      border-bottom: 1px solid #ece9dd;
+    }
+    .wr-eng-count {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: #353535;
+    }
+    .wr-eng-count strong { font-size: 16px; color: #1a1f2e; font-weight: 700; }
+    .wr-eng-live-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; letter-spacing: 0.08em;
+      background: #d9534f; color: #fff;
+      padding: 2px 6px; border-radius: 999px;
+      text-transform: uppercase;
+      margin-left: 4px;
+    }
+    .wr-eng-recency {
+      font-size: 11px; color: #888;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .wr-eng-timeline {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .wr-eng-row {
+      display: flex; gap: 8px; align-items: baseline;
+      font-size: 12.5px; line-height: 1.4;
+      padding: 4px 0;
+    }
+    .wr-eng-time {
+      flex-shrink: 0; min-width: 32px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      color: #888; text-align: right;
+    }
+    .wr-eng-body { color: #353535; }
+    .wr-eng-expand {
+      display: block; width: 100%;
+      background: transparent; border: 0;
+      padding: 8px 0 0; margin-top: 6px;
+      font-size: 12px; color: #5d7e69;
+      text-align: left; cursor: pointer;
+      font-family: inherit; font-weight: 600;
+    }
+    .wr-eng-expand:hover { color: #4a6654; text-decoration: underline; }
+
+    /* ─── Substitutions / Redesigns side rows ──────────────────────── */
+    .wr-side-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; padding: 4px 0;
+    }
+    .wr-side-row-label {
+      font-size: 12px; color: #888;
+    }
+    .wr-side-badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 600;
+      padding: 3px 9px; border-radius: 999px;
+      letter-spacing: 0.04em;
+      background: #f0f0f0; color: #666;
+    }
+    .wr-side-badge.amber {
+      background: #fff4d4; color: #7a5a10;
+    }
+    .wr-side-mini-link {
+      font-size: 12px; color: #888;
+      text-decoration: none; font-weight: 500;
+      white-space: nowrap;
+    }
+    .wr-side-mini-link:hover { color: #5d7e69; text-decoration: underline; }
+    .wr-side-mini-link.primary {
+      color: #5d7e69; font-weight: 600;
+    }
+    .wr-side-mini-link.primary:hover { color: #4a6654; }
+
+    /* ─── Engagement full-log modal ────────────────────────────────── */
+    .wr-eng-log-overlay {
+      position: fixed; inset: 0; z-index: 1240;
+      background: rgba(26, 31, 46, 0.55);
+      display: none; align-items: flex-start; justify-content: center;
+      padding: 56px 20px 20px; overflow-y: auto;
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .wr-eng-log-modal {
+      background: #fff; border-radius: 14px;
+      max-width: 640px; width: 100%;
+      max-height: calc(100vh - 76px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+      color: #353535; overflow: hidden;
+      display: flex; flex-direction: column; position: relative;
+    }
+    .wr-eng-log-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 32px; height: 32px;
+      background: transparent; border: 0; cursor: pointer;
+      font-size: 18px; color: #888;
+      border-radius: 6px;
+    }
+    .wr-eng-log-close:hover { background: #f4f4ef; color: #353535; }
+    .wr-eng-log-head { padding: 22px 28px 16px; border-bottom: 1px solid #e8e6dd; }
+    .wr-eng-log-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 0.18em;
+      color: #5d7e69; text-transform: uppercase;
+      margin-bottom: 6px; font-weight: 600;
+    }
+    .wr-eng-log-title {
+      font-size: 18px; font-weight: 600;
+      letter-spacing: -0.01em; margin: 0 0 4px;
+    }
+    .wr-eng-log-sub { font-size: 12px; color: #888; }
+    .wr-eng-log-body {
+      flex: 1; overflow-y: auto;
+      padding: 12px 28px 26px;
+    }
+    .wr-eng-log-row {
+      display: flex; gap: 14px; align-items: baseline;
+      padding: 10px 0;
+      border-bottom: 1px solid #ece9dd;
+      font-size: 13px;
+    }
+    .wr-eng-log-row:last-child { border-bottom: 0; }
+    .wr-eng-log-time {
+      flex-shrink: 0;
+      display: flex; flex-direction: column;
+      min-width: 92px;
+    }
+    .wr-eng-log-rel {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; color: #353535; font-weight: 600;
+    }
+    .wr-eng-log-abs {
+      font-size: 10.5px; color: #aaa;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .wr-eng-log-body { color: #353535; }
+
+    /* ─── Send Now picker modal (14C.3) ────────────────────────────── */
+    .wr-snp-overlay {
+      position: fixed; inset: 0; z-index: 1260;
+      background: rgba(26, 31, 46, 0.55);
+      display: none; align-items: flex-start; justify-content: center;
+      padding: 56px 20px 20px; overflow-y: auto;
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .wr-snp-modal {
+      background: #fff; border-radius: 14px;
+      max-width: 580px; width: 100%;
+      max-height: calc(100vh - 76px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+      color: #353535; overflow: hidden;
+      display: flex; flex-direction: column; position: relative;
+    }
+    .wr-snp-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 32px; height: 32px;
+      background: transparent; border: 0; cursor: pointer;
+      font-size: 18px; color: #888;
+      border-radius: 6px;
+    }
+    .wr-snp-close:hover { background: #f4f4ef; color: #353535; }
+    .wr-snp-head { padding: 22px 28px 14px; border-bottom: 1px solid #e8e6dd; }
+    .wr-snp-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 0.18em;
+      color: #5d7e69; text-transform: uppercase;
+      margin-bottom: 6px; font-weight: 600;
+    }
+    .wr-snp-title {
+      font-size: 17px; font-weight: 600;
+      letter-spacing: -0.01em; margin: 0 0 6px;
+      line-height: 1.35;
+    }
+    .wr-snp-sub { font-size: 12px; color: #888; line-height: 1.45; }
+    .wr-snp-body { flex: 1; overflow-y: auto; padding: 8px 28px; }
+    .wr-snp-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px 12px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .wr-snp-row:hover { background: #faf8f3; }
+    .wr-snp-row.selected {
+      background: #f4f8f5;
+      border-color: #5d7e69;
+    }
+    .wr-snp-row input[type="radio"] {
+      margin-top: 4px; flex-shrink: 0;
+      accent-color: #5d7e69;
+    }
+    .wr-snp-row-info { flex: 1; min-width: 0; }
+    .wr-snp-row-subject {
+      font-size: 13.5px; font-weight: 600;
+      color: #1a1f2e; margin-bottom: 3px;
+      line-height: 1.35;
+    }
+    .wr-snp-row-meta {
+      font-size: 11px; color: #888;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.02em;
+    }
+    .wr-snp-foot {
+      padding: 14px 28px;
+      border-top: 1px solid #e8e6dd;
+      display: flex; justify-content: flex-end; gap: 10px;
+      background: #faf8f3;
+    }
+
+    /* ─── Edit queued send modal (14C.3) ───────────────────────────── */
+    .wr-eq-overlay {
+      position: fixed; inset: 0; z-index: 1265;
+      background: rgba(26, 31, 46, 0.55);
+      display: none; align-items: flex-start; justify-content: center;
+      padding: 40px 20px 20px; overflow-y: auto;
+      font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .wr-eq-modal {
+      background: #fff; border-radius: 14px;
+      max-width: 640px; width: 100%;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+      color: #353535; overflow: hidden;
+      display: flex; flex-direction: column; position: relative;
+    }
+    .wr-eq-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 32px; height: 32px;
+      background: transparent; border: 0; cursor: pointer;
+      font-size: 18px; color: #888;
+      border-radius: 6px;
+    }
+    .wr-eq-close:hover { background: #f4f4ef; color: #353535; }
+    .wr-eq-head { padding: 22px 28px 14px; border-bottom: 1px solid #e8e6dd; }
+    .wr-eq-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 0.18em;
+      color: #5d7e69; text-transform: uppercase;
+      margin-bottom: 6px; font-weight: 600;
+    }
+    .wr-eq-title {
+      font-size: 18px; font-weight: 600;
+      letter-spacing: -0.01em; margin: 0 0 6px;
+    }
+    .wr-eq-sub { font-size: 12px; color: #888; line-height: 1.5; }
+    .wr-eq-body { padding: 18px 28px; }
+    .wr-eq-error {
+      background: #fbeeee; color: #b91c1c;
+      border-left: 3px solid #b91c1c;
+      padding: 10px 14px; border-radius: 6px;
+      font-size: 13px; line-height: 1.5; margin-bottom: 14px;
+    }
+    .wr-eq-error.hidden { display: none; }
+    .wr-eq-field { margin-bottom: 14px; }
+    .wr-eq-field label {
+      display: block; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: #888; margin-bottom: 5px;
+    }
+    .wr-eq-field input, .wr-eq-field textarea {
+      width: 100%; font-family: inherit; font-size: 14px;
+      padding: 9px 12px; border: 1px solid #d4cfc0;
+      border-radius: 6px; background: #fff; color: #353535;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      box-sizing: border-box;
+    }
+    .wr-eq-field textarea {
+      min-height: 220px; resize: vertical;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 13px; line-height: 1.55;
+    }
+    .wr-eq-field input:focus, .wr-eq-field textarea:focus {
+      outline: none; border-color: #5d7e69;
+      box-shadow: 0 0 0 3px #e8eee9;
+    }
+    .wr-eq-foot {
+      padding: 16px 28px; border-top: 1px solid #e8e6dd;
+      display: flex; justify-content: flex-end; gap: 10px;
+      background: #faf8f3;
+    }
+
+    /* ─── Next-queued nurture card head + edit pencil (14C.3) ──────── */
+    .wr-nur-card-head {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 6px; margin-bottom: 3px;
+    }
+    .wr-nur-edit-btn {
+      flex-shrink: 0;
+      background: transparent; border: 0;
+      font-family: inherit; font-size: 11px;
+      color: #5d7e69; cursor: pointer;
+      padding: 2px 6px; border-radius: 4px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .wr-nur-edit-btn:hover {
+      background: #e8eee9; color: #4a6654;
     }
   `;
   document.head.appendChild(style);
