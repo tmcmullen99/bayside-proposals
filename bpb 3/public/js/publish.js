@@ -3929,7 +3929,12 @@ function renderWhyPrepSection(installSections, sections, materials) {
   const thirdPartyCardsHtml = renderThirdPartyPrepCards(sections, materials, belgardCount);
 
   const combinedHtml = belgardCardsHtml + thirdPartyCardsHtml;
-  const cardsHtml = combinedHtml || renderHardcodedPrepCards();
+  // Sprint 14C.5: legacy renderHardcodedPrepCards() fallback removed.
+  // installation_guide_sections is now a hard requirement — the section
+  // either renders the data-driven cards or renders empty (which itself
+  // signals a misconfigured catalog). Keeping a 4-card "Proper base
+  // preparation" zombie copy in production was misleading designers.
+  const cardsHtml = combinedHtml;
 
   return `
     <section class="pub-prep">
@@ -4139,34 +4144,6 @@ function scopeContains(sections, regex) {
     }
   }
   return false;
-}
-
-function renderHardcodedPrepCards() {
-  // Fallback used when no install_guide_sections match the proposal's
-  // material categories. Matches the Sprint 1 content verbatim so the page
-  // never renders empty even for proposals with uncategorized materials.
-  return `
-    <div class="pub-prep-card">
-      <div class="pub-prep-card-number">01</div>
-      <div class="pub-prep-card-title">Proper base preparation</div>
-      <div class="pub-prep-card-body">We excavate to the depth required for long-term stability and install a thick aggregate base below every paver. Skimping here is the most common shortcut — and the most common reason pavers settle, dip, or heave within a few years.</div>
-    </div>
-    <div class="pub-prep-card">
-      <div class="pub-prep-card-number">02</div>
-      <div class="pub-prep-card-title">ICPI-standard compaction</div>
-      <div class="pub-prep-card-body">The Interlocking Concrete Pavement Institute sets compaction standards for every paver installation. We compact the base in multiple lifts with commercial-grade equipment to reach the required density at every layer — not just the top.</div>
-    </div>
-    <div class="pub-prep-card">
-      <div class="pub-prep-card-number">03</div>
-      <div class="pub-prep-card-title">Edge restraints and drainage</div>
-      <div class="pub-prep-card-body">Pavers don't move when they're properly restrained and when water can't pool underneath. We install permanent edge restraints and grade every site for positive drainage away from your home.</div>
-    </div>
-    <div class="pub-prep-card">
-      <div class="pub-prep-card-number">04</div>
-      <div class="pub-prep-card-title">Lifetime workmanship warranty</div>
-      <div class="pub-prep-card-body">Because we follow ICPI standards and document our process, we back every installation with a lifetime warranty on workmanship. Ask any installer for their warranty in writing — what you find will tell you a lot.</div>
-    </div>
-  `;
 }
 
 function renderPhotosSection(photos) {
