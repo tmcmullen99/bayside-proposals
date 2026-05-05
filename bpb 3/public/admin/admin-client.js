@@ -165,17 +165,91 @@ const ctx = {
     showFatal('Could not load this client. They may not exist, or you may not have access.');
     return;
   }
+  // 14C.4: refuse to render the war room for a soft-deleted client.
+  // Surface a Restore affordance when the viewer is allowed (master, or
+  // designer-as-creator); otherwise show the message and a Back link.
+  if (ctx.client.deleted_at) {
+    renderDeletedClientScreen();
+    return;
+  }
   render();
   hydrateSignedUrls(document.getElementById('wrMessages'));
   loadSuggestions();
   subscribeRealtime();
 })();
 
+// 14C.4: rendered in place of the war room when ctx.client.deleted_at is set.
+// Master + creator-designer get a Restore button; other designers see only
+// the message + back link.
+function renderDeletedClientScreen() {
+  const c = ctx.client;
+  const isMaster = ctx.viewer.role === 'master';
+  const isCreator = c.created_by === ctx.viewer.id;
+  const canRestore = isMaster || isCreator;
+  const deletedWhen = formatDate(c.deleted_at);
+  const backHref = isMaster ? '/admin/clients' : '/admin/pipeline.html';
+  const backLabel = isMaster ? '← All clients' : '← Pipeline';
+
+  document.getElementById('wrCrumbName').textContent = c.name || '(deleted client)';
+  document.title = `${c.name || 'Deleted client'} · Admin · Bayside Proposal Builder`;
+
+  const restoreBtnHtml = canRestore
+    ? `<button type="button" class="wr-action-btn primary" id="wrDeletedRestoreBtn">↺ Restore client</button>`
+    : '';
+
+  document.getElementById('wrContent').innerHTML = `
+    <div class="wr-card" style="padding: 40px 32px;">
+      <a class="wr-back-link" href="${escapeAttr(backHref)}" style="padding: 0 0 12px;">${escapeHtml(backLabel)}</a>
+      <div style="text-align: center; padding: 40px 20px;">
+        <div style="font-size: 56px; line-height: 1; margin-bottom: 16px;">🗑</div>
+        <div style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.18em; color: #b91c1c; text-transform: uppercase; font-weight: 600; margin-bottom: 8px;">
+          Deleted client
+        </div>
+        <h2 style="font-size: 22px; font-weight: 600; margin: 0 0 10px;">
+          ${escapeHtml(c.name || '(unnamed client)')} was moved to trash
+        </h2>
+        <div style="font-size: 14px; color: #666; line-height: 1.55; max-width: 480px; margin: 0 auto 24px;">
+          Soft-deleted on ${escapeHtml(deletedWhen)}. The war room is hidden until they're restored. ${canRestore ? 'You can restore them now or view all trashed clients.' : 'Only the creator or a master can restore them.'}
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          ${restoreBtnHtml}
+          <a class="wr-action-btn" href="/admin/clients">All clients</a>
+          ${isMaster ? `<a class="wr-action-btn" href="/admin/clients" id="wrDeletedShowTrashLink">View trash</a>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Update shell crumb if present
+  const shellBack = document.getElementById('wrCrumbBack');
+  if (shellBack) {
+    shellBack.setAttribute('href', backHref);
+    shellBack.textContent = backLabel;
+  }
+
+  if (canRestore) {
+    document.getElementById('wrDeletedRestoreBtn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('wrDeletedRestoreBtn');
+      btn.disabled = true;
+      btn.textContent = 'Restoring…';
+      const { data, error } = await supabase.rpc('restore_client', { p_client_id: c.id });
+      if (error || !data || data.ok === false) {
+        alert('Could not restore: ' + (error?.message || data?.error || 'unknown error'));
+        btn.disabled = false;
+        btn.textContent = '↺ Restore client';
+        return;
+      }
+      window.location.reload();
+    });
+  }
+}
+
 async function loadAll(clientId) {
   const { data: client, error: clientErr } = await supabase
     .from('clients')
     .select(`
-      id, name, email, phone, address, notes, user_id, created_at,
+      id, name, email, phone, address, notes, user_id, created_at, created_by,
+      deleted_at,
       referral_credit_cents, referral_credit_used_cents, refer_code,
       client_proposals (
         id, status, sent_at, first_viewed_at, signed_at, created_at,
