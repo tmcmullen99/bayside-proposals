@@ -241,13 +241,27 @@ async function handleUpload(materialId, file, inputEl) {
     const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
     const publicUrl = `${urlData.publicUrl}?v=${Date.now()}`;
 
-    // Update the catalog row
+    // Update the catalog row (legacy table)
     const { error: updateErr } = await supabase
       .from('belgard_materials')
       .update({ swatch_url: publicUrl })
       .eq('id', materialId);
 
     if (updateErr) throw updateErr;
+
+    // Phase 3B.1 contract: mirror into the unified materials table so the
+    // picker (which reads from materials, not belgard_materials) reflects
+    // the new swatch immediately. Same dual-write pattern materials.js
+    // uses on its primary_image_url backfill — non-fatal so a dropped
+    // mirror doesn't fail the whole upload (data is still in legacy and
+    // a re-run of the backfill SQL recovers it).
+    const { error: mirrorErr } = await supabase
+      .from('materials')
+      .update({ swatch_url: publicUrl, updated_at: new Date().toISOString() })
+      .eq('id', materialId);
+    if (mirrorErr) {
+      console.warn('Could not mirror swatch_url to materials:', mirrorErr.message);
+    }
 
     // Mutate in-memory state and re-render
     const m = allMaterials.find((x) => x.id === materialId);
@@ -288,13 +302,22 @@ async function handleRemove(materialId) {
       if (delErr) console.warn('Storage delete failed (non-fatal):', delErr);
     }
 
-    // Clear the column
+    // Clear the column (legacy table)
     const { error: updateErr } = await supabase
       .from('belgard_materials')
       .update({ swatch_url: null })
       .eq('id', materialId);
 
     if (updateErr) throw updateErr;
+
+    // Phase 3B.1 dual-write: also clear from the unified materials table.
+    const { error: mirrorErr } = await supabase
+      .from('materials')
+      .update({ swatch_url: null, updated_at: new Date().toISOString() })
+      .eq('id', materialId);
+    if (mirrorErr) {
+      console.warn('Could not mirror swatch_url removal to materials:', mirrorErr.message);
+    }
 
     m.swatch_url = null;
     render();
