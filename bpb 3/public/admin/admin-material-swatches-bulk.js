@@ -759,6 +759,19 @@ async function runGlobalUpload() {
           entry.reason = `DB: ${updateErr.message}`;
           errors++;
         } else {
+          // Phase 3B.1 dual-write: mirror swatch_url into the unified
+          // materials table so the picker and publish renderer see it.
+          // Same `.is('swatch_url', null)` guard so we never overwrite a
+          // swatch that was already set via a different path.
+          const { error: mirrorErr } = await supabase
+            .from('materials')
+            .update({ swatch_url: publicUrl, updated_at: new Date().toISOString() })
+            .in('id', ids)
+            .is('swatch_url', null);
+          if (mirrorErr) {
+            console.warn('Could not mirror bulk swatches to materials:', mirrorErr.message);
+          }
+
           entry.status = 'uploaded';
           entry.variantsWritten = entry.variants.length;
           entry.reason = `Wrote to ${entry.variants.length} variants`;
