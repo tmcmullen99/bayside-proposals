@@ -271,6 +271,20 @@ async function loadAll(clientId) {
   ctx.client = client;
   ctx.clientProposals = client.client_proposals || [];
 
+  // Sprint 14C.8: order proposals so the most recent is index 0. "Most
+  // recent" = highest sent_at (null last, since drafts haven't been
+  // sent yet), tiebroken by created_at. This drives both:
+  //   • the BID VALUE hot stat (uses [0] only, not the sum)
+  //   • the Active Proposals stack (first card is "Current", rest are
+  //     visually demoted as archive)
+  ctx.clientProposals.sort((a, b) => {
+    if (a.sent_at && !b.sent_at) return -1;
+    if (!a.sent_at && b.sent_at) return 1;
+    const aTime = new Date(a.sent_at || a.created_at || 0).getTime();
+    const bTime = new Date(b.sent_at || b.created_at || 0).getTime();
+    return bTime - aTime;
+  });
+
   const proposalIds = ctx.clientProposals.map(cp => cp.proposal?.id).filter(Boolean);
 
   await Promise.all([
@@ -476,10 +490,15 @@ function render() {
   const isLive = aggEng?.isLive || false;
   const totalDevices = aggEng?.totalDevices || 0;
 
-  const totalBid = ctx.clientProposals.reduce((sum, cp) => {
-    return sum + Number(cp.proposal?.bid_total_amount || 0);
-  }, 0);
-  const bidLabel = totalBid > 0 ? formatBidShort(totalBid) : '—';
+  // Sprint 14C.8: BID VALUE hot stat now reflects ONLY the most recent
+  // proposal (index 0 after the sort above). Previously this summed
+  // every proposal, which inflated the headline (a $50K Sent + $62K
+  // Draft showed as $112K, even though $112K isn't the price the
+  // homeowner sees). Stacked older proposals still appear in the Active
+  // Proposals side rail with their own per-card bid lines.
+  const currentProposal = ctx.clientProposals[0]?.proposal;
+  const currentBid = Number(currentProposal?.bid_total_amount || 0);
+  const bidLabel = currentBid > 0 ? formatBidShort(currentBid) : '—';
 
   const activeDiscount = soonestActiveDiscount();
   const discountLabel = activeDiscount
@@ -879,9 +898,19 @@ function renderProposalCards() {
   if (ctx.clientProposals.length === 0) {
     return '<div class="wr-empty-side">No proposals assigned yet.</div>';
   }
-  return ctx.clientProposals.map(cp => {
+  // Sprint 14C.8: index-aware rendering. ctx.clientProposals is already
+  // sorted most-recent-first (sent_at desc nulls last, then created_at
+  // desc). Index 0 is the "Current" bid; remaining are demoted to
+  // "Previous" with reduced visual weight so the eye lands on what's
+  // active. We also slot a small "PREVIOUS BIDS" divider before the
+  // first archive card when there are 2+ proposals, so the stack reads
+  // as a clear hierarchy rather than a flat list.
+  return ctx.clientProposals.map((cp, idx) => {
     const p = cp.proposal;
     if (!p) return '';
+    const isCurrent = idx === 0;
+    const isArchive = !isCurrent;
+
     const eng = ctx.engagement.get(p.id);
     const slug = getLatestSlug(p);
     const bid = Number(p.bid_total_amount || 0);
@@ -941,8 +970,21 @@ function renderProposalCards() {
       </button>
     `;
 
+    // Sprint 14C.8: "Current bid" eyebrow on the first card; small
+    // "PREVIOUS BIDS" divider before the first archive card.
+    const eyebrowHtml = isCurrent
+      ? `<div class="wr-pcard-eyebrow"><span class="wr-pcard-eyebrow-dot"></span>Current bid</div>`
+      : '';
+    const dividerHtml = (idx === 1)
+      ? `<div class="wr-pcard-divider">Previous bids</div>`
+      : '';
+
+    const cardModifier = isCurrent ? 'wr-proposal-card--current' : 'wr-proposal-card--archive';
+
     return `
-      <div class="wr-proposal-card" data-proposal-id="${escapeAttr(p.id)}">
+      ${dividerHtml}
+      <div class="wr-proposal-card ${cardModifier}" data-proposal-id="${escapeAttr(p.id)}">
+        ${eyebrowHtml}
         ${addrHtml}
         <div class="wr-proposal-card-meta">
           ${bidLabel ? `${bidLabel}${sentDate ? ' · Sent ' + escapeHtml(sentDate) : ''}` : (sentDate ? 'Sent ' + escapeHtml(sentDate) : 'Draft')}
@@ -2849,6 +2891,51 @@ function ensureLevelAStyles() {
     }
 
     /* ─── Proposal-card Level A controls ───────────────────────────── */
+
+    /* Sprint 14C.8 — Current vs Previous bid hierarchy.
+       Sort puts most-recent at index 0; --current gets a green
+       eyebrow + slightly stronger card; --archive gets reduced
+       visual weight so the eye reads the stack as a hierarchy
+       rather than a flat list. Divider above the first archive
+       card explicitly groups them. */
+    .wr-pcard-eyebrow {
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: #5d7e69;
+      margin-bottom: 8px;
+    }
+    .wr-pcard-eyebrow-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #5d7e69;
+      box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.18);
+    }
+    .wr-pcard-divider {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: #aaa;
+      margin: 14px 0 6px;
+      padding-top: 12px;
+      border-top: 1px dashed #ddd;
+    }
+    .wr-proposal-card--current {
+      border-left: 3px solid #5d7e69;
+      box-shadow: 0 2px 10px rgba(93, 126, 105, 0.10);
+    }
+    .wr-proposal-card--archive {
+      opacity: 0.78;
+      background: #fbfaf5;
+    }
+    .wr-proposal-card--archive .wr-paddr-label,
+    .wr-proposal-card--archive .wr-proposal-card-meta {
+      color: #888;
+    }
+    .wr-proposal-card--archive:hover {
+      opacity: 1;
+      background: #fff;
+    }
     .wr-proposal-card-addr {
       display: flex; align-items: center; gap: 6px;
       font-size: 13px; font-weight: 600; color: #1a1f2e;
