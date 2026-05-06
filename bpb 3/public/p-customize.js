@@ -1736,19 +1736,30 @@
         if (r.ok) {
           customize.data = await r.json();
           customize.enabled = true;
+          // Sprint 14C.14 — cache-busting query string. Cloudflare Pages
+          // caches static JS aggressively (browser disk cache + edge), which
+          // means after a fix is committed and deployed, users keep loading
+          // the OLD module from cache until they hard-refresh. During active
+          // dev iteration that's painful; using Date.now() as a version
+          // forces a unique URL per page load so each visit gets the latest
+          // module. Tradeoff: no cross-page caching benefit, but these
+          // modules only load on /p/<slug> pages so the bandwidth cost is
+          // minimal. Once the homeowner-redesign feature stabilizes we can
+          // switch this to a per-deploy version stamp.
+          const _bpcModuleCacheBuster = Date.now();
           // Phase 6.2: when customize is enabled (authenticated homeowner),
           // load the redesign module — adds the floating CTA + drawing overlay.
           if (!document.getElementById('bpc-redesign-module')) {
             const s = document.createElement('script');
             s.id = 'bpc-redesign-module';
-            s.src = '/p-redesign.js';
+            s.src = '/p-redesign.js?v=' + _bpcModuleCacheBuster;
             document.head.appendChild(s);
           }
           // Phase 6.4A: load the budget exploration module.
           if (!document.getElementById('bpc-budget-module')) {
             const s = document.createElement('script');
             s.id = 'bpc-budget-module';
-            s.src = '/p-budget.js';
+            s.src = '/p-budget.js?v=' + _bpcModuleCacheBuster;
             document.head.appendChild(s);
           }
         }
