@@ -179,6 +179,38 @@
   }
   .ho-prop-cta:hover { background: var(--bp-green-dk); }
 
+  /* Sprint 14C.10 — secondary action ("Print plan to mark up") sits
+     directly below the primary "View proposal" CTA. The wrapper takes
+     over the margin-top: auto so both buttons stay pinned to the bottom
+     of the card together. The alt CTA is intentionally low-weight (white
+     bg, neutral border) so it visually defers to the primary action while
+     still being a clear, tappable affordance. */
+  .ho-prop-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+  }
+  .ho-prop-actions .ho-prop-cta { margin-top: 0; }
+  .ho-prop-cta-alt {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    gap: 6px;
+    background: #fff; color: var(--bp-charcoal);
+    border: 1px solid var(--bp-border);
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .ho-prop-cta-alt:hover {
+    background: var(--bp-cream);
+    border-color: var(--bp-charcoal);
+    color: var(--bp-text);
+  }
+
   .ho-empty {
     background: #fff;
     border: 1px dashed var(--bp-border);
@@ -1178,9 +1210,14 @@ async function loadProposals(clientId) {
           <div class="ho-prop-addr">${escapeHtml(address)}</div>
           ${cityState ? `<div class="ho-prop-meta">${escapeHtml(cityState)}</div>` : ''}
           <div class="ho-prop-total">${totalDisplay}</div>
-          ${viewUrl
-            ? `<a class="ho-prop-cta" href="${viewUrl}" target="_blank" rel="noopener">View proposal</a>`
-            : `<button class="ho-prop-cta" disabled style="background:#a8b5ac;cursor:not-allowed;">Not published yet</button>`}
+          <div class="ho-prop-actions">
+            ${viewUrl
+              ? `<a class="ho-prop-cta" href="${viewUrl}" target="_blank" rel="noopener">View proposal</a>`
+              : `<button class="ho-prop-cta" disabled style="background:#a8b5ac;cursor:not-allowed;">Not published yet</button>`}
+            ${viewUrl
+              ? `<a class="ho-prop-cta-alt" href="/account/print.html?id=${encodeURIComponent(link.proposal_id)}" title="Print a marked-up copy of your plan to send to your designer">🖨️ Print plan to mark up</a>`
+              : ''}
+          </div>
         </div>
       </div>`;
   }).join('');
