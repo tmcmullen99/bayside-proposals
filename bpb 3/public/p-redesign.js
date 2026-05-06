@@ -142,30 +142,48 @@
 
   /**
    * Find the site map backdrop image URL + natural dimensions from the
-   * existing publish.js DOM. The backdrop is rendered as either an
-   * <image> element inside the .pub-site-plan-map SVG or a CSS background.
-   * We prefer the SVG <image> href, which is what publish.js outputs.
+   * existing publish.js DOM.
+   *
+   * publish.js emits this structure:
+   *   <div class="pub-site-plan-map">           ← wrapper DIV (NOT an SVG)
+   *     <div class="pub-drawing-frame">
+   *       <div class="pub-drawing-overlay-wrap">
+   *         <img class="pub-drawing-overlay-img" src="…">     ← backdrop
+   *         <svg class="pub-drawing-overlay-svg" viewBox="…"> ← polygons
+   *           <polygon class="pub-drawing-region" data-region-id="…"/>
+   *         </svg>
+   *       </div>
+   *     </div>
+   *   </div>
+   *
+   * We read the viewBox from the inner SVG (.pub-drawing-overlay-svg) and
+   * the backdrop URL from the sibling <img.pub-drawing-overlay-img>.
+   * (Earlier versions of this helper queried `.pub-site-plan-map` as if it
+   * were an SVG and looked for an SVG <image> child — that returns nothing
+   * on the current publish.js output, which silently broke both the
+   * Suggest-changes overlay and the Reshape overlay.)
    */
   function getSiteMapInfo() {
-    const svg = document.querySelector('.pub-site-plan-map');
-    if (!svg) return null;
-    const imageEl = svg.querySelector('image');
-    let url = '';
-    if (imageEl) {
-      url = imageEl.getAttribute('href') || imageEl.getAttribute('xlink:href') || '';
-    }
-    // Fallback: viewBox dimensions
+    const svgEl = document.querySelector('.pub-drawing-overlay-svg');
+    if (!svgEl) return null;
+
     let width = 0, height = 0;
-    const vb = svg.getAttribute('viewBox');
+    const vb = svgEl.getAttribute('viewBox');
     if (vb) {
       const parts = vb.split(/\s+/).map(Number);
       if (parts.length === 4) { width = parts[2]; height = parts[3]; }
     }
-    if (imageEl) {
-      width = parseFloat(imageEl.getAttribute('width')) || width;
-      height = parseFloat(imageEl.getAttribute('height')) || height;
+
+    const imgEl = document.querySelector('.pub-drawing-overlay-img');
+    let url = '';
+    if (imgEl) {
+      // Prefer the resolved .src (absolute URL) over the raw attribute,
+      // which may be relative depending on how the snapshot was rendered.
+      url = imgEl.src || imgEl.getAttribute('src') || '';
+      width  = parseFloat(imgEl.getAttribute('width'))  || width;
+      height = parseFloat(imgEl.getAttribute('height')) || height;
     }
-    return { url, width, height, svgEl: svg };
+    return { url, width, height, svgEl };
   }
 
   // ── Styles ────────────────────────────────────────────────────────────
@@ -1240,21 +1258,29 @@
   }
 
   // Read the published proposal's regions from the DOM. publish.js
-  // renders polygons inside `.pub-site-plan-map` SVG with data-region-id,
-  // and a corresponding legend row `.pub-region-legend-row[data-region-id]`
-  // carrying the human label + area meta. We tie those together here so
-  // the reshape overlay has a self-contained view of what to manipulate.
+  // emits the structure documented on getSiteMapInfo above:
+  //   <div class="pub-site-plan-map">                  (wrapper DIV)
+  //     …<svg class="pub-drawing-overlay-svg" viewBox="0 0 W H">
+  //         <polygon class="pub-drawing-region" data-region-id="…"/>
+  //         <a aria-label="Region N"><polygon …/></a>   (anchored variant)
+  //       </svg>
+  //   </div>
+  // and a corresponding `.pub-region-legend-row[data-region-id]` carrying
+  // the human label + area meta. We tie those together here so the reshape
+  // overlay has a self-contained view of what to manipulate.
   function readPublishedRegionsFromDom() {
-    const svg = document.querySelector('.pub-site-plan-map');
+    const svg = document.querySelector('.pub-drawing-overlay-svg');
     if (!svg) return null;
     const vbAttr = svg.getAttribute('viewBox');
     if (!vbAttr) return null;
     const [, , vbW, vbH] = vbAttr.split(/\s+/).map(Number);
     if (!Number.isFinite(vbW) || !Number.isFinite(vbH) || vbW <= 0 || vbH <= 0) return null;
 
-    const imageEl = svg.querySelector('image');
+    // Backdrop is a sibling <img class="pub-drawing-overlay-img">, not an
+    // SVG <image> child. Query it directly off the document.
+    const imageEl = document.querySelector('.pub-drawing-overlay-img');
     const backdropUrl = imageEl
-      ? (imageEl.getAttribute('href') || imageEl.getAttribute('xlink:href') || '')
+      ? (imageEl.src || imageEl.getAttribute('src') || '')
       : '';
 
     const regions = [];
