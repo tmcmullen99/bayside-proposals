@@ -1,12 +1,18 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// /admin/admin-client-redesigns.js — Phase 6 Sprint 2
+// /admin/admin-client-redesigns.js — Phase 6 Sprint 2 + Sprint 14C.11
 //
-// Designer view for client redesign requests. Each submission shows:
-//   - The site map (snapshotted at submit time) with the client's SVG markup
-//     overlaid — OR the uploaded photo of paper markup — OR just a note
-//   - Homeowner's optional text note
-//   - Designer's optional response (when reviewed/addressed/rejected)
-//   - Actions: Mark addressed / Mark reviewed / Reject (with reason)
+// Designer view for client redesign requests. Each submission shows one
+// or more of:
+//   - Site map (snapshotted at submit time) with the client's SVG markup
+//     overlaid    (markup_svg modality)
+//   - Uploaded photo of paper markup    (photo_url modality)
+//   - Region reshape diff: dual SVG overlays (gray dashed = original,
+//     solid color = requested) + per-region delta table  (modified_polygons
+//     modality, sprint 14C.11)
+//   - Plain text note    (homeowner_note modality)
+//
+// Plus the homeowner's optional text note, designer's optional response,
+// and actions: Mark addressed / Mark reviewed / Reject (with reason).
 //
 // State machine:
 //   submitted → reviewed → addressed
@@ -88,6 +94,7 @@ async function loadSubmissions() {
     .from('proposal_redesign_requests')
     .select(`
       id, status, markup_svg, photo_url, homeowner_note, designer_response,
+      modified_polygons,
       site_map_url_at_submit, site_map_width_at_submit, site_map_height_at_submit,
       reviewed_at, created_at, updated_at, published_proposal_id, proposal_id, client_id,
       proposal:proposals!proposal_id(id, address, project_address, project_city),
@@ -161,6 +168,11 @@ function renderCard(s) {
 
 function describeSubmissionType(s) {
   const parts = [];
+  // Sprint 14C.11 — reshape leads when present because it's the most
+  // actionable signal (specific sqft deltas to reprice from).
+  if (Array.isArray(s.modified_polygons) && s.modified_polygons.length > 0) {
+    parts.push('reshape (' + s.modified_polygons.length + ')');
+  }
   if (s.markup_svg) parts.push('markup');
   if (s.photo_url) parts.push('photo');
   if (s.homeowner_note && parts.length === 0) parts.push('note');
@@ -194,12 +206,18 @@ function renderProposalRow(s) {
 }
 
 function renderVisual(s) {
-  // Three render paths: digital markup over site map, photo, or note-only
+  // Sprint 14C.11 — reshape can stand alone OR coexist with markup/photo
+  // (the server-side hasContent gate is OR, not XOR). Render it first
+  // when present since it carries the most actionable info, then fall
+  // through to the existing markup/photo/note-only render path.
+  const reshapeBlock = renderReshapeDiff(s);
+
+  let primaryBlock;
   if (s.markup_svg && s.site_map_url_at_submit) {
     // Render the snapshotted site map with the markup SVG overlaid
     const w = s.site_map_width_at_submit || 1000;
     const h = s.site_map_height_at_submit || 750;
-    return `
+    primaryBlock = `
       <div class="rd-section">
         <div class="rd-section-h">Digital markup</div>
         <div class="rd-markup-stage" style="aspect-ratio: ${w} / ${h};">
@@ -208,9 +226,8 @@ function renderVisual(s) {
         </div>
       </div>
     `;
-  }
-  if (s.photo_url) {
-    return `
+  } else if (s.photo_url) {
+    primaryBlock = `
       <div class="rd-section">
         <div class="rd-section-h">Photo of paper markup</div>
         <div class="rd-photo-frame">
@@ -221,14 +238,158 @@ function renderVisual(s) {
         <p style="font-size:12px;color:var(--muted-soft);margin:6px 0 0;">Click to open full-size in a new tab.</p>
       </div>
     `;
+  } else if (!reshapeBlock) {
+    // Note-only submission — only show this fallback when there's no
+    // reshape block, because reshape submissions are visually rich
+    // enough to stand on their own without the "no drawing or photo"
+    // explainer.
+    primaryBlock = `
+      <div class="rd-section">
+        <div class="rd-section-h">Submission</div>
+        <div class="rd-no-visual">No drawing or photo — see the homeowner's note below.</div>
+      </div>
+    `;
+  } else {
+    primaryBlock = '';
   }
-  // Note-only submission
+
+  return reshapeBlock + primaryBlock;
+}
+
+/**
+ * Sprint 14C.11 — render the polygon-vertex-drag reshape diff.
+ * Returns empty string when modified_polygons is absent or empty.
+ *
+ * Visual:
+ *   - Snapshotted site map backdrop (same image as markup mode uses)
+ *   - Per region: dashed gray polygon (original) + solid colored polygon
+ *     (requested) overlaid in a single SVG
+ *   - Diff table below: region name, sqft original → requested with %
+ *     delta, lnft original → requested with % delta
+ *
+ * Inline styles instead of new .rd-* CSS classes so this ships in the
+ * single .js file change without also touching client-redesigns.html.
+ */
+function renderReshapeDiff(s) {
+  if (!Array.isArray(s.modified_polygons) || s.modified_polygons.length === 0) return '';
+  const w = s.site_map_width_at_submit || 1000;
+  const h = s.site_map_height_at_submit || 750;
+  const hasBackdrop = !!s.site_map_url_at_submit;
+
+  // Dual overlays: gray dashed = original, solid colored = requested.
+  const overlays = s.modified_polygons.map((mp) => {
+    const color = (typeof mp.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(mp.color)) ? mp.color : '#5d7e69';
+    const origPoints = (mp.original_polygon || []).map(p =>
+      ((Number(p.x) || 0) * w).toFixed(1) + ',' + ((Number(p.y) || 0) * h).toFixed(1)
+    ).join(' ');
+    const modPoints = (mp.modified_polygon || []).map(p =>
+      ((Number(p.x) || 0) * w).toFixed(1) + ',' + ((Number(p.y) || 0) * h).toFixed(1)
+    ).join(' ');
+    if (!origPoints || !modPoints) return '';
+    return `
+      <polygon points="${escapeAttr(origPoints)}" stroke="#9aa0a6" fill="rgba(154,160,166,0.12)" stroke-width="${Math.max(2, Math.round(w * 0.0018))}" stroke-dasharray="${Math.max(6, Math.round(w * 0.006))},${Math.max(4, Math.round(w * 0.004))}" stroke-linejoin="round"/>
+      <polygon points="${escapeAttr(modPoints)}" stroke="${escapeAttr(color)}" fill="${escapeAttr(color)}" fill-opacity="0.32" stroke-width="${Math.max(3, Math.round(w * 0.0026))}" stroke-linejoin="round"/>
+    `;
+  }).join('');
+
+  // Diff table rows.
+  const totalDeltaSqft = s.modified_polygons.reduce((acc, mp) => {
+    return acc + ((Number(mp.modified_area_sqft) || 0) - (Number(mp.original_area_sqft) || 0));
+  }, 0);
+  const totalOrigSqft = s.modified_polygons.reduce((acc, mp) => acc + (Number(mp.original_area_sqft) || 0), 0);
+  const totalPctSqft = totalOrigSqft > 0 ? Math.round((totalDeltaSqft / totalOrigSqft) * 100) : 0;
+
+  const rows = s.modified_polygons.map((mp) => {
+    const color = (typeof mp.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(mp.color)) ? mp.color : '#5d7e69';
+    const origSqft = Number(mp.original_area_sqft) || 0;
+    const modSqft  = Number(mp.modified_area_sqft) || 0;
+    const dSqft    = modSqft - origSqft;
+    const dPctSqft = origSqft > 0 ? Math.round((dSqft / origSqft) * 100) : 0;
+    const origLnft = Number(mp.original_area_lnft) || 0;
+    const modLnft  = Number(mp.modified_area_lnft) || 0;
+    const dLnft    = modLnft - origLnft;
+    const dPctLnft = origLnft > 0 ? Math.round((dLnft / origLnft) * 100) : 0;
+    const sqftColor = dSqft > 0 ? '#2e7d4f' : (dSqft < 0 ? '#b85450' : '#70726f');
+    const lnftColor = dLnft > 0 ? '#2e7d4f' : (dLnft < 0 ? '#b85450' : '#70726f');
+
+    return `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;">
+          <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${escapeAttr(color)};vertical-align:middle;margin-right:8px;"></span>
+          <span style="vertical-align:middle;font-weight:600;">${escapeHtml(mp.region_name || 'Region')}</span>
+        </td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;">
+          ${origSqft > 0
+            ? formatNumber(origSqft) + ' → <strong>' + formatNumber(modSqft) + '</strong> sqft'
+            : '<span style="color:#999;">no sqft</span>'}
+          ${origSqft > 0
+            ? ' <span style="color:' + sqftColor + ';font-weight:600;">(' + (dSqft > 0 ? '+' : '') + dPctSqft + '%)</span>'
+            : ''}
+        </td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;">
+          ${origLnft > 0
+            ? formatNumber(origLnft) + ' → <strong>' + formatNumber(modLnft) + '</strong> lnft'
+            : '<span style="color:#999;">no lnft</span>'}
+          ${origLnft > 0
+            ? ' <span style="color:' + lnftColor + ';font-weight:600;">(' + (dLnft > 0 ? '+' : '') + dPctLnft + '%)</span>'
+            : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const stageInner = hasBackdrop
+    ? `
+      <img class="rd-markup-bg" src="${escapeAttr(s.site_map_url_at_submit)}" alt="Site map at submission">
+      <svg class="rd-markup-overlay" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;">
+        ${overlays}
+      </svg>
+    `
+    : `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto;background:#f4f4ef;">
+        ${overlays}
+      </svg>
+    `;
+
+  const totalRow = totalOrigSqft > 0
+    ? `
+      <tr>
+        <td colspan="3" style="padding:10px 12px;font-size:12px;color:#58595b;background:#faf8f3;">
+          Net change across ${s.modified_polygons.length} ${s.modified_polygons.length === 1 ? 'region' : 'regions'}:
+          <strong>${totalDeltaSqft >= 0 ? '+' : ''}${formatNumber(totalDeltaSqft)} sqft</strong>
+          (${totalDeltaSqft >= 0 ? '+' : ''}${totalPctSqft}%)
+        </td>
+      </tr>
+    `
+    : '';
+
   return `
     <div class="rd-section">
-      <div class="rd-section-h">Submission</div>
-      <div class="rd-no-visual">No drawing or photo — see the homeowner's note below.</div>
+      <div class="rd-section-h">Region reshape requested · ${s.modified_polygons.length} ${s.modified_polygons.length === 1 ? 'region' : 'regions'}</div>
+      <div class="rd-markup-stage" style="aspect-ratio: ${w} / ${h};">${stageInner}</div>
+      <p style="font-size:12px;color:#70726f;margin:8px 0 12px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;">
+        <span><span style="display:inline-block;width:18px;height:0;border-top:2px dashed #9aa0a6;vertical-align:middle;margin-right:6px;"></span>Original polygon</span>
+        <span><span style="display:inline-block;width:18px;height:8px;background:rgba(93,126,105,0.32);border:2px solid #5d7e69;vertical-align:middle;margin-right:6px;border-radius:2px;"></span>Requested polygon</span>
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff;border:1px solid #eee;border-radius:6px;overflow:hidden;">
+        <thead>
+          <tr style="background:#faf8f3;">
+            <th style="text-align:left;padding:10px 12px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#58595b;border-bottom:1px solid #eee;">Region</th>
+            <th style="text-align:left;padding:10px 12px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#58595b;border-bottom:1px solid #eee;">Square footage</th>
+            <th style="text-align:left;padding:10px 12px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#58595b;border-bottom:1px solid #eee;">Linear footage</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          ${totalRow}
+        </tbody>
+      </table>
     </div>
   `;
+}
+
+function formatNumber(n) {
+  return Number(n || 0).toLocaleString('en-US');
 }
 
 /**
