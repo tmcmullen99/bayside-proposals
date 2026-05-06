@@ -105,7 +105,7 @@
   // overlay so the two can't collide; only one open at a time anyway).
   let reshapeOverlayEl   = null;
   let reshapeStageSvgEl  = null;     // the SVG containing backdrop image + draggable polygons
-  let reshapeBackdropEl  = null;     // <image> within reshapeStageSvgEl
+  let reshapeBackdropEl  = null;     // <img class="bpc-reshape-stage-bg"> — sibling of reshapeStageSvgEl, sets the wrap's intrinsic dimensions
   let reshapeRegionsGEl  = null;     // <g> holding all region polygons
   let reshapeHandlesGEl  = null;     // <g> holding vertex-drag handles for selectedIdx
   let reshapeReadoutEl   = null;     // legend showing live areas per region
@@ -619,7 +619,11 @@
 
     /* Hint banner shown on first open. The flow is non-obvious for
        people who've never seen polygon-edit UIs, so spelling it out
-       up front avoids the "what am I supposed to do?" stall. */
+       up front avoids the "what am I supposed to do?" stall.
+       Sprint 14C.15 — reduced to a single tight line so the stage
+       gets more vertical real estate; the in-header subtitle already
+       carries the core "drag the dots" hint, this is the secondary
+       reinforcement. */
     .bpc-reshape-hint {
       max-width: 680px;
       width: 100%;
@@ -627,10 +631,11 @@
       border: 1px solid #dad7c5;
       border-left: 3px solid #5d7e69;
       border-radius: 6px;
-      padding: 10px 14px;
-      font-size: 13px;
+      padding: 7px 12px;
+      font-size: 12px;
       color: #353535;
-      line-height: 1.5;
+      line-height: 1.4;
+      text-align: center;
     }
     .bpc-reshape-hint strong { color: #1f2125; font-weight: 600; }
 
@@ -675,7 +680,16 @@
     /* The stage — backdrop + draggable polygons + vertex handles. Sized
        to fit within the available viewport while keeping a sensible
        max-height. touch-action:none on the SVG so vertex drag doesn't
-       trigger page scroll on mobile. */
+       trigger page scroll on mobile.
+       Sprint 14C.15 — sizing strategy now mirrors the Suggest-changes
+       overlay: an HTML <img class="bpc-reshape-stage-bg"> establishes
+       the wrap's intrinsic dimensions, and the SVG floats over it with
+       position:absolute. The previous design used SVG <image> as the
+       backdrop, which doesn't give the parent <svg> any intrinsic
+       sizing in a flex column — the wrap collapsed to 0 height and the
+       polygon overlay was effectively invisible. Using an <img> as the
+       sizer is the same trick already proven to work in the markup
+       overlay; reusing it here keeps the two paths consistent. */
     .bpc-reshape-stage-wrap {
       position: relative;
       max-width: 100%;
@@ -684,11 +698,24 @@
       box-shadow: 0 4px 24px rgba(0,0,0,0.28);
       border-radius: 8px;
       overflow: hidden;
+      /* shrink-wrap to the IMG's natural box so the SVG overlay has
+         identical dimensions to align with. */
+      display: inline-block;
+      line-height: 0;
     }
-    .bpc-reshape-stage-svg {
+    .bpc-reshape-stage-bg {
       display: block;
       max-width: 100%;
       max-height: calc(100vh - 380px);
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .bpc-reshape-stage-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
@@ -1501,9 +1528,13 @@
     reshapeOverlayEl.innerHTML = renderReshapeOverlayHtml();
     document.body.appendChild(reshapeOverlayEl);
 
-    // Wire references
-    reshapeStageSvgEl  = reshapeOverlayEl.querySelector('.bpc-reshape-stage-svg');
-    reshapeBackdropEl  = reshapeStageSvgEl.querySelector('image');
+    // Wire references. Sprint 14C.15 — backdrop is now an HTML <img>
+    // sibling of the SVG (under .bpc-reshape-stage-wrap), not an SVG
+    // <image> child of the SVG. The <img> establishes the wrap's
+    // intrinsic dimensions; the SVG overlays absolutely on top.
+    const stageWrap    = reshapeOverlayEl.querySelector('.bpc-reshape-stage-wrap');
+    reshapeStageSvgEl  = stageWrap.querySelector('.bpc-reshape-stage-svg');
+    reshapeBackdropEl  = stageWrap.querySelector('.bpc-reshape-stage-bg');
     reshapeRegionsGEl  = reshapeStageSvgEl.querySelector('.bpc-reshape-regions-g');
     reshapeHandlesGEl  = reshapeStageSvgEl.querySelector('.bpc-reshape-handles-g');
     reshapeReadoutEl   = reshapeOverlayEl.querySelector('.bpc-reshape-readout');
@@ -1511,11 +1542,13 @@
     reshapeSubmitBtnEl = reshapeOverlayEl.querySelector('.bpc-reshape-submit-btn');
     reshapeStatusEl    = reshapeOverlayEl.querySelector('.bpc-reshape-status');
 
-    // Backdrop + viewBox
+    // Backdrop + viewBox. The IMG sets natural width/height (and thus
+    // wrap height), the SVG matches via inset:0 + 100%/100% in CSS.
+    // preserveAspectRatio="none" on the SVG means polygon fractional
+    // coords map directly to the SVG's bounding rect — no letterbox
+    // math needed in pointer translation.
+    reshapeBackdropEl.src = reshape.backdropUrl;
     reshapeStageSvgEl.setAttribute('viewBox', '0 0 ' + reshape.backdropW + ' ' + reshape.backdropH);
-    reshapeBackdropEl.setAttribute('href', reshape.backdropUrl);
-    reshapeBackdropEl.setAttribute('width', reshape.backdropW);
-    reshapeBackdropEl.setAttribute('height', reshape.backdropH);
 
     // Wire close + ESC
     reshapeOverlayEl.querySelector('.bpc-reshape-close').addEventListener('click', closeReshapeOverlay);
@@ -1564,14 +1597,12 @@
       '</div>' +
       '<div class="bpc-reshape-body">' +
         '<div class="bpc-reshape-hint">' +
-          '<strong>How this works:</strong> Tap an area below to select it, then drag the colored dots on its edges to make it bigger or smaller. ' +
-          'The square footage and linear footage update as you drag. ' +
-          'Hit <em>Send to designer</em> when you\'re happy — they\'ll review your requested sizes and follow up with a revised quote.' +
+          '<strong>Tip:</strong> Pick an area, drag a colored dot, then hit <em>Send to designer</em> when sizes look right.' +
         '</div>' +
         '<div class="bpc-reshape-chips">' + chips + '</div>' +
         '<div class="bpc-reshape-stage-wrap">' +
-          '<svg class="bpc-reshape-stage-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">' +
-            '<image x="0" y="0"/>' +
+          '<img class="bpc-reshape-stage-bg" alt="Site map">' +
+          '<svg class="bpc-reshape-stage-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">' +
             '<g class="bpc-reshape-regions-g"></g>' +
             '<g class="bpc-reshape-handles-g"></g>' +
           '</svg>' +
@@ -1759,20 +1790,18 @@
     const rect = reshapeStageSvgEl.getBoundingClientRect();
     const W = reshape.backdropW;
     const H = reshape.backdropH;
-    // viewBox is xMidYMid meet, so figure out the actual rendered area
-    // inside the bounding rect (letterboxing).
-    const scaleX = rect.width / W;
-    const scaleY = rect.height / H;
-    const scale = Math.min(scaleX, scaleY);
-    const renderedW = W * scale;
-    const renderedH = H * scale;
-    const offsetX = (rect.width - renderedW) / 2;
-    const offsetY = (rect.height - renderedH) / 2;
-    const localX = e.clientX - rect.left - offsetX;
-    const localY = e.clientY - rect.top - offsetY;
+    // Sprint 14C.15 — preserveAspectRatio="none" on the stage SVG means
+    // the viewBox stretches to fill the SVG element's bounding rect
+    // exactly. No letterboxing, so the math is just a linear mapping
+    // from rect-local pixel coords to viewBox units. The IMG sibling
+    // sets the wrap's aspect ratio, so the SVG never has different
+    // aspect ratio from the viewBox in practice — meaning even with
+    // "none" stretching, there's no visible distortion.
+    const localX = e.clientX - rect.left;
+    const localY = e.clientY - rect.top;
     return {
-      x: Math.max(0, Math.min(W, localX / scale)),
-      y: Math.max(0, Math.min(H, localY / scale)),
+      x: Math.max(0, Math.min(W, (localX / rect.width) * W)),
+      y: Math.max(0, Math.min(H, (localY / rect.height) * H)),
     };
   }
 
