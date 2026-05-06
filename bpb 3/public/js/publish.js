@@ -3494,14 +3494,18 @@ function renderBackdropWithRegions(proposal, regions, materials, categoryToSecti
     return `<polygon class="pub-drawing-region pub-drawing-region--static" points="${points}"${dataAttr}${labelAttr} />`;
   }).filter(Boolean).join('');
 
-  const anyLinked = regions.some(r => r.proposal_section_id);
-  const caption = anyLinked
-    ? 'Tap any highlighted area on the plan — or any material below — to see how it connects to the scope.'
-    : 'Highlighted areas show the scope of work for this project.';
-
-  const lede = anyLinked
-    ? 'Your project at a glance. Each highlighted area on the plan corresponds to a part of the scope below — hover any region or material to see how they connect.'
-    : 'The working plan-view for your project — highlighted areas show the scope of work for each part of the project.';
+  // Sprint 14C.9: anyLinked gate removed. Previously the lede + caption
+  // had two flavors — the new "Your project at a glance" pair only
+  // rendered when at least one region had proposal_section_id set; if
+  // every region was unanchored, the page reverted to the legacy "The
+  // working plan-view for your project" copy, which made the proposal
+  // look like the old static-image template even though the legend +
+  // overlay had already been rendered (see Sprint 14C.7). The new copy
+  // applies any time regions exist; click-to-jump is still gated per-row
+  // inside renderLegendRow (anchored = <a>, unanchored = <div>), so the
+  // graceful degradation lives in one place instead of two.
+  const caption = 'Tap any highlighted area on the plan — or any material below — to see how it connects to the scope.';
+  const lede    = 'Your project at a glance. Each highlighted area on the plan corresponds to a part of the scope below — hover any region or material to see how they connect.';
 
   // Sprint 14C.7 fix: the legend used to filter out regions without a
   // proposal_section_id. That meant a proposal where the designer drew
