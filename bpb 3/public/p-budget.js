@@ -214,10 +214,16 @@
 
   // ── Styles ────────────────────────────────────────────────────────────
   const STYLES = `
-    /* Floating CTA — sits ABOVE the redesign FAB */
+    /* Floating CTA — sits ABOVE the redesign FAB.
+       Sprint 14C.14 — bumped from bottom:130px to bottom:178px because the
+       redesign FAB grew from 2 buttons (Suggest changes + Print for markup)
+       to 3 buttons (Suggest changes + Reshape my areas + Print for markup)
+       in Sprint 14C.11, extending the redesign stack from ~95px tall to
+       ~140px tall. The old 130px clearance was no longer enough; this
+       Adjust budget pill was overlapping the top of "Suggest changes". */
     .bpc-budget-fab {
       position: fixed;
-      bottom: 130px;
+      bottom: 178px;
       right: 18px;
       z-index: 1500;
       pointer-events: auto;
