@@ -441,31 +441,84 @@
     .bpc-redesign-submit-status--error { color: #b85450; }
     .bpc-redesign-submit-status--success { color: #5d7e69; font-weight: 600; }
 
-    /* Print rules — hide everything except site map area */
+    /* Print rules — hide everything except site map area.
+       Sprint 14C.13 — REWRITE. The earlier rules targeted .pub-page,
+       .pub-section--map, and .pub-cover, none of which exist in the
+       current publish.js output (the actual classes are .pub-hero for
+       the cover and .pub-drawing for the site map section). The result
+       was a print that hid EVERYTHING including the site map, leaving
+       only the notes area on a blank page. New rules:
+       • Top-level body children: keep only .pub-drawing (site map +
+         legend) and the appended .bpc-redesign-print-notes; hide
+         everything else (cover, scope, materials, CTA, account-footer,
+         lightbox, sign modal, FAB, our overlays).
+       • Inside .pub-drawing: collapse the customize feature's
+         .bpc-twocol back to single-column and hide the detail card on
+         the right + the materials grid below + any other customize
+         decorations.
+       • The notes area appears immediately after the site map because
+         everything between them is removed from the print flow.
+       The body.bpc-redesign-printing class is added by handlePrint()
+       only when the user clicks our Print FAB; a regular Cmd+P from
+       the browser still prints the whole page normally. */
     .bpc-redesign-print-notes {
       display: none;
     }
     @media print {
-      body.bpc-redesign-printing > *:not(.pub-page) { display: none !important; }
-      body.bpc-redesign-printing .pub-page > *:not(.pub-section--map):not(.pub-cover) {
+      body.bpc-redesign-printing > *:not(.pub-drawing):not(.bpc-redesign-print-notes):not(script):not(style) {
         display: none !important;
       }
-      body.bpc-redesign-printing .pub-cover *:not(.pub-cover-address-block):not(.pub-cover-address):not(.pub-cover-address *) {
-        display: none !important;
-      }
+      /* Customize feature wraps the site map + a detail card in a
+         CSS-grid .bpc-twocol; in print, switch to single column so the
+         site map gets full width once the right column is hidden. */
       body.bpc-redesign-printing .bpc-twocol {
+        display: block !important;
         grid-template-columns: 1fr !important;
       }
+      body.bpc-redesign-printing .bpc-twocol-right,
       body.bpc-redesign-printing .bpc-detail-card,
+      body.bpc-redesign-printing .pub-site-plan-materials,
+      body.bpc-redesign-printing .pub-region-legend-actions,
+      body.bpc-redesign-printing .bpc-tray,
       body.bpc-redesign-printing .bpc-redesign-fab,
       body.bpc-redesign-printing .bpc-redesign-overlay,
-      body.bpc-redesign-printing .pub-region-legend-actions,
-      body.bpc-redesign-printing .bpc-tray { display: none !important; }
+      body.bpc-redesign-printing .bpc-reshape-overlay {
+        display: none !important;
+      }
+      /* Make sure the site map section itself shows even though its
+         parent is being aggressively hidden by the catch-all above —
+         the section IS .pub-drawing so it's already exempt, but be
+         explicit for any nested duplicates. */
+      body.bpc-redesign-printing .pub-drawing,
+      body.bpc-redesign-printing .pub-drawing-inner,
+      body.bpc-redesign-printing .pub-site-plan-map,
+      body.bpc-redesign-printing .pub-drawing-frame,
+      body.bpc-redesign-printing .pub-drawing-overlay-wrap,
+      body.bpc-redesign-printing .pub-drawing-overlay-img,
+      body.bpc-redesign-printing .pub-drawing-overlay-svg,
+      body.bpc-redesign-printing .pub-drawing-region,
+      body.bpc-redesign-printing .pub-region-legend,
+      body.bpc-redesign-printing .pub-region-legend-row,
+      body.bpc-redesign-printing .pub-region-legend-dot,
+      body.bpc-redesign-printing .pub-region-legend-text,
+      body.bpc-redesign-printing .pub-region-legend-name,
+      body.bpc-redesign-printing .pub-region-legend-meta {
+        display: revert !important;
+      }
+      /* Force colored region overlays to actually print (most browsers
+         strip backgrounds + colors by default). */
+      body.bpc-redesign-printing .pub-drawing-overlay-svg,
+      body.bpc-redesign-printing .pub-drawing-region,
+      body.bpc-redesign-printing .pub-region-legend-dot {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
       body.bpc-redesign-printing .bpc-redesign-print-notes {
         display: block !important;
         margin: 24px;
         border-top: 1px solid #888;
         padding-top: 16px;
+        page-break-before: auto;
       }
       body.bpc-redesign-printing .bpc-redesign-print-notes h3 {
         font-family: 'Onest', sans-serif;
@@ -853,13 +906,31 @@
 
   function handlePrint() {
     ensurePrintNotesArea();
+    // Sprint 14C.13 — "Opens up site map": scroll the page to the .pub-drawing
+    // section before opening the print dialog. The print itself is governed
+    // by @media print rules in our STYLES block; this scroll is purely
+    // perceptual continuity so the user sees what's about to print rather
+    // than the cover or scope-of-work that they happened to be on. Smooth
+    // scroll feels more polished than instant; the longer setTimeout below
+    // gives the scroll time to start before window.print() blocks the thread.
+    const drawingSection = document.querySelector('.pub-drawing');
+    if (drawingSection && drawingSection.scrollIntoView) {
+      try {
+        drawingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (_) {
+        // Safari < 15 doesn't support options arg — fall back to the
+        // boolean form (instant scroll, still works).
+        drawingSection.scrollIntoView(true);
+      }
+    }
     document.body.classList.add('bpc-redesign-printing');
-    // Defer so the class change applies before the print dialog opens
+    // 350ms — long enough for the smooth scroll to visibly start, short
+    // enough that the user doesn't feel lag between click and dialog.
     setTimeout(() => {
       window.print();
       // Clean up shortly after the print dialog closes (or is dismissed)
       setTimeout(() => document.body.classList.remove('bpc-redesign-printing'), 800);
-    }, 80);
+    }, 350);
   }
 
   // ── Overlay ───────────────────────────────────────────────────────────
