@@ -3415,6 +3415,15 @@ function buildMaterialRegionMap(regions) {
 // Phase 1B.4 — render one row of the legend strip below the map.
 // Click navigates to the region's scope section; hover lights the matching
 // polygon and any material cards that reference this region.
+//
+// Sprint 14C.7 fix: a region without proposal_section_id used to be filtered
+// out at the call site, which silently broke the entire region-aware
+// reader layout (no legend → p-customize.js extractRegions() returned []
+// → 2-col PROJECT TOTAL sidebar never activated → page degraded to the
+// pre-Phase-1B static-image layout). Now unanchored regions render as a
+// <div> instead of an <a>; the click-to-jump behavior just doesn't fire,
+// but everything else (legend dot, region name, area, hover sync with the
+// map and material cards, p-customize transformation) works identically.
 function renderLegendRow(region, color) {
   const sqft = region.area_sqft != null && Number(region.area_sqft) > 0
     ? `${Number(region.area_sqft).toLocaleString('en-US')} sqft` : '';
@@ -3422,14 +3431,21 @@ function renderLegendRow(region, color) {
     ? `${Number(region.area_lnft).toLocaleString('en-US')} lnft` : '';
   const meta = [sqft, lnft].filter(Boolean).join(' · ');
 
-  return `
-    <a href="#section-${escapeAttr(region.proposal_section_id)}" class="pub-region-legend-row" data-region-id="${escapeAttr(region.id)}">
+  const innerHtml = `
       <span class="pub-region-legend-dot" style="background:${color};"></span>
       <span class="pub-region-legend-text">
         <span class="pub-region-legend-name">${escapeHtml(region.name || 'Region')}</span>
         ${meta ? `<span class="pub-region-legend-meta">${escapeHtml(meta)}</span>` : ''}
-      </span>
+      </span>`;
+
+  if (region.proposal_section_id) {
+    return `
+    <a href="#section-${escapeAttr(region.proposal_section_id)}" class="pub-region-legend-row" data-region-id="${escapeAttr(region.id)}">${innerHtml}
     </a>`;
+  }
+  return `
+    <div class="pub-region-legend-row" data-region-id="${escapeAttr(region.id)}">${innerHtml}
+    </div>`;
 }
 
 function renderBackdropWithRegions(proposal, regions, materials, categoryToSection) {
@@ -3475,11 +3491,16 @@ function renderBackdropWithRegions(proposal, regions, materials, categoryToSecti
     ? 'Your project at a glance. Each highlighted area on the plan corresponds to a part of the scope below — hover any region or material to see how they connect.'
     : 'The working plan-view for your project — highlighted areas show the scope of work for each part of the project.';
 
-  // Legend strip — only regions linked to a scope section get a row, since
-  // the row navigates to that section. Standalone polygons still draw on
-  // the map but aren't part of the legend index.
+  // Sprint 14C.7 fix: the legend used to filter out regions without a
+  // proposal_section_id. That meant a proposal where the designer drew
+  // polygons but skipped the "anchor to scope section" step in the editor
+  // produced a snapshot with NO legend block at all, which silently
+  // disabled the 2-col reader layout for the entire page (p-customize.js
+  // bails when extractRegions() returns []). Now every region with a
+  // polygon gets a legend row; renderLegendRow degrades to a non-clickable
+  // <div> if proposal_section_id is null. Section-anchored regions still
+  // work the same: clicking jumps to the scope section.
   const legendHtml = regions
-    .filter(r => r.proposal_section_id)
     .map(r => renderLegendRow(r, regionColors.get(r.id)))
     .join('');
 
