@@ -1963,23 +1963,30 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     position: relative;
     margin: 0 -32px; /* break out of the .pub-prep-inner padding so the rail can extend edge-to-edge within the cream band */
   }
+  /* Sprint 14C.7 — fade gradient fix: width was 56px and held cream solid
+     until the 30% mark, so the leftmost card was getting clipped by ~24px
+     of overlapping fade (the "P" in "Paver Installation" and the left
+     edge of the diagram were unreadable). Narrowed to 24px and made the
+     gradient smooth from the edge so no portion of the card is masked.
+     Visual hint of horizontal scroll is preserved; content readability
+     comes first. */
   .pub-prep-rail-wrap::before,
   .pub-prep-rail-wrap::after {
     content: "";
     position: absolute;
     top: 0;
     bottom: 16px;
-    width: 56px;
+    width: 24px;
     pointer-events: none;
     z-index: 2;
   }
   .pub-prep-rail-wrap::before {
     left: 0;
-    background: linear-gradient(to right, var(--cream) 30%, rgba(250, 248, 243, 0));
+    background: linear-gradient(to right, var(--cream), rgba(250, 248, 243, 0));
   }
   .pub-prep-rail-wrap::after {
     right: 0;
-    background: linear-gradient(to left, var(--cream) 30%, rgba(250, 248, 243, 0));
+    background: linear-gradient(to left, var(--cream), rgba(250, 248, 243, 0));
   }
   .pub-prep-rail {
     display: flex;
@@ -2045,11 +2052,16 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     flex: 0 0 380px;
     max-width: 380px;
     scroll-snap-align: start;
+    /* Sprint 14C.7 — cards now have a resting shadow so they visually
+       lift off the cream section background. Previously the resting
+       state was just a 1px gray border which was nearly invisible
+       against the cream. Hover state intensifies the shadow further. */
+    box-shadow: 0 2px 8px rgba(53, 53, 53, 0.06), 0 1px 2px rgba(53, 53, 53, 0.04);
     transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   }
   .pub-prep-card:hover {
     border-color: var(--green);
-    box-shadow: 0 12px 28px rgba(93, 126, 105, 0.12);
+    box-shadow: 0 12px 28px rgba(93, 126, 105, 0.14), 0 2px 6px rgba(93, 126, 105, 0.08);
     transform: translateY(-2px);
   }
   .pub-prep-card-number {
