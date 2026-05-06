@@ -1,17 +1,24 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// POST /api/submit-redesign — Phase 6 Sprint 2 (client redesign autonomy)
+// POST /api/submit-redesign — Phase 6 Sprint 2 + Sprint 14C.11
+//                              (client redesign autonomy)
 //
-// Accepts a client's design change submission. Two modalities supported in
-// the same endpoint:
-//   1. Digital markup: SVG string drawn over the site map
+// Accepts a client's design change submission. Four modalities supported:
+//   1. Digital markup:        SVG string drawn over the site map
 //   2. Photo of paper markup: file upload (jpg/png, ≤10MB)
-// Either or both can be present. A bare text note alone also works.
+//   3. Note only:             text-only feedback
+//   4. Region reshape:        polygon-vertex-drag resize of one or more
+//                             regions, packaged as a self-contained diff
+//                             (original vs modified polygons + areas)
+// Any combination is allowed. At least one of (markup, photo, note,
+// reshape) must be present.
 //
 // Body: multipart/form-data
 //   slug                 string (required) — proposal slug
 //   markup_svg           string (optional) — serialized SVG of digital strokes
 //   photo                File   (optional) — image of paper markup
 //   homeowner_note       string (optional) — text note, ≤4000 chars
+//   modified_polygons    string (optional) — JSON array describing reshape
+//                                            request, see validate fn below
 //   site_map_url         string (required) — snapshot of backdrop URL at submit time
 //   site_map_width       number (optional) — backdrop natural width in px
 //   site_map_height      number (optional) — backdrop natural height in px
@@ -69,11 +76,25 @@ export async function onRequestPost({ request, env }) {
     const site_map_height = form.get('site_map_height') ? parseInt(form.get('site_map_height'), 10) : null;
     const photo = form.get('photo'); // File or null
 
+    // Sprint 14C.11 — fourth modality: polygon-vertex-drag reshape diff.
+    // Validated server-side to bound size and shape; the validator
+    // returns either { error } (reject the request) or { value } (use
+    // for insRow). null/empty input is fine — it just means no reshape
+    // is part of this submission.
+    const modifiedPolygonsRaw = form.get('modified_polygons');
+    const mpResult = validateModifiedPolygons(modifiedPolygonsRaw);
+    if (mpResult.error) return json(400, { error: mpResult.error });
+    const modified_polygons = mpResult.value;
+
     if (!slug) return json(400, { error: 'slug is required' });
 
-    // At least one of markup_svg, photo, homeowner_note must be present
-    const hasContent = (markup_svg && markup_svg.trim().length > 0) || (photo && photo.size > 0) || (homeowner_note && homeowner_note.trim().length > 0);
-    if (!hasContent) return json(400, { error: 'Submission needs at least a markup, photo, or note' });
+    // At least one of markup_svg, photo, homeowner_note, modified_polygons must be present
+    const hasContent =
+      (markup_svg && markup_svg.trim().length > 0) ||
+      (photo && photo.size > 0) ||
+      (homeowner_note && homeowner_note.trim().length > 0) ||
+      (Array.isArray(modified_polygons) && modified_polygons.length > 0);
+    if (!hasContent) return json(400, { error: 'Submission needs at least a markup, photo, note, or reshape' });
 
     // Bound markup size to 200KB
     if (markup_svg && markup_svg.length > 200_000) {
@@ -179,6 +200,12 @@ export async function onRequestPost({ request, env }) {
       site_map_url_at_submit: site_map_url,
       site_map_width_at_submit: Number.isFinite(site_map_width) ? site_map_width : null,
       site_map_height_at_submit: Number.isFinite(site_map_height) ? site_map_height : null,
+      // Sprint 14C.11 — self-contained reshape diff. Includes both the
+      // original and modified polygons + areas so designer review is
+      // stable even if proposal_regions is later edited.
+      modified_polygons: (Array.isArray(modified_polygons) && modified_polygons.length > 0)
+        ? modified_polygons
+        : null,
     };
     const insResp = await sb('proposal_redesign_requests', {
       method: 'POST',
@@ -200,7 +227,14 @@ export async function onRequestPost({ request, env }) {
         const proposalUrl = PUBLIC_BASE_URL + '/p/' + slug;
         const hasMarkup = !!inserted.markup_svg;
         const hasPhoto = !!inserted.photo_url;
-        const submissionType = hasMarkup ? 'digital markup' : (hasPhoto ? 'photo of paper markup' : 'note only');
+        const hasReshape = Array.isArray(inserted.modified_polygons) && inserted.modified_polygons.length > 0;
+        // Order matters — reshape is the most actionable signal (specific
+        // sqft/lnft deltas), so lead with it when present.
+        let submissionType;
+        if (hasReshape) submissionType = 'region reshape' + (hasPhoto ? ' + photo' : (hasMarkup ? ' + digital markup' : ''));
+        else if (hasMarkup) submissionType = 'digital markup';
+        else if (hasPhoto) submissionType = 'photo of paper markup';
+        else submissionType = 'note only';
         const subject = (client.name || 'Homeowner') + ' submitted a design change request on ' + (project_address || 'their proposal');
 
         const emailResp = await fetch('https://api.resend.com/emails', {
@@ -219,6 +253,8 @@ export async function onRequestPost({ request, env }) {
               homeownerNote: homeowner_note,
               hasMarkup,
               hasPhoto,
+              hasReshape,
+              reshapeCount: hasReshape ? inserted.modified_polygons.length : 0,
               adminUrl,
               proposalUrl,
             }),
@@ -229,6 +265,8 @@ export async function onRequestPost({ request, env }) {
               homeownerNote: homeowner_note,
               hasMarkup,
               hasPhoto,
+              hasReshape,
+              reshapeCount: hasReshape ? inserted.modified_polygons.length : 0,
               adminUrl,
               proposalUrl,
             }),
@@ -270,11 +308,12 @@ export async function onRequestOptions() {
   });
 }
 
-function buildEmailHtml({ clientName, clientEmail, projectAddress, submissionType, homeownerNote, hasMarkup, hasPhoto, adminUrl, proposalUrl }) {
+function buildEmailHtml({ clientName, clientEmail, projectAddress, submissionType, homeownerNote, hasMarkup, hasPhoto, hasReshape, reshapeCount, adminUrl, proposalUrl }) {
   const noteHtml = homeownerNote
     ? '<div style="background:#dad7c5;border-left:3px solid #5d7e69;padding:14px 16px;margin-bottom:24px;border-radius:4px;font-size:14px;color:#353535;line-height:1.55;font-style:italic;">"' + escapeHtml(homeownerNote) + '"</div>'
     : '';
   const contents = [
+    hasReshape ? '✥ Region reshape requested — ' + reshapeCount + ' ' + (reshapeCount === 1 ? 'region' : 'regions') + ' resized via vertex drag' : null,
     hasMarkup ? '✏️ Digital markup drawn on site map' : null,
     hasPhoto ? '📷 Photo of paper markup uploaded' : null,
     homeownerNote ? '📝 Text note included' : null,
@@ -318,7 +357,7 @@ escapeHtml(clientName || 'They') + ' is asking for changes that go beyond materi
 '</table></td></tr></table></body></html>';
 }
 
-function buildEmailText({ clientName, projectAddress, submissionType, homeownerNote, hasMarkup, hasPhoto, adminUrl, proposalUrl }) {
+function buildEmailText({ clientName, projectAddress, submissionType, homeownerNote, hasMarkup, hasPhoto, hasReshape, reshapeCount, adminUrl, proposalUrl }) {
   const lines = [
     'Design change request',
     '',
@@ -330,6 +369,7 @@ function buildEmailText({ clientName, projectAddress, submissionType, homeownerN
     lines.push('Note from homeowner:', '"' + homeownerNote + '"', '');
   }
   lines.push('Contents:');
+  if (hasReshape) lines.push('  - Region reshape requested (' + reshapeCount + ' ' + (reshapeCount === 1 ? 'region' : 'regions') + ' resized)');
   if (hasMarkup) lines.push('  - Digital markup drawn on site map');
   if (hasPhoto) lines.push('  - Photo of paper markup uploaded');
   if (homeownerNote) lines.push('  - Text note included');
@@ -341,4 +381,122 @@ function escapeHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Sprint 14C.11 — validate the modified_polygons field. Returns either
+// { error } (reject) or { value } (use, possibly null when empty).
+//
+// Shape (per the homeowner-side serializer in /p-redesign.js):
+//   [
+//     {
+//       region_id:         "uuid",       // matches a row in proposal_regions
+//       region_name:       "Patio",      // human label for designer review
+//       color:             "#5d7e69",    // legend color at submit time
+//       original_polygon:  [{x:0..1,y:0..1}, ...],  // ≥3 vertices, fractional
+//       modified_polygon:  [{x:0..1,y:0..1}, ...],  // ≥3 vertices, fractional
+//       original_area_sqft: 660,
+//       modified_area_sqft: 825,
+//       original_area_lnft: 180,
+//       modified_area_lnft: 195
+//     },
+//     ...
+//   ]
+//
+// Limits chosen to bound database storage + admin render cost while
+// covering realistic projects (most have 3–8 regions; even ornate
+// site maps rarely exceed ~50 vertices/region).
+function validateModifiedPolygons(raw) {
+  const MAX_REGIONS = 30;
+  const MAX_VERTICES = 200;
+  const MAX_RAW_BYTES = 100_000; // 100KB JSON ceiling
+  const HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
+  const UUID_RE = /^[0-9a-f-]{8,40}$/i;
+
+  if (!raw) return { value: null };
+  const rawStr = typeof raw === 'string' ? raw : String(raw);
+  if (rawStr.length > MAX_RAW_BYTES) {
+    return { error: 'modified_polygons too large (>100KB)' };
+  }
+
+  let parsed;
+  try { parsed = JSON.parse(rawStr); }
+  catch (_) { return { error: 'modified_polygons is not valid JSON' }; }
+
+  if (!Array.isArray(parsed)) return { error: 'modified_polygons must be an array' };
+  if (parsed.length === 0) return { value: null };
+  if (parsed.length > MAX_REGIONS) return { error: 'Too many regions (max ' + MAX_REGIONS + ')' };
+
+  const cleaned = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const item = parsed[i];
+    if (!item || typeof item !== 'object') return { error: 'Region #' + (i + 1) + ' is not an object' };
+
+    if (typeof item.region_id !== 'string' || !UUID_RE.test(item.region_id)) {
+      return { error: 'Region #' + (i + 1) + ' has invalid region_id' };
+    }
+    const region_name = typeof item.region_name === 'string'
+      ? item.region_name.slice(0, 200)
+      : '';
+    const color = typeof item.color === 'string' && HEX_RE.test(item.color)
+      ? item.color
+      : null;
+
+    const orig = sanitizePolygon(item.original_polygon, MAX_VERTICES);
+    const mod  = sanitizePolygon(item.modified_polygon, MAX_VERTICES);
+    if (orig.error) return { error: 'Region #' + (i + 1) + ' original_polygon: ' + orig.error };
+    if (mod.error)  return { error: 'Region #' + (i + 1) + ' modified_polygon: ' + mod.error };
+
+    const original_area_sqft = sanitizeAreaNumber(item.original_area_sqft);
+    const modified_area_sqft = sanitizeAreaNumber(item.modified_area_sqft);
+    const original_area_lnft = sanitizeAreaNumber(item.original_area_lnft);
+    const modified_area_lnft = sanitizeAreaNumber(item.modified_area_lnft);
+
+    cleaned.push({
+      region_id: item.region_id,
+      region_name,
+      color,
+      original_polygon: orig.value,
+      modified_polygon: mod.value,
+      original_area_sqft,
+      modified_area_sqft,
+      original_area_lnft,
+      modified_area_lnft,
+    });
+  }
+  return { value: cleaned };
+}
+
+function sanitizePolygon(arr, maxVertices) {
+  if (!Array.isArray(arr)) return { error: 'must be an array' };
+  if (arr.length < 3) return { error: 'needs at least 3 vertices' };
+  if (arr.length > maxVertices) return { error: 'exceeds ' + maxVertices + ' vertices' };
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    const v = arr[i];
+    if (!v || typeof v !== 'object') return { error: 'vertex #' + (i + 1) + ' is not an object' };
+    const x = Number(v.x);
+    const y = Number(v.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return { error: 'vertex #' + (i + 1) + ' has non-finite coordinates' };
+    }
+    // Allow slight overshoot (-0.05..1.05) so handles dragged just past
+    // the backdrop edge during pointer slop don't reject the whole submit.
+    if (x < -0.05 || x > 1.05 || y < -0.05 || y > 1.05) {
+      return { error: 'vertex #' + (i + 1) + ' is out of bounds' };
+    }
+    // Round to 4 decimal places — at a 2000px backdrop that's 0.2px
+    // resolution, plenty for visual fidelity, and shrinks JSON size.
+    out.push({
+      x: Math.round(x * 10000) / 10000,
+      y: Math.round(y * 10000) / 10000,
+    });
+  }
+  return { value: out };
+}
+
+function sanitizeAreaNumber(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  if (n > 1_000_000) return 1_000_000; // hard ceiling; sanity guard
+  return Math.round(n);
 }
