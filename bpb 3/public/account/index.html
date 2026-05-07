@@ -30,6 +30,8 @@
     background: var(--bp-bg);
     line-height: 1.5; font-size: 15px;
   }
+
+  /* ── Brand bar ─────────────────────────────────────────────────────── */
   .ho-nav {
     background: #fff;
     border-bottom: 1px solid var(--bp-border);
@@ -37,6 +39,12 @@
     display: flex; align-items: center; justify-content: space-between;
     flex-wrap: wrap; gap: 12px;
   }
+  .ho-nav-brand-link {
+    display: flex; align-items: center; gap: 14px;
+    text-decoration: none; color: inherit;
+    transition: opacity .15s;
+  }
+  .ho-nav-brand-link:hover { opacity: 0.78; }
   .ho-nav-brand { display: flex; align-items: center; gap: 14px; }
   .ho-nav-brand img { height: 32px; width: auto; }
   .ho-nav-brand-divider { width: 1px; height: 22px; background: var(--bp-border); }
@@ -58,8 +66,49 @@
   }
   .ho-nav-out:hover { background: var(--bp-text); color: #fff; border-color: var(--bp-text); }
 
+  /* ── Sticky sub-nav (Sprint 14C.16) ───────────────────────────────── */
+  .ho-subnav {
+    position: sticky; top: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.92);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--bp-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ho-subnav::-webkit-scrollbar { display: none; }
+  .ho-subnav-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 8px 24px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    white-space: nowrap;
+  }
+  .ho-subnav a {
+    flex-shrink: 0;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bp-muted);
+    text-decoration: none;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+  }
+  .ho-subnav a:hover { color: var(--bp-text); background: var(--bp-cream); }
+  .ho-subnav a.is-active {
+    color: var(--bp-green-dk);
+    background: var(--bp-green-soft);
+  }
+  section[id] { scroll-margin-top: 70px; }
+
+  /* ── Page container ───────────────────────────────────────────────── */
   .ho-page { max-width: 1080px; margin: 0 auto; padding: 36px 24px 80px; }
 
+  /* ── Hero ─────────────────────────────────────────────────────────── */
   .ho-hero {
     background: linear-gradient(135deg, var(--bp-green) 0%, var(--bp-green-dk) 100%);
     color: #fff;
@@ -99,6 +148,7 @@
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
   }
 
+  /* ── Section scaffolding ──────────────────────────────────────────── */
   .ho-section { margin-bottom: 32px; }
   .ho-section-head {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -119,7 +169,7 @@
     line-height: 1.6;
   }
 
-  /* Proposal cards */
+  /* ── Proposal cards ───────────────────────────────────────────────── */
   .ho-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -178,13 +228,6 @@
     margin-top: auto;
   }
   .ho-prop-cta:hover { background: var(--bp-green-dk); }
-
-  /* Sprint 14C.10 — secondary action ("Print plan to mark up") sits
-     directly below the primary "View proposal" CTA. The wrapper takes
-     over the margin-top: auto so both buttons stay pinned to the bottom
-     of the card together. The alt CTA is intentionally low-weight (white
-     bg, neutral border) so it visually defers to the primary action while
-     still being a clear, tappable affordance. */
   .ho-prop-actions {
     display: flex;
     flex-direction: column;
@@ -233,7 +276,7 @@
   }
   .ho-empty-cta:hover { background: var(--bp-green-dk); }
 
-  /* Quality Standards section */
+  /* ── Quality Standards ────────────────────────────────────────────── */
   .ho-qs-card {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -287,20 +330,14 @@
   .ho-qs-body p { margin-bottom: 12px; }
   .ho-qs-body p:last-child { margin-bottom: 0; }
 
-  /* Two-column for credit + browse-materials cards */
-  .ho-two-col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-  @media (max-width: 760px) { .ho-two-col { grid-template-columns: 1fr; } }
-
+  /* ── Referral credit (now full-width) ─────────────────────────────── */
   .ho-credit-card {
     background: #fff;
     border: 1px solid var(--bp-border);
     border-radius: 12px;
-    padding: 26px 24px;
+    padding: 26px 28px;
     display: flex; flex-direction: column;
+    max-width: 540px;
   }
   .ho-credit-eyebrow {
     font-size: 11px; letter-spacing: 0.18em;
@@ -332,12 +369,12 @@
     font: inherit; font-weight: 600; font-size: 13px;
     cursor: pointer;
     transition: background .15s;
-    margin-top: auto; align-self: flex-start;
+    align-self: flex-start;
   }
   .ho-credit-cta:hover { background: var(--bp-green-dk); }
   .ho-credit-cta:disabled { background: var(--bp-text); opacity: 0.6; cursor: not-allowed; }
 
-  /* Share link block in refer modal (Phase 4.0c R3 — Sprint B) */
+  /* ── Share link block ─────────────────────────────────────────────── */
   .ho-share-block {
     background: var(--bp-cream);
     border: 1px solid var(--bp-border);
@@ -401,61 +438,7 @@
     height: 1px; background: var(--bp-border); z-index: 0;
   }
 
-  /* Browse materials card (replaces old generic resources) */
-  .ho-browse-card {
-    background: linear-gradient(135deg, #fff 0%, var(--bp-cream) 100%);
-    border: 1px solid var(--bp-border);
-    border-radius: 12px;
-    padding: 26px 24px;
-    display: flex; flex-direction: column;
-  }
-  .ho-browse-eyebrow {
-    font-size: 11px; letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--bp-muted); font-weight: 600;
-    margin-bottom: 10px;
-  }
-  .ho-browse-title {
-    font-size: 20px; font-weight: 600;
-    color: var(--bp-text);
-    letter-spacing: -0.012em;
-    line-height: 1.25;
-    margin-bottom: 8px;
-  }
-  .ho-browse-desc {
-    font-size: 13px; line-height: 1.55;
-    color: var(--bp-charcoal);
-    margin-bottom: 18px;
-  }
-  .ho-browse-list {
-    list-style: none;
-    padding: 0; margin: 0 0 18px;
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px 14px;
-    font-size: 12px;
-    color: var(--bp-muted);
-  }
-  .ho-browse-list li {
-    display: flex; align-items: center; gap: 6px;
-  }
-  .ho-browse-list li::before {
-    content: "•"; color: var(--bp-green-dk); font-weight: 700;
-  }
-  .ho-browse-cta {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: var(--bp-green); color: #fff;
-    padding: 11px 20px;
-    border-radius: 8px;
-    font-size: 13px; font-weight: 600;
-    text-decoration: none;
-    transition: background .15s;
-    margin-top: auto;
-    align-self: flex-start;
-  }
-  .ho-browse-cta:hover { background: var(--bp-green-dk); }
-
-  /* Sent referrals section (Phase 4.0c R3) */
+  /* ── Sent referrals list ──────────────────────────────────────────── */
   .ho-ref-list {
     display: flex; flex-direction: column;
     gap: 8px;
@@ -534,6 +517,7 @@
   .ho-ref-toast.error { background: #fef2f2; color: var(--bp-err); }
   .ho-ref-toast[hidden] { display: none; }
 
+  /* ── Loading / error utilities ────────────────────────────────────── */
   .ho-loading {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -553,7 +537,370 @@
     margin-bottom: 18px;
   }
 
-  /* Refer modal */
+  /* ── INLINE MATERIALS BROWSER (Sprint 14C.16) ─────────────────────── */
+  .ho-mat-section {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 12px;
+    padding: 22px 22px 26px;
+  }
+  .ho-mat-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .ho-mat-head h3 {
+    margin-right: auto;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--bp-text);
+  }
+  .ho-mat-search {
+    flex: 1; max-width: 280px; min-width: 180px;
+    padding: 9px 14px;
+    border: 1px solid var(--bp-border);
+    border-radius: 999px;
+    background: var(--bp-cream);
+    font: inherit;
+    font-size: 13px;
+    color: var(--bp-text);
+    transition: background .15s, border-color .15s;
+  }
+  .ho-mat-search::placeholder { color: var(--bp-muted); }
+  .ho-mat-search:focus {
+    outline: none;
+    border-color: var(--bp-green);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(93,126,105,0.14);
+  }
+  .ho-mat-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 0 14px;
+    border-bottom: 1px solid var(--bp-border);
+    margin-bottom: 18px;
+  }
+  .ho-mat-tabs::-webkit-scrollbar { display: none; }
+  .ho-mat-tab {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bp-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background .12s, color .12s, border-color .12s;
+    white-space: nowrap;
+  }
+  .ho-mat-tab:hover {
+    color: var(--bp-text);
+    background: var(--bp-cream);
+  }
+  .ho-mat-tab.is-active {
+    background: var(--bp-green);
+    color: #fff;
+    border-color: var(--bp-green);
+  }
+  .ho-mat-tab-count {
+    background: rgba(0,0,0,0.06);
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .ho-mat-tab.is-active .ho-mat-tab-count {
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+  }
+
+  .ho-mat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 480px) {
+    .ho-mat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  }
+  .ho-mat-card {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .12s, box-shadow .15s, border-color .15s;
+    display: flex; flex-direction: column;
+    text-align: left;
+    font: inherit;
+    padding: 0;
+    color: inherit;
+  }
+  .ho-mat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(31,33,37,0.08);
+    border-color: var(--bp-green);
+  }
+  .ho-mat-card-img {
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    background: var(--bp-cream) center/cover no-repeat;
+    border-bottom: 1px solid var(--bp-border);
+  }
+  .ho-mat-card-img-fallback {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-bottom: 1px solid var(--bp-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--bp-green-soft) 0%, var(--bp-cream) 100%);
+    color: var(--bp-green-dk);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 8px;
+  }
+  .ho-mat-card-body {
+    padding: 9px 12px 12px;
+    flex: 1;
+    display: flex; flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .ho-mat-card-mfr {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bp-muted);
+  }
+  .ho-mat-card-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bp-text);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .ho-mat-card-color {
+    font-size: 11px;
+    color: var(--bp-muted);
+    margin-top: 1px;
+  }
+  .ho-mat-state {
+    grid-column: 1 / -1;
+    padding: 36px 20px;
+    text-align: center;
+    color: var(--bp-muted);
+    font-size: 13px;
+    background: var(--bp-cream);
+    border-radius: 8px;
+  }
+  .ho-mat-show-more {
+    margin-top: 18px;
+    text-align: center;
+  }
+  .ho-mat-show-more-btn {
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 999px;
+    padding: 9px 22px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bp-charcoal);
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .ho-mat-show-more-btn:hover {
+    background: var(--bp-cream);
+    border-color: var(--bp-green);
+    color: var(--bp-green-dk);
+  }
+
+  /* ── Material detail modal ────────────────────────────────────────── */
+  .ho-mat-modal {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    max-width: 620px; width: 100%;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .ho-mat-modal-img-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    background: var(--bp-cream) center/cover no-repeat;
+    border-bottom: 1px solid var(--bp-border);
+    flex-shrink: 0;
+  }
+  .ho-mat-modal-img {
+    width: 100%; height: 100%;
+    background: inherit;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  .ho-mat-modal-img-fallback {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--bp-green-soft) 0%, var(--bp-cream) 100%);
+    color: var(--bp-green-dk);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .ho-mat-modal-close {
+    position: absolute;
+    top: 14px; right: 14px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    border: none;
+    width: 32px; height: 32px;
+    border-radius: 999px;
+    font: inherit; font-size: 16px; line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .ho-mat-modal-close:hover { background: rgba(0,0,0,0.78); }
+  .ho-mat-modal-body {
+    padding: 22px 26px 26px;
+    overflow-y: auto;
+  }
+  .ho-mat-modal-mfr {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bp-muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .ho-mat-modal-name {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--bp-text);
+    letter-spacing: -0.014em;
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
+  .ho-mat-modal-color {
+    font-size: 14px;
+    color: var(--bp-charcoal);
+    margin-bottom: 16px;
+  }
+  .ho-mat-modal-color-swatch {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(0,0,0,0.08);
+    vertical-align: -1px;
+    margin-right: 6px;
+  }
+  .ho-mat-modal-desc {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--bp-charcoal);
+    margin-bottom: 18px;
+  }
+  .ho-mat-modal-specs {
+    background: var(--bp-cream);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+  }
+  .ho-mat-modal-spec-row {
+    display: flex;
+    gap: 12px;
+    padding: 5px 0;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(31,33,37,0.04);
+  }
+  .ho-mat-modal-spec-row:last-child { border-bottom: none; }
+  .ho-mat-modal-spec-label {
+    color: var(--bp-muted);
+    font-weight: 600;
+    flex-shrink: 0;
+    width: 110px;
+  }
+  .ho-mat-modal-spec-val {
+    color: var(--bp-text);
+    flex: 1;
+    word-break: break-word;
+  }
+  .ho-mat-modal-section-label {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--bp-muted);
+    font-weight: 700;
+    margin-bottom: 8px;
+    margin-top: 14px;
+  }
+  .ho-mat-modal-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .ho-mat-modal-chip {
+    background: var(--bp-green-soft);
+    color: var(--bp-green-dk);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: capitalize;
+  }
+  .ho-mat-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--bp-border);
+  }
+  .ho-mat-modal-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border: 1px solid var(--bp-border);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bp-charcoal);
+    text-decoration: none;
+    background: #fff;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .ho-mat-modal-action:hover {
+    background: var(--bp-cream);
+    border-color: var(--bp-green);
+    color: var(--bp-green-dk);
+  }
+
+  /* ── Refer modal ──────────────────────────────────────────────────── */
   .ho-modal-backdrop {
     position: fixed; inset: 0;
     background: rgba(31, 33, 37, 0.5);
@@ -648,45 +995,130 @@
   .ho-modal-success h3 { font-size: 16px; font-weight: 600; color: var(--bp-text); margin-bottom: 6px; }
   .ho-modal-success p { font-size: 13px; line-height: 1.6; color: var(--bp-muted); }
 
+  /* ── FOOTER (Sprint 14C.16) ───────────────────────────────────────── */
+  .ho-footer {
+    background: var(--bp-charcoal);
+    color: rgba(255,255,255,0.85);
+    padding: 56px 24px 28px;
+    margin-top: 60px;
+  }
+  .ho-footer-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr;
+    gap: 36px;
+  }
+  @media (max-width: 760px) {
+    .ho-footer-inner { grid-template-columns: 1fr 1fr; gap: 28px; }
+  }
+  @media (max-width: 480px) {
+    .ho-footer-inner { grid-template-columns: 1fr; gap: 24px; }
+  }
+  .ho-footer-brand-block img {
+    height: 38px;
+    width: auto;
+    margin-bottom: 14px;
+    display: block;
+  }
+  .ho-footer-brand-tagline {
+    font-size: 13px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.7);
+    max-width: 320px;
+  }
+  .ho-footer-col h4 {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 12px;
+  }
+  .ho-footer-col ul { list-style: none; padding: 0; margin: 0; }
+  .ho-footer-col li {
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .ho-footer-col a {
+    color: rgba(255,255,255,0.85);
+    text-decoration: none;
+    transition: color .15s;
+  }
+  .ho-footer-col a:hover { color: #fff; text-decoration: underline; }
+  .ho-footer-col span.ho-footer-soft { color: rgba(255,255,255,0.7); }
+  .ho-footer-bottom {
+    max-width: 1080px;
+    margin: 40px auto 0;
+    padding-top: 22px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+  }
+  .ho-footer-bottom a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+  }
+  .ho-footer-bottom a:hover { color: #fff; }
+
   @media (max-width: 540px) {
     .ho-page { padding: 24px 16px 60px; }
     .ho-hero { padding: 28px 22px 26px; }
     .ho-hero-title { font-size: 22px; }
     .ho-hero-lede { font-size: 14px; }
     .ho-nav-brand-divider, .ho-nav-brand-tag { display: none; }
-    .ho-browse-list { grid-template-columns: 1fr; }
+    .ho-mat-modal-spec-label { width: 90px; }
   }
 </style>
 </head>
 <body>
 
 <nav class="ho-nav">
-  <div class="ho-nav-brand">
-    <img src="https://baysidepavers.com/wp-content/uploads/2023/03/baysidepavers-logo-light-scaled.png" alt="Bayside Pavers">
-    <span class="ho-nav-brand-divider"></span>
-    <span class="ho-nav-brand-tag">Your Account</span>
-  </div>
+  <a class="ho-nav-brand-link" href="https://baysidepavers.com" target="_blank" rel="noopener" aria-label="Visit baysidepavers.com">
+    <span class="ho-nav-brand">
+      <img src="https://baysidepavers.com/wp-content/uploads/2023/03/baysidepavers-logo-light-scaled.png" alt="Bayside Pavers">
+      <span class="ho-nav-brand-divider"></span>
+      <span class="ho-nav-brand-tag">Your Account</span>
+    </span>
+  </a>
   <div class="ho-nav-user">
     <span class="ho-nav-name" id="ho-nav-name">…</span>
     <button type="button" class="ho-nav-out" id="ho-nav-out">Sign out</button>
   </div>
 </nav>
 
+<div class="ho-subnav" id="ho-subnav">
+  <div class="ho-subnav-inner">
+    <a href="#welcome" data-anchor="welcome">Welcome</a>
+    <a href="#proposals" data-anchor="proposals">Proposals</a>
+    <a href="#messages" data-anchor="messages">Messages</a>
+    <a href="#materials" data-anchor="materials">Materials</a>
+    <a href="#how-we-build" data-anchor="how-we-build">How we build</a>
+    <a href="#refer" data-anchor="refer">Refer &amp; earn</a>
+  </div>
+</div>
+
 <main class="ho-page">
   <div id="ho-error-banner" class="ho-error-msg" style="display:none;"></div>
 
-  <section class="ho-hero">
+  <section id="welcome" class="ho-hero">
     <div class="ho-hero-eyebrow">Welcome</div>
     <h1 class="ho-hero-title" id="ho-hero-title">…</h1>
     <p class="ho-hero-lede" id="ho-hero-lede">Loading your account…</p>
     <a class="ho-hero-cta" id="ho-schedule-cta" href="https://baysidepaversfreeconsultation.as.me/" target="_blank" rel="noopener">📅 Schedule a free design appointment</a>
   </section>
 
- <!-- Sprint 10d: chat with designer -->
-  <section class="ho-section" id="ho-chat-section"></section>
-  
-  <!-- Your proposals -->
-  <section class="ho-section">
+  <section id="messages" class="ho-section">
+    <div id="ho-chat-section"></div>
+  </section>
+
+  <section id="proposals" class="ho-section">
     <div class="ho-section-head">
       <h2>Your proposals</h2>
       <span class="ho-section-meta" id="ho-prop-count"></span>
@@ -696,8 +1128,32 @@
     </div>
   </section>
 
-  <!-- Quality Standards (collapsible) -->
-  <section class="ho-section">
+  <section id="materials" class="ho-section">
+    <div class="ho-section-head">
+      <h2>Browse our materials</h2>
+      <span class="ho-section-meta" id="ho-mat-meta"></span>
+    </div>
+    <p class="ho-section-sub">
+      Every paver, slab, wall block, and accessory we install — searchable, tabbed by category.
+      Tap any product for full specs, applications, and downloadable cut-sheets.
+    </p>
+
+    <div class="ho-mat-section">
+      <div class="ho-mat-head">
+        <h3>Catalog</h3>
+        <input type="search" class="ho-mat-search" id="ho-mat-search" placeholder="Search by name, color, or use…" autocomplete="off">
+      </div>
+      <div class="ho-mat-tabs" id="ho-mat-tabs"></div>
+      <div class="ho-mat-grid" id="ho-mat-grid">
+        <div class="ho-mat-state">Loading materials catalog…</div>
+      </div>
+      <div class="ho-mat-show-more" id="ho-mat-show-more" hidden>
+        <button type="button" class="ho-mat-show-more-btn" id="ho-mat-show-more-btn">Show all</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="how-we-build" class="ho-section">
     <div class="ho-section-head">
       <h2>Our quality standards</h2>
     </div>
@@ -782,38 +1238,19 @@
     </details>
   </section>
 
-  <!-- Two-column: Referral credit + Browse materials -->
-  <section class="ho-section">
-    <div class="ho-two-col">
-      <div class="ho-credit-card">
-        <div class="ho-credit-eyebrow">Referral credit</div>
-        <div class="ho-credit-amount" id="ho-credit-amount">$0</div>
-        <div class="ho-credit-cap" id="ho-credit-cap">of $2,500 max</div>
-        <div class="ho-credit-bar"><div class="ho-credit-bar-fill" id="ho-credit-fill" style="width: 0%;"></div></div>
-        <p class="ho-credit-desc">
-          Refer a neighbor to Bayside Pavers. When they complete a design appointment, you both earn $500 off your next project.
-        </p>
-        <button type="button" class="ho-credit-cta" id="ho-credit-cta">Refer a neighbor →</button>
-      </div>
-
-      <div class="ho-browse-card">
-        <div class="ho-browse-eyebrow">Materials catalog</div>
-        <h3 class="ho-browse-title">Browse materials we install</h3>
-        <p class="ho-browse-desc">Explore the full library of pavers, porcelain, walls, and accessories. Click any product for cut-sheets and specs.</p>
-        <ul class="ho-browse-list">
-          <li>Pavers</li>
-          <li>Porcelain</li>
-          <li>Walls</li>
-          <li>Fire features</li>
-          <li>Decking</li>
-          <li>Lighting</li>
-        </ul>
-        <a class="ho-browse-cta" href="/account/materials.html">Browse the catalog →</a>
-      </div>
+  <section id="refer" class="ho-section">
+    <div class="ho-credit-card">
+      <div class="ho-credit-eyebrow">Referral credit</div>
+      <div class="ho-credit-amount" id="ho-credit-amount">$0</div>
+      <div class="ho-credit-cap" id="ho-credit-cap">of $2,500 max</div>
+      <div class="ho-credit-bar"><div class="ho-credit-bar-fill" id="ho-credit-fill" style="width: 0%;"></div></div>
+      <p class="ho-credit-desc">
+        Refer a neighbor to Bayside Pavers. When they complete a design appointment, you both earn $500 off your next project.
+      </p>
+      <button type="button" class="ho-credit-cta" id="ho-credit-cta">Refer a neighbor →</button>
     </div>
   </section>
 
-  <!-- Sent referrals (Phase 4.0c R3) -->
   <section class="ho-section" id="ho-ref-section" hidden>
     <div class="ho-section-head">
       <h2>Your referrals</h2>
@@ -824,7 +1261,6 @@
   </section>
 </main>
 
-<!-- Refer a neighbor modal -->
 <div class="ho-modal-backdrop" id="ho-refer-backdrop" hidden>
   <div class="ho-modal" role="dialog" aria-modal="true" aria-labelledby="ho-refer-title">
     <div class="ho-modal-head">
@@ -879,6 +1315,59 @@
   </div>
 </div>
 
+<div class="ho-modal-backdrop" id="ho-mat-modal-backdrop" hidden>
+  <div class="ho-mat-modal" role="dialog" aria-modal="true" aria-labelledby="ho-mat-modal-name">
+    <div class="ho-mat-modal-img-wrap">
+      <div class="ho-mat-modal-img" id="ho-mat-modal-img"></div>
+      <button type="button" class="ho-mat-modal-close" id="ho-mat-modal-close" aria-label="Close">×</button>
+    </div>
+    <div class="ho-mat-modal-body" id="ho-mat-modal-body"></div>
+  </div>
+</div>
+
+<footer class="ho-footer">
+  <div class="ho-footer-inner">
+    <div class="ho-footer-brand-block">
+      <img src="https://baysidepavers.com/wp-content/uploads/2023/03/baysidepavers-logo-light-scaled.png" alt="Bayside Pavers" style="filter: brightness(0) invert(1);">
+      <p class="ho-footer-brand-tagline">
+        The Bay Area's hardscape specialists. Custom paver patios, driveways, pool decks,
+        retaining walls, fire features, and outdoor living — built to last.
+      </p>
+    </div>
+    <div class="ho-footer-col">
+      <h4>Visit</h4>
+      <ul>
+        <li><a href="https://baysidepavers.com" target="_blank" rel="noopener">baysidepavers.com</a></li>
+        <li><a href="https://baysidepavers.com/portfolio" target="_blank" rel="noopener">Project gallery</a></li>
+        <li><a href="https://baysidepavers.com/about" target="_blank" rel="noopener">About us</a></li>
+        <li><a href="https://baysidepaversfreeconsultation.as.me/" target="_blank" rel="noopener">Schedule a design</a></li>
+      </ul>
+    </div>
+    <div class="ho-footer-col">
+      <h4>Reach us</h4>
+      <ul>
+        <li><a href="https://baysidepavers.com/contact" target="_blank" rel="noopener">Contact form</a></li>
+        <li><a href="mailto:info@baysidepavers.com">info@baysidepavers.com</a></li>
+        <li><span class="ho-footer-soft" id="ho-footer-phone">Phone via baysidepavers.com</span></li>
+      </ul>
+    </div>
+    <div class="ho-footer-col">
+      <h4>Service area</h4>
+      <ul>
+        <li><span class="ho-footer-soft">San Francisco</span></li>
+        <li><span class="ho-footer-soft">East Bay</span></li>
+        <li><span class="ho-footer-soft">Peninsula</span></li>
+        <li><span class="ho-footer-soft">South Bay</span></li>
+        <li><span class="ho-footer-soft">Marin / North Bay</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="ho-footer-bottom">
+    <span>© <span id="ho-footer-year">2026</span> Bayside Pavers · Licensed CA contractor</span>
+    <span><a href="https://baysidepavers.com" target="_blank" rel="noopener">baysidepavers.com</a></span>
+  </div>
+</footer>
+
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -889,7 +1378,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
 });
 
 const REFERRAL_CAP_CENTS = 250000;
-const RESEND_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000; // Show resend button only after 3 days
+const RESEND_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000;
 
 const navName       = document.getElementById('ho-nav-name');
 const navOut        = document.getElementById('ho-nav-out');
@@ -916,7 +1405,7 @@ const referForm     = document.getElementById('ho-refer-form');
 const referError    = document.getElementById('ho-refer-error');
 const referSubmit   = document.getElementById('ho-refer-submit');
 
-let currentClient = null; // populated after loadAccount
+let currentClient = null;
 
 navOut.addEventListener('click', async () => {
   try { await supabase.auth.signOut(); } catch (_) {}
@@ -933,26 +1422,20 @@ document.getElementById('ho-refer-done').addEventListener('click', () => { close
 document.getElementById('ho-refer-another').addEventListener('click', () => resetReferForm());
 referBackdrop.addEventListener('click', (e) => { if (e.target === referBackdrop) closeReferModal(); });
 
-// Share-link copy button (Phase 4.0c R3 — Sprint B). Tries the modern
-// async clipboard API first; falls back to selecting the input so the
-// user can Cmd+C if clipboard permission is blocked.
 document.getElementById('ho-share-copy').addEventListener('click', async () => {
   const btn   = document.getElementById('ho-share-copy');
   const input = document.getElementById('ho-share-input');
   if (!input || !input.value) return;
-
   let copied = false;
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(input.value);
       copied = true;
     }
-  } catch (_) { /* fall through to fallback */ }
-
+  } catch (_) {}
   if (!copied) {
     try { input.focus(); input.select(); copied = document.execCommand('copy'); } catch (_) {}
   }
-
   const original = btn.textContent;
   btn.textContent = copied ? 'Copied!' : 'Press Cmd+C';
   btn.classList.add('copied');
@@ -981,7 +1464,6 @@ function resetReferForm() {
 referForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   referError.hidden = true;
-
   const payload = {
     referred_name:  document.getElementById('ho-refer-name').value.trim(),
     referred_email: document.getElementById('ho-refer-email').value.trim(),
@@ -1078,7 +1560,6 @@ async function loadAccount() {
   heroLede.textContent =
     'Your project lives here. Schedule appointments, review your proposal, explore materials, and refer neighbors to earn credit toward your next project.';
 
-  // Build Acuity URL with prefill from the homeowner's account info.
   const nameParts = (client.name || '').trim().split(/\s+/);
   const acuityParams = new URLSearchParams();
   if (nameParts[0]) acuityParams.set('firstName', nameParts[0]);
@@ -1090,8 +1571,11 @@ async function loadAccount() {
   applyCreditState(client);
   applyShareLink(client);
 
-  await loadProposals(client.id);
-  await loadReferrals(client.id);
+  await Promise.all([
+    loadProposals(client.id),
+    loadReferrals(client.id),
+    loadMaterials(),
+  ]);
 }
 
 function applyShareLink(client) {
@@ -1114,10 +1598,6 @@ function applyCreditState(client) {
   const pct = Math.min(100, Math.round((totalEarned / REFERRAL_CAP_CENTS) * 100));
   requestAnimationFrame(() => { creditFill.style.width = pct + '%'; });
 
-  // Cap enforcement (Phase 4.0c R3): when total earned hits the cap,
-  // disable the Refer CTA. The friend's $500 perk still works through the
-  // existing landing flow if the homeowner has a pending invite, but they
-  // can't initiate new ones from here.
   if (totalEarned >= REFERRAL_CAP_CENTS) {
     creditCta.disabled = true;
     creditCta.textContent = '$2,500 cap reached';
@@ -1225,7 +1705,6 @@ async function loadProposals(clientId) {
   propArea.innerHTML = `<div class="ho-grid">${html}</div>`;
 }
 
-// ── Phase 4.0c R3: referrals list ──────────────────────────────────────
 async function loadReferrals(clientId) {
   const { data, error } = await supabase
     .from('referrals')
@@ -1239,8 +1718,6 @@ async function loadReferrals(clientId) {
     return;
   }
 
-  // Hide the section entirely if no referrals AND no credits earned (fresh users).
-  // Show the section once they've sent at least one referral, even if status='sent' only.
   const referrals = data || [];
   const earned = Number((currentClient && currentClient.referral_credit_cents) || 0);
   if (referrals.length === 0 && earned === 0) {
@@ -1269,8 +1746,6 @@ function renderReferralRow(r) {
   const status = r.status || 'sent';
   const refeeName = r.referred_name || r.referred_email || '(unknown)';
   const refeeEmail = r.referred_email || '';
-
-  // Status pill
   const pillMap = {
     sent:      { cls: 'ho-ref-pill-sent',      label: 'Invite sent' },
     scheduled: { cls: 'ho-ref-pill-scheduled', label: 'Appt scheduled' },
@@ -1279,7 +1754,6 @@ function renderReferralRow(r) {
   };
   const pill = pillMap[status] || { cls: 'ho-ref-pill-sent', label: status };
 
-  // Resend button: show only when status='sent' AND last invite >3 days ago
   let resendBtn = '';
   if (status === 'sent' && r.invite_sent_at) {
     const elapsed = Date.now() - new Date(r.invite_sent_at).getTime();
@@ -1288,7 +1762,6 @@ function renderReferralRow(r) {
     }
   }
 
-  // Date line
   const dateLine = r.credit_awarded_at
     ? `Credited ${formatDate(r.credit_awarded_at)}`
     : r.appointment_completed_at
@@ -1349,7 +1822,6 @@ async function handleResend(referralId, btn) {
       ? 'Reminder email sent. The button will reappear in 3 days if they still haven\'t responded.'
       : 'Referral updated, but the email did not send. ' + (data.email_error || ''));
 
-    // Reload to refresh dates + hide the resend button (24h API cooldown / 3d UI threshold)
     await reloadReferrals();
   } catch (err) {
     btn.disabled = false;
@@ -1360,7 +1832,6 @@ async function handleResend(referralId, btn) {
 
 async function reloadReferrals() {
   if (!currentClient) return;
-  // Re-fetch the client to get latest credit_cents in case credit was awarded.
   const { data: { user } } = await supabase.auth.getUser();
   const { data: refreshed } = await supabase
     .from('clients')
@@ -1384,6 +1855,296 @@ function showRefToast(type, msg) {
     }, 6000);
   }
 }
+
+// ════════════════════════════════════════════════════════════════════
+// Sprint 14C.16 — Inline materials browser
+// ════════════════════════════════════════════════════════════════════
+const MAT_DEFAULT_LIMIT = 30;
+const MAT_TAB_ORDER = [
+  { slug: 'pavers',         label: 'Pavers' },
+  { slug: 'porcelain',      label: 'Porcelain' },
+  { slug: 'walls',          label: 'Walls' },
+  { slug: 'fire-features',  label: 'Fire features' },
+  { slug: 'accessories',    label: 'Accessories' },
+  { slug: 'lighting',       label: 'Lighting' },
+  { slug: 'decking',        label: 'Decking' },
+  { slug: 'other',          label: 'Other' },
+];
+
+const matTabsEl    = document.getElementById('ho-mat-tabs');
+const matGridEl    = document.getElementById('ho-mat-grid');
+const matSearchEl  = document.getElementById('ho-mat-search');
+const matMetaEl    = document.getElementById('ho-mat-meta');
+const matShowMore  = document.getElementById('ho-mat-show-more');
+const matShowMoreBtn = document.getElementById('ho-mat-show-more-btn');
+const matModalBackdrop = document.getElementById('ho-mat-modal-backdrop');
+const matModalClose    = document.getElementById('ho-mat-modal-close');
+const matModalImg      = document.getElementById('ho-mat-modal-img');
+const matModalBody     = document.getElementById('ho-mat-modal-body');
+
+let MATERIALS_CACHE = null;
+let matCurrentCategory = 'pavers';
+let matSearchQuery = '';
+let matShowAllForCurrent = false;
+
+async function loadMaterials() {
+  try {
+    const { data, error } = await supabase
+      .from('materials')
+      .select('id, manufacturer, product_name, collection, color, pattern, size_spec, description, category, product_type, primary_image_url, swatch_url, spec_pdf_url, cut_sheet_url, applications, features, thickness_mm')
+      .order('category', { ascending: true })
+      .order('manufacturer', { ascending: true })
+      .order('product_name', { ascending: true });
+
+    if (error) {
+      matGridEl.innerHTML = `<div class="ho-mat-state">Could not load materials: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+
+    MATERIALS_CACHE = data || [];
+
+    const firstWithItems = MAT_TAB_ORDER.find(t =>
+      MATERIALS_CACHE.some(m => m.category === t.slug)
+    );
+    if (firstWithItems) matCurrentCategory = firstWithItems.slug;
+
+    renderMatTabs();
+    renderMatGrid();
+    matMetaEl.textContent = `${MATERIALS_CACHE.length} products`;
+  } catch (err) {
+    console.error('[loadMaterials]', err);
+    matGridEl.innerHTML = `<div class="ho-mat-state">Could not load materials. Refresh to try again.</div>`;
+  }
+}
+
+function renderMatTabs() {
+  if (!MATERIALS_CACHE) return;
+  const counts = new Map();
+  for (const m of MATERIALS_CACHE) {
+    counts.set(m.category, (counts.get(m.category) || 0) + 1);
+  }
+  matTabsEl.innerHTML = MAT_TAB_ORDER
+    .filter(t => counts.get(t.slug) > 0)
+    .map(t => {
+      const isActive = t.slug === matCurrentCategory;
+      return `
+        <button type="button" class="ho-mat-tab ${isActive ? 'is-active' : ''}" data-cat="${escapeAttr(t.slug)}">
+          ${escapeHtml(t.label)}
+          <span class="ho-mat-tab-count">${counts.get(t.slug) || 0}</span>
+        </button>`;
+    })
+    .join('');
+
+  matTabsEl.querySelectorAll('[data-cat]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const slug = btn.getAttribute('data-cat');
+      if (slug === matCurrentCategory) return;
+      matCurrentCategory = slug;
+      matShowAllForCurrent = false;
+      matTabsEl.querySelectorAll('.ho-mat-tab').forEach(t => {
+        t.classList.toggle('is-active', t.getAttribute('data-cat') === slug);
+      });
+      renderMatGrid();
+    });
+  });
+}
+
+function getFilteredMaterials() {
+  if (!MATERIALS_CACHE) return [];
+  const q = matSearchQuery.trim().toLowerCase();
+  let list = MATERIALS_CACHE.filter(m => m.category === matCurrentCategory);
+  if (q) {
+    list = list.filter(m => {
+      const haystack = [
+        m.product_name, m.manufacturer, m.collection, m.color, m.pattern,
+        m.product_type, m.description,
+        Array.isArray(m.applications) ? m.applications.join(' ') : '',
+        Array.isArray(m.features) ? m.features.join(' ') : '',
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+  return list;
+}
+
+function renderMatGrid() {
+  const list = getFilteredMaterials();
+  if (list.length === 0) {
+    matGridEl.innerHTML = `<div class="ho-mat-state">No materials match your search in this category.</div>`;
+    matShowMore.hidden = true;
+    return;
+  }
+  const isSearching = matSearchQuery.trim().length > 0;
+  const limit = (matShowAllForCurrent || isSearching) ? list.length : MAT_DEFAULT_LIMIT;
+  const visible = list.slice(0, limit);
+
+  matGridEl.innerHTML = visible.map(renderMatCard).join('');
+  matGridEl.querySelectorAll('[data-mat-id]').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.getAttribute('data-mat-id');
+      const material = MATERIALS_CACHE.find(m => m.id === id);
+      if (material) openMatModal(material);
+    });
+  });
+
+  if (!matShowAllForCurrent && !isSearching && list.length > MAT_DEFAULT_LIMIT) {
+    matShowMore.hidden = false;
+    matShowMoreBtn.textContent = `Show all ${list.length}`;
+  } else {
+    matShowMore.hidden = true;
+  }
+}
+
+matShowMoreBtn.addEventListener('click', () => {
+  matShowAllForCurrent = true;
+  renderMatGrid();
+});
+
+matSearchEl.addEventListener('input', () => {
+  matSearchQuery = matSearchEl.value;
+  matShowAllForCurrent = false;
+  renderMatGrid();
+});
+
+function renderMatCard(m) {
+  const img = m.swatch_url || m.primary_image_url || '';
+  const imgHtml = img
+    ? `<div class="ho-mat-card-img" style="background-image:url('${escapeAttr(img)}');"></div>`
+    : `<div class="ho-mat-card-img-fallback">${escapeHtml(m.manufacturer || 'Bayside')}</div>`;
+  const colorLine = m.color || m.collection || m.pattern || '';
+  return `
+    <button type="button" class="ho-mat-card" data-mat-id="${escapeAttr(m.id)}">
+      ${imgHtml}
+      <div class="ho-mat-card-body">
+        <div class="ho-mat-card-mfr">${escapeHtml(m.manufacturer || '')}</div>
+        <div class="ho-mat-card-name">${escapeHtml(m.product_name || 'Unnamed')}</div>
+        ${colorLine ? `<div class="ho-mat-card-color">${escapeHtml(colorLine)}</div>` : ''}
+      </div>
+    </button>`;
+}
+
+function openMatModal(m) {
+  const heroImg = m.primary_image_url || m.swatch_url || '';
+  if (heroImg) {
+    matModalImg.style.backgroundImage = `url('${heroImg.replace(/'/g, "\\'")}')`;
+    matModalImg.innerHTML = '';
+  } else {
+    matModalImg.style.backgroundImage = '';
+    matModalImg.innerHTML = `<div class="ho-mat-modal-img-fallback">${escapeHtml(m.manufacturer || 'Bayside')}</div>`;
+  }
+
+  const specRows = [
+    m.color       && ['Color',         m.color],
+    m.collection  && ['Collection',    m.collection],
+    m.product_type && ['Type',         m.product_type],
+    m.size_spec   && ['Size',          m.size_spec],
+    m.pattern     && ['Pattern',       m.pattern],
+    m.thickness_mm && ['Thickness',    m.thickness_mm + 'mm'],
+  ].filter(Boolean);
+
+  const applications = Array.isArray(m.applications) ? m.applications.filter(Boolean) : [];
+  const features     = Array.isArray(m.features)     ? m.features.filter(Boolean)     : [];
+
+  const actions = [];
+  if (m.spec_pdf_url) actions.push({ label: '📄 Spec sheet',  href: m.spec_pdf_url });
+  if (m.cut_sheet_url) actions.push({ label: '📐 Cut sheet',   href: m.cut_sheet_url });
+
+  const colorLine = m.color
+    ? `<span class="ho-mat-modal-color-swatch" style="background:${guessColorHex(m.color)};"></span>${escapeHtml(m.color)}`
+    : (m.collection || '');
+
+  matModalBody.innerHTML = `
+    <div class="ho-mat-modal-mfr">${escapeHtml(m.manufacturer || '')}</div>
+    <h3 class="ho-mat-modal-name" id="ho-mat-modal-name">${escapeHtml(m.product_name || 'Unnamed')}</h3>
+    ${colorLine ? `<div class="ho-mat-modal-color">${colorLine}</div>` : ''}
+    ${m.description ? `<div class="ho-mat-modal-desc">${escapeHtml(m.description)}</div>` : ''}
+    ${specRows.length > 0 ? `
+      <div class="ho-mat-modal-specs">
+        ${specRows.map(([k, v]) => `
+          <div class="ho-mat-modal-spec-row">
+            <span class="ho-mat-modal-spec-label">${escapeHtml(k)}</span>
+            <span class="ho-mat-modal-spec-val">${escapeHtml(String(v))}</span>
+          </div>`).join('')}
+      </div>` : ''}
+    ${applications.length > 0 ? `
+      <div class="ho-mat-modal-section-label">Applications</div>
+      <div class="ho-mat-modal-chips">
+        ${applications.map(a => `<span class="ho-mat-modal-chip">${escapeHtml(a)}</span>`).join('')}
+      </div>` : ''}
+    ${features.length > 0 ? `
+      <div class="ho-mat-modal-section-label">Features</div>
+      <div class="ho-mat-modal-chips">
+        ${features.map(f => `<span class="ho-mat-modal-chip">${escapeHtml(f)}</span>`).join('')}
+      </div>` : ''}
+    ${actions.length > 0 ? `
+      <div class="ho-mat-modal-actions">
+        ${actions.map(a => `<a class="ho-mat-modal-action" href="${escapeAttr(a.href)}" target="_blank" rel="noopener">${escapeHtml(a.label)}</a>`).join('')}
+      </div>` : ''}
+  `;
+
+  matModalBackdrop.hidden = false;
+  document.addEventListener('keydown', onMatEscClose);
+}
+
+function closeMatModal() {
+  matModalBackdrop.hidden = true;
+  document.removeEventListener('keydown', onMatEscClose);
+}
+function onMatEscClose(e) { if (e.key === 'Escape') closeMatModal(); }
+
+matModalClose.addEventListener('click', closeMatModal);
+matModalBackdrop.addEventListener('click', (e) => {
+  if (e.target === matModalBackdrop) closeMatModal();
+});
+
+function guessColorHex(name) {
+  const k = String(name || '').toLowerCase();
+  const map = {
+    'black':       '#1a1a1a',
+    'charcoal':    '#3a3a3a',
+    'gray':        '#9a9a9a', 'grey': '#9a9a9a',
+    'white':       '#f5f3ee',
+    'cream':       '#ebe1cb',
+    'tan':         '#cbb98e',
+    'brown':       '#7a5535',
+    'red':         '#9a3a2a',
+    'rust':        '#a35631',
+    'sandstone':   '#c8a96e',
+    'natural':     '#c0a677',
+    'beach':       '#d8c79e',
+    'desert':      '#caa97a',
+    'autumn':      '#a85f30',
+    'almond':      '#d2b78f',
+  };
+  for (const key of Object.keys(map)) {
+    if (k.includes(key)) return map[key];
+  }
+  return '#c8a96e';
+}
+
+// ── Sub-nav active-section highlight ─────────────────────────────────
+const subnavLinks = document.querySelectorAll('.ho-subnav a[data-anchor]');
+const sectionEls = Array.from(document.querySelectorAll('main section[id]'));
+if (sectionEls.length > 0 && 'IntersectionObserver' in window) {
+  const obs = new IntersectionObserver((entries) => {
+    let best = null;
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      if (!best || e.intersectionRatio > best.intersectionRatio) best = e;
+    }
+    if (!best) return;
+    const id = best.target.id;
+    subnavLinks.forEach(a => {
+      a.classList.toggle('is-active', a.getAttribute('data-anchor') === id);
+    });
+  }, {
+    rootMargin: '-90px 0px -50% 0px',
+    threshold: [0, 0.25, 0.5, 0.75, 1],
+  });
+  sectionEls.forEach(s => obs.observe(s));
+}
+
+document.getElementById('ho-footer-year').textContent = String(new Date().getFullYear());
 
 function formatUSD(cents) {
   const dollars = (Number(cents) || 0) / 100;
