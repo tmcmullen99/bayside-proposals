@@ -30,8 +30,6 @@
     background: var(--bp-bg);
     line-height: 1.5; font-size: 15px;
   }
-
-  /* ── Brand bar ─────────────────────────────────────────────────────── */
   .ho-nav {
     background: #fff;
     border-bottom: 1px solid var(--bp-border);
@@ -65,8 +63,6 @@
     transition: background .15s, color .15s, border-color .15s;
   }
   .ho-nav-out:hover { background: var(--bp-text); color: #fff; border-color: var(--bp-text); }
-
-  /* ── Sticky sub-nav (Sprint 14C.16) ───────────────────────────────── */
   .ho-subnav {
     position: sticky; top: 0;
     z-index: 100;
@@ -104,11 +100,7 @@
     background: var(--bp-green-soft);
   }
   section[id] { scroll-margin-top: 70px; }
-
-  /* ── Page container ───────────────────────────────────────────────── */
   .ho-page { max-width: 1080px; margin: 0 auto; padding: 36px 24px 80px; }
-
-  /* ── Hero ─────────────────────────────────────────────────────────── */
   .ho-hero {
     background: linear-gradient(135deg, var(--bp-green) 0%, var(--bp-green-dk) 100%);
     color: #fff;
@@ -147,8 +139,6 @@
     transform: translateY(-1px);
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
   }
-
-  /* ── Section scaffolding ──────────────────────────────────────────── */
   .ho-section { margin-bottom: 32px; }
   .ho-section-head {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -168,8 +158,6 @@
     max-width: 640px;
     line-height: 1.6;
   }
-
-  /* ── Proposal cards ───────────────────────────────────────────────── */
   .ho-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -253,7 +241,6 @@
     border-color: var(--bp-charcoal);
     color: var(--bp-text);
   }
-
   .ho-empty {
     background: #fff;
     border: 1px dashed var(--bp-border);
@@ -275,8 +262,6 @@
     transition: background .15s;
   }
   .ho-empty-cta:hover { background: var(--bp-green-dk); }
-
-  /* ── Quality Standards ────────────────────────────────────────────── */
   .ho-qs-card {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -329,8 +314,6 @@
   }
   .ho-qs-body p { margin-bottom: 12px; }
   .ho-qs-body p:last-child { margin-bottom: 0; }
-
-  /* ── Referral credit (now full-width) ─────────────────────────────── */
   .ho-credit-card {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -373,8 +356,6 @@
   }
   .ho-credit-cta:hover { background: var(--bp-green-dk); }
   .ho-credit-cta:disabled { background: var(--bp-text); opacity: 0.6; cursor: not-allowed; }
-
-  /* ── Share link block ─────────────────────────────────────────────── */
   .ho-share-block {
     background: var(--bp-cream);
     border: 1px solid var(--bp-border);
@@ -390,10 +371,7 @@
     margin-bottom: 8px;
     display: block;
   }
-  .ho-share-row {
-    display: flex; gap: 8px;
-    align-items: stretch;
-  }
+  .ho-share-row { display: flex; gap: 8px; align-items: stretch; }
   .ho-share-input {
     flex: 1; min-width: 0;
     font-family: inherit; font-size: 12px;
@@ -437,12 +415,7 @@
     content: ''; position: absolute; left: 0; right: 0; top: 50%;
     height: 1px; background: var(--bp-border); z-index: 0;
   }
-
-  /* ── Sent referrals list ──────────────────────────────────────────── */
-  .ho-ref-list {
-    display: flex; flex-direction: column;
-    gap: 8px;
-  }
+  .ho-ref-list { display: flex; flex-direction: column; gap: 8px; }
   .ho-ref-row {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -455,18 +428,9 @@
   }
   .ho-ref-row:hover { border-color: var(--bp-green); }
   .ho-ref-info { flex: 1; min-width: 200px; }
-  .ho-ref-name {
-    font-size: 14px; font-weight: 600;
-    color: var(--bp-text); margin-bottom: 2px;
-    line-height: 1.3;
-  }
-  .ho-ref-meta {
-    font-size: 12px; color: var(--bp-muted);
-  }
-  .ho-ref-actions {
-    display: flex; gap: 8px; align-items: center;
-    flex-wrap: wrap;
-  }
+  .ho-ref-name { font-size: 14px; font-weight: 600; color: var(--bp-text); margin-bottom: 2px; line-height: 1.3; }
+  .ho-ref-meta { font-size: 12px; color: var(--bp-muted); }
+  .ho-ref-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .ho-ref-pill {
     display: inline-block;
     padding: 4px 10px;
@@ -489,13 +453,8 @@
     cursor: pointer;
     transition: background .15s, border-color .15s, color .15s;
   }
-  .ho-ref-resend-btn:hover {
-    background: var(--bp-green); color: #fff; border-color: var(--bp-green);
-  }
-  .ho-ref-resend-btn:disabled {
-    opacity: 0.5; cursor: not-allowed;
-    background: #fff; color: var(--bp-charcoal);
-  }
+  .ho-ref-resend-btn:hover { background: var(--bp-green); color: #fff; border-color: var(--bp-green); }
+  .ho-ref-resend-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #fff; color: var(--bp-charcoal); }
   .ho-ref-empty {
     background: #fff;
     border: 1px dashed var(--bp-border);
@@ -516,8 +475,6 @@
   }
   .ho-ref-toast.error { background: #fef2f2; color: var(--bp-err); }
   .ho-ref-toast[hidden] { display: none; }
-
-  /* ── Loading / error utilities ────────────────────────────────────── */
   .ho-loading {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -536,8 +493,6 @@
     font-size: 13px;
     margin-bottom: 18px;
   }
-
-  /* ── INLINE MATERIALS BROWSER (Sprint 14C.16) ─────────────────────── */
   .ho-mat-section {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -602,15 +557,8 @@
     transition: background .12s, color .12s, border-color .12s;
     white-space: nowrap;
   }
-  .ho-mat-tab:hover {
-    color: var(--bp-text);
-    background: var(--bp-cream);
-  }
-  .ho-mat-tab.is-active {
-    background: var(--bp-green);
-    color: #fff;
-    border-color: var(--bp-green);
-  }
+  .ho-mat-tab:hover { color: var(--bp-text); background: var(--bp-cream); }
+  .ho-mat-tab.is-active { background: var(--bp-green); color: #fff; border-color: var(--bp-green); }
   .ho-mat-tab-count {
     background: rgba(0,0,0,0.06);
     padding: 1px 7px;
@@ -619,11 +567,7 @@
     font-weight: 700;
     letter-spacing: 0.02em;
   }
-  .ho-mat-tab.is-active .ho-mat-tab-count {
-    background: rgba(255,255,255,0.22);
-    color: #fff;
-  }
-
+  .ho-mat-tab.is-active .ho-mat-tab-count { background: rgba(255,255,255,0.22); color: #fff; }
   .ho-mat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -697,11 +641,7 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
   }
-  .ho-mat-card-color {
-    font-size: 11px;
-    color: var(--bp-muted);
-    margin-top: 1px;
-  }
+  .ho-mat-card-color { font-size: 11px; color: var(--bp-muted); margin-top: 1px; }
   .ho-mat-state {
     grid-column: 1 / -1;
     padding: 36px 20px;
@@ -711,10 +651,7 @@
     background: var(--bp-cream);
     border-radius: 8px;
   }
-  .ho-mat-show-more {
-    margin-top: 18px;
-    text-align: center;
-  }
+  .ho-mat-show-more { margin-top: 18px; text-align: center; }
   .ho-mat-show-more-btn {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -732,8 +669,6 @@
     border-color: var(--bp-green);
     color: var(--bp-green-dk);
   }
-
-  /* ── Material detail modal ────────────────────────────────────────── */
   .ho-mat-modal {
     background: #fff;
     border-radius: 14px;
@@ -783,10 +718,7 @@
     backdrop-filter: blur(6px);
   }
   .ho-mat-modal-close:hover { background: rgba(0,0,0,0.78); }
-  .ho-mat-modal-body {
-    padding: 22px 26px 26px;
-    overflow-y: auto;
-  }
+  .ho-mat-modal-body { padding: 22px 26px 26px; overflow-y: auto; }
   .ho-mat-modal-mfr {
     font-size: 10px;
     letter-spacing: 0.18em;
@@ -803,11 +735,7 @@
     margin-bottom: 4px;
     line-height: 1.2;
   }
-  .ho-mat-modal-color {
-    font-size: 14px;
-    color: var(--bp-charcoal);
-    margin-bottom: 16px;
-  }
+  .ho-mat-modal-color { font-size: 14px; color: var(--bp-charcoal); margin-bottom: 16px; }
   .ho-mat-modal-color-swatch {
     display: inline-block;
     width: 12px; height: 12px;
@@ -836,17 +764,8 @@
     border-bottom: 1px solid rgba(31,33,37,0.04);
   }
   .ho-mat-modal-spec-row:last-child { border-bottom: none; }
-  .ho-mat-modal-spec-label {
-    color: var(--bp-muted);
-    font-weight: 600;
-    flex-shrink: 0;
-    width: 110px;
-  }
-  .ho-mat-modal-spec-val {
-    color: var(--bp-text);
-    flex: 1;
-    word-break: break-word;
-  }
+  .ho-mat-modal-spec-label { color: var(--bp-muted); font-weight: 600; flex-shrink: 0; width: 110px; }
+  .ho-mat-modal-spec-val { color: var(--bp-text); flex: 1; word-break: break-word; }
   .ho-mat-modal-section-label {
     font-size: 10px;
     letter-spacing: 0.16em;
@@ -856,12 +775,7 @@
     margin-bottom: 8px;
     margin-top: 14px;
   }
-  .ho-mat-modal-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 14px;
-  }
+  .ho-mat-modal-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
   .ho-mat-modal-chip {
     background: var(--bp-green-soft);
     color: var(--bp-green-dk);
@@ -899,8 +813,6 @@
     border-color: var(--bp-green);
     color: var(--bp-green-dk);
   }
-
-  /* ── Refer modal ──────────────────────────────────────────────────── */
   .ho-modal-backdrop {
     position: fixed; inset: 0;
     background: rgba(31, 33, 37, 0.5);
@@ -994,8 +906,6 @@
   .ho-modal-success-icon { font-size: 36px; color: var(--bp-green); margin-bottom: 10px; }
   .ho-modal-success h3 { font-size: 16px; font-weight: 600; color: var(--bp-text); margin-bottom: 6px; }
   .ho-modal-success p { font-size: 13px; line-height: 1.6; color: var(--bp-muted); }
-
-  /* ── FOOTER (Sprint 14C.16) ───────────────────────────────────────── */
   .ho-footer {
     background: var(--bp-charcoal);
     color: rgba(255,255,255,0.85);
@@ -1015,12 +925,7 @@
   @media (max-width: 480px) {
     .ho-footer-inner { grid-template-columns: 1fr; gap: 24px; }
   }
-  .ho-footer-brand-block img {
-    height: 38px;
-    width: auto;
-    margin-bottom: 14px;
-    display: block;
-  }
+  .ho-footer-brand-block img { height: 38px; width: auto; margin-bottom: 14px; display: block; }
   .ho-footer-brand-tagline {
     font-size: 13px;
     line-height: 1.6;
@@ -1036,16 +941,8 @@
     margin-bottom: 12px;
   }
   .ho-footer-col ul { list-style: none; padding: 0; margin: 0; }
-  .ho-footer-col li {
-    margin-bottom: 8px;
-    font-size: 13px;
-    line-height: 1.5;
-  }
-  .ho-footer-col a {
-    color: rgba(255,255,255,0.85);
-    text-decoration: none;
-    transition: color .15s;
-  }
+  .ho-footer-col li { margin-bottom: 8px; font-size: 13px; line-height: 1.5; }
+  .ho-footer-col a { color: rgba(255,255,255,0.85); text-decoration: none; transition: color .15s; }
   .ho-footer-col a:hover { color: #fff; text-decoration: underline; }
   .ho-footer-col span.ho-footer-soft { color: rgba(255,255,255,0.7); }
   .ho-footer-bottom {
@@ -1061,12 +958,8 @@
     font-size: 11px;
     color: rgba(255,255,255,0.5);
   }
-  .ho-footer-bottom a {
-    color: rgba(255,255,255,0.7);
-    text-decoration: none;
-  }
+  .ho-footer-bottom a { color: rgba(255,255,255,0.7); text-decoration: none; }
   .ho-footer-bottom a:hover { color: #fff; }
-
   @media (max-width: 540px) {
     .ho-page { padding: 24px 16px 60px; }
     .ho-hero { padding: 28px 22px 26px; }
@@ -1371,15 +1264,35 @@
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
+// ── Supabase client + constants ───────────────────────────────────────
 const SUPABASE_URL  = 'https://gfgbypcnxkschnfsitfb.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZ2J5cGNueGtzY2huZnNpdGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MTkzMTUsImV4cCI6MjA5MjI5NTMxNX0.EAwmiNR5OWcaI8Sr36MVn7FuMhYoZvfngse7y0ZOgvA';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
 
-const REFERRAL_CAP_CENTS = 250000;
-const RESEND_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000;
+const REFERRAL_CAP_CENTS  = 250000;
+const RESEND_COOLDOWN_MS  = 3 * 24 * 60 * 60 * 1000;
+const MAT_DEFAULT_LIMIT   = 30;
+const MAT_TAB_ORDER = [
+  { slug: 'pavers',         label: 'Pavers' },
+  { slug: 'porcelain',      label: 'Porcelain' },
+  { slug: 'walls',          label: 'Walls' },
+  { slug: 'fire-features',  label: 'Fire features' },
+  { slug: 'accessories',    label: 'Accessories' },
+  { slug: 'lighting',       label: 'Lighting' },
+  { slug: 'decking',        label: 'Decking' },
+  { slug: 'other',          label: 'Other' },
+];
 
+// ── DOM refs ──────────────────────────────────────────────────────────
+// Sprint 14C.16 hotfix: ALL const lookups happen here, BEFORE the
+// auth-gate await below. Previously the materials refs (matGridEl etc.)
+// were declared AFTER `await loadAccount()`, so loadMaterials() — which
+// runs inside loadAccount via Promise.all — hit a temporal-dead-zone
+// ReferenceError on the first access to matGridEl, and the catch block
+// hit the same error trying to display it. Result: silent failure with
+// the loading spinner stuck forever.
 const navName       = document.getElementById('ho-nav-name');
 const navOut        = document.getElementById('ho-nav-out');
 const heroTitle     = document.getElementById('ho-hero-title');
@@ -1392,26 +1305,39 @@ const creditCap     = document.getElementById('ho-credit-cap');
 const creditFill    = document.getElementById('ho-credit-fill');
 const creditCta     = document.getElementById('ho-credit-cta');
 const errorBanner   = document.getElementById('ho-error-banner');
-
 const refSection    = document.getElementById('ho-ref-section');
 const refCount      = document.getElementById('ho-ref-count');
 const refArea       = document.getElementById('ho-ref-area');
 const refToast      = document.getElementById('ho-ref-toast');
-
 const referBackdrop = document.getElementById('ho-refer-backdrop');
 const referFormWrap = document.getElementById('ho-refer-form-wrap');
 const referSuccess  = document.getElementById('ho-refer-success');
 const referForm     = document.getElementById('ho-refer-form');
 const referError    = document.getElementById('ho-refer-error');
 const referSubmit   = document.getElementById('ho-refer-submit');
+const matTabsEl        = document.getElementById('ho-mat-tabs');
+const matGridEl        = document.getElementById('ho-mat-grid');
+const matSearchEl      = document.getElementById('ho-mat-search');
+const matMetaEl        = document.getElementById('ho-mat-meta');
+const matShowMore      = document.getElementById('ho-mat-show-more');
+const matShowMoreBtn   = document.getElementById('ho-mat-show-more-btn');
+const matModalBackdrop = document.getElementById('ho-mat-modal-backdrop');
+const matModalClose    = document.getElementById('ho-mat-modal-close');
+const matModalImg      = document.getElementById('ho-mat-modal-img');
+const matModalBody     = document.getElementById('ho-mat-modal-body');
 
+// ── Mutable state ─────────────────────────────────────────────────────
 let currentClient = null;
+let MATERIALS_CACHE = null;
+let matCurrentCategory = 'pavers';
+let matSearchQuery = '';
+let matShowAllForCurrent = false;
 
+// ── Event listeners (all wired before any await) ──────────────────────
 navOut.addEventListener('click', async () => {
   try { await supabase.auth.signOut(); } catch (_) {}
   window.location.replace('/account/signin.html');
 });
-
 creditCta.addEventListener('click', () => {
   if (creditCta.disabled) return;
   openReferModal();
@@ -1421,7 +1347,6 @@ document.getElementById('ho-refer-cancel').addEventListener('click', () => close
 document.getElementById('ho-refer-done').addEventListener('click', () => { closeReferModal(); reloadReferrals(); });
 document.getElementById('ho-refer-another').addEventListener('click', () => resetReferForm());
 referBackdrop.addEventListener('click', (e) => { if (e.target === referBackdrop) closeReferModal(); });
-
 document.getElementById('ho-share-copy').addEventListener('click', async () => {
   const btn   = document.getElementById('ho-share-copy');
   const input = document.getElementById('ho-share-input');
@@ -1439,12 +1364,90 @@ document.getElementById('ho-share-copy').addEventListener('click', async () => {
   const original = btn.textContent;
   btn.textContent = copied ? 'Copied!' : 'Press Cmd+C';
   btn.classList.add('copied');
-  setTimeout(() => {
-    btn.textContent = original;
-    btn.classList.remove('copied');
-  }, 1500);
+  setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1500);
+});
+referForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  referError.hidden = true;
+  const payload = {
+    referred_name:  document.getElementById('ho-refer-name').value.trim(),
+    referred_email: document.getElementById('ho-refer-email').value.trim(),
+  };
+  const phone = document.getElementById('ho-refer-phone').value.trim();
+  if (phone) payload.referred_phone = phone;
+  if (!payload.referred_name || !payload.referred_email) {
+    referError.textContent = 'Name and email are both required.';
+    referError.hidden = false;
+    return;
+  }
+  referSubmit.disabled = true;
+  referSubmit.textContent = 'Sending…';
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Your session expired. Refresh and sign in again.');
+    const resp = await fetch('/api/send-referral-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.ok) throw new Error(data.error || ('Server returned ' + resp.status));
+    document.getElementById('ho-refer-success-msg').textContent = data.email_sent
+      ? `We sent the invite to ${payload.referred_email}. You'll see this referral progress in your dashboard.`
+      : `Referral created, but the email didn't send. Reach out to ${payload.referred_email} directly with this link: ${data.landing_url}`;
+    referFormWrap.hidden = true;
+    referSuccess.hidden = false;
+  } catch (err) {
+    referSubmit.disabled = false;
+    referSubmit.textContent = 'Send invite';
+    referError.textContent = (err && err.message) || 'Could not send invite.';
+    referError.hidden = false;
+  }
+});
+matShowMoreBtn.addEventListener('click', () => { matShowAllForCurrent = true; renderMatGrid(); });
+matSearchEl.addEventListener('input', () => {
+  matSearchQuery = matSearchEl.value;
+  matShowAllForCurrent = false;
+  renderMatGrid();
+});
+matModalClose.addEventListener('click', closeMatModal);
+matModalBackdrop.addEventListener('click', (e) => {
+  if (e.target === matModalBackdrop) closeMatModal();
 });
 
+// ── Sub-nav active-section highlight ──────────────────────────────────
+const subnavLinks = document.querySelectorAll('.ho-subnav a[data-anchor]');
+const sectionEls = Array.from(document.querySelectorAll('main section[id]'));
+if (sectionEls.length > 0 && 'IntersectionObserver' in window) {
+  const obs = new IntersectionObserver((entries) => {
+    let best = null;
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      if (!best || e.intersectionRatio > best.intersectionRatio) best = e;
+    }
+    if (!best) return;
+    const id = best.target.id;
+    subnavLinks.forEach(a => {
+      a.classList.toggle('is-active', a.getAttribute('data-anchor') === id);
+    });
+  }, { rootMargin: '-90px 0px -50% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] });
+  sectionEls.forEach(s => obs.observe(s));
+}
+document.getElementById('ho-footer-year').textContent = String(new Date().getFullYear());
+
+// ── Auth gate + init ──────────────────────────────────────────────────
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) {
+  window.location.replace('/account/signin.html');
+} else {
+  await loadAccount();
+}
+
+// ── Function declarations (hoisted) ───────────────────────────────────
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.style.display = 'block';
+}
 function openReferModal() {
   resetReferForm();
   referBackdrop.hidden = false;
@@ -1461,79 +1464,13 @@ function resetReferForm() {
   referSubmit.textContent = 'Send invite';
 }
 
-referForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  referError.hidden = true;
-  const payload = {
-    referred_name:  document.getElementById('ho-refer-name').value.trim(),
-    referred_email: document.getElementById('ho-refer-email').value.trim(),
-  };
-  const phone = document.getElementById('ho-refer-phone').value.trim();
-  if (phone) payload.referred_phone = phone;
-
-  if (!payload.referred_name || !payload.referred_email) {
-    referError.textContent = 'Name and email are both required.';
-    referError.hidden = false;
-    return;
-  }
-
-  referSubmit.disabled = true;
-  referSubmit.textContent = 'Sending…';
-
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Your session expired. Refresh and sign in again.');
-
-    const resp = await fetch('/api/send-referral-invite', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-      },
-      body: JSON.stringify(payload),
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || !data.ok) {
-      throw new Error(data.error || ('Server returned ' + resp.status));
-    }
-
-    document.getElementById('ho-refer-success-msg').textContent =
-      data.email_sent
-        ? `We sent the invite to ${payload.referred_email}. You'll see this referral progress in your dashboard.`
-        : `Referral created, but the email didn't send. Reach out to ${payload.referred_email} directly with this link: ${data.landing_url}`;
-
-    referFormWrap.hidden = true;
-    referSuccess.hidden = false;
-
-  } catch (err) {
-    referSubmit.disabled = false;
-    referSubmit.textContent = 'Send invite';
-    referError.textContent = (err && err.message) || 'Could not send invite.';
-    referError.hidden = false;
-  }
-});
-
-function showError(msg) {
-  errorBanner.textContent = msg;
-  errorBanner.style.display = 'block';
-}
-
-const { data: { session } } = await supabase.auth.getSession();
-if (!session) {
-  window.location.replace('/account/signin.html');
-} else {
-  await loadAccount();
-}
-
 async function loadAccount() {
   const { data: { user } } = await supabase.auth.getUser();
-
   const { data: client, error: clientErr } = await supabase
     .from('clients')
     .select('id, name, email, phone, refer_code, must_change_password, referral_credit_cents, referral_credit_used_cents')
     .eq('user_id', user.id)
     .maybeSingle();
-
   if (clientErr) {
     showError('Could not load your account: ' + clientErr.message);
     heroTitle.textContent = 'Welcome';
@@ -1551,15 +1488,12 @@ async function loadAccount() {
     window.location.replace('/account/set-password.html');
     return;
   }
-
   currentClient = client;
-
   const firstName = (client.name || '').split(/[\s,&]+/)[0] || 'there';
   navName.textContent = client.name || client.email;
   heroTitle.textContent = `Welcome, ${firstName}`;
   heroLede.textContent =
     'Your project lives here. Schedule appointments, review your proposal, explore materials, and refer neighbors to earn credit toward your next project.';
-
   const nameParts = (client.name || '').trim().split(/\s+/);
   const acuityParams = new URLSearchParams();
   if (nameParts[0]) acuityParams.set('firstName', nameParts[0]);
@@ -1567,10 +1501,8 @@ async function loadAccount() {
   if (client.email) acuityParams.set('email', client.email);
   if (client.phone) acuityParams.set('phone', client.phone);
   scheduleCta.href = 'https://baysidepaversfreeconsultation.as.me/?' + acuityParams.toString();
-
   applyCreditState(client);
   applyShareLink(client);
-
   await Promise.all([
     loadProposals(client.id),
     loadReferrals(client.id),
@@ -1597,7 +1529,6 @@ function applyCreditState(client) {
   creditCap.textContent = `of ${formatUSD(REFERRAL_CAP_CENTS)} max`;
   const pct = Math.min(100, Math.round((totalEarned / REFERRAL_CAP_CENTS) * 100));
   requestAnimationFrame(() => { creditFill.style.width = pct + '%'; });
-
   if (totalEarned >= REFERRAL_CAP_CENTS) {
     creditCta.disabled = true;
     creditCta.textContent = '$2,500 cap reached';
@@ -1613,12 +1544,10 @@ async function loadProposals(clientId) {
     .select('proposal_id, status, sent_at, first_viewed_at, signed_at')
     .eq('client_id', clientId)
     .order('sent_at', { ascending: false });
-
   if (linksErr) {
     propArea.innerHTML = `<div class="ho-error-msg">Could not load proposals: ${escapeHtml(linksErr.message)}</div>`;
     return;
   }
-
   if (!links || links.length === 0) {
     propArea.innerHTML = `
       <div class="ho-empty">
@@ -1630,25 +1559,21 @@ async function loadProposals(clientId) {
     propCount.textContent = '';
     return;
   }
-
   const proposalIds = links.map(l => l.proposal_id);
   const { data: proposals, error: propsErr } = await supabase
     .from('proposals')
     .select('id, project_address, project_city, project_state, bid_total_amount, generated_html_slug')
     .in('id', proposalIds);
-
   if (propsErr) {
     propArea.innerHTML = `<div class="ho-error-msg">Could not load proposal details: ${escapeHtml(propsErr.message)}</div>`;
     return;
   }
   const propMap = new Map((proposals || []).map(p => [p.id, p]));
-
   const { data: pubs, error: pubsErr } = await supabase
     .from('published_proposals')
     .select('proposal_id, slug, title, project_address, total_amount, published_at')
     .in('proposal_id', proposalIds);
   if (pubsErr) console.warn('published_proposals load failed:', pubsErr);
-
   const pubMap = new Map();
   (pubs || []).forEach(pub => {
     const existing = pubMap.get(pub.proposal_id);
@@ -1656,9 +1581,7 @@ async function loadProposals(clientId) {
       pubMap.set(pub.proposal_id, pub);
     }
   });
-
   propCount.textContent = `${links.length} ${links.length === 1 ? 'proposal' : 'proposals'}`;
-
   const html = links.map(link => {
     const prop = propMap.get(link.proposal_id);
     const pub  = pubMap.get(link.proposal_id);
@@ -1679,7 +1602,6 @@ async function loadProposals(clientId) {
     const statusClass = status === 'signed' ? 'ho-prop-status-signed'
                        : status === 'sent' || status === 'viewed' ? 'ho-prop-status-sent'
                        : '';
-
     return `
       <div class="ho-prop-card">
         <div class="ho-prop-cover">
@@ -1701,7 +1623,6 @@ async function loadProposals(clientId) {
         </div>
       </div>`;
   }).join('');
-
   propArea.innerHTML = `<div class="ho-grid">${html}</div>`;
 }
 
@@ -1711,33 +1632,25 @@ async function loadReferrals(clientId) {
     .select('id, referred_name, referred_email, status, invite_sent_at, scheduled_at, appointment_completed_at, credit_awarded_at, credit_amount_cents')
     .eq('referrer_client_id', clientId)
     .order('invite_sent_at', { ascending: false });
-
   if (error) {
     refArea.innerHTML = `<div class="ho-error-msg">Could not load your referrals: ${escapeHtml(error.message)}</div>`;
     refSection.hidden = false;
     return;
   }
-
   const referrals = data || [];
   const earned = Number((currentClient && currentClient.referral_credit_cents) || 0);
   if (referrals.length === 0 && earned === 0) {
     refSection.hidden = true;
     return;
   }
-
   refSection.hidden = false;
   refCount.textContent = referrals.length === 0
     ? ''
     : `${referrals.length} ${referrals.length === 1 ? 'referral' : 'referrals'}`;
-
   if (referrals.length === 0) {
-    refArea.innerHTML = `
-      <div class="ho-ref-empty">
-        You don't have any active referrals right now. Refer a neighbor above to start earning credit.
-      </div>`;
+    refArea.innerHTML = `<div class="ho-ref-empty">You don't have any active referrals right now. Refer a neighbor above to start earning credit.</div>`;
     return;
   }
-
   refArea.innerHTML = `<div class="ho-ref-list">${referrals.map(renderReferralRow).join('')}</div>`;
   attachResendHandlers();
 }
@@ -1753,7 +1666,6 @@ function renderReferralRow(r) {
     credited:  { cls: 'ho-ref-pill-credited',  label: '✓ Credited $500' },
   };
   const pill = pillMap[status] || { cls: 'ho-ref-pill-sent', label: status };
-
   let resendBtn = '';
   if (status === 'sent' && r.invite_sent_at) {
     const elapsed = Date.now() - new Date(r.invite_sent_at).getTime();
@@ -1761,7 +1673,6 @@ function renderReferralRow(r) {
       resendBtn = `<button type="button" class="ho-ref-resend-btn" data-referral-id="${escapeAttr(r.id)}">Resend invite</button>`;
     }
   }
-
   const dateLine = r.credit_awarded_at
     ? `Credited ${formatDate(r.credit_awarded_at)}`
     : r.appointment_completed_at
@@ -1771,7 +1682,6 @@ function renderReferralRow(r) {
         : r.invite_sent_at
           ? `Sent ${formatDate(r.invite_sent_at)}`
           : '';
-
   return `
     <div class="ho-ref-row">
       <div class="ho-ref-info">
@@ -1799,29 +1709,19 @@ async function handleResend(referralId, btn) {
   const originalText = btn.textContent;
   btn.textContent = 'Resending…';
   refToast.hidden = true;
-
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Your session expired. Refresh and sign in again.');
-
     const resp = await fetch('/api/resend-referral-invite', {
       method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
       body: JSON.stringify({ referral_id: referralId }),
     });
     const data = await resp.json().catch(() => ({}));
-
-    if (!resp.ok) {
-      throw new Error(data.error || ('Server returned ' + resp.status));
-    }
-
+    if (!resp.ok) throw new Error(data.error || ('Server returned ' + resp.status));
     showRefToast('success', data.email_sent
       ? 'Reminder email sent. The button will reappear in 3 days if they still haven\'t responded.'
       : 'Referral updated, but the email did not send. ' + (data.email_error || ''));
-
     await reloadReferrals();
   } catch (err) {
     btn.disabled = false;
@@ -1850,42 +1750,9 @@ function showRefToast(type, msg) {
   refToast.textContent = msg;
   refToast.hidden = false;
   if (type === 'success') {
-    setTimeout(() => {
-      if (refToast.textContent === msg) refToast.hidden = true;
-    }, 6000);
+    setTimeout(() => { if (refToast.textContent === msg) refToast.hidden = true; }, 6000);
   }
 }
-
-// ════════════════════════════════════════════════════════════════════
-// Sprint 14C.16 — Inline materials browser
-// ════════════════════════════════════════════════════════════════════
-const MAT_DEFAULT_LIMIT = 30;
-const MAT_TAB_ORDER = [
-  { slug: 'pavers',         label: 'Pavers' },
-  { slug: 'porcelain',      label: 'Porcelain' },
-  { slug: 'walls',          label: 'Walls' },
-  { slug: 'fire-features',  label: 'Fire features' },
-  { slug: 'accessories',    label: 'Accessories' },
-  { slug: 'lighting',       label: 'Lighting' },
-  { slug: 'decking',        label: 'Decking' },
-  { slug: 'other',          label: 'Other' },
-];
-
-const matTabsEl    = document.getElementById('ho-mat-tabs');
-const matGridEl    = document.getElementById('ho-mat-grid');
-const matSearchEl  = document.getElementById('ho-mat-search');
-const matMetaEl    = document.getElementById('ho-mat-meta');
-const matShowMore  = document.getElementById('ho-mat-show-more');
-const matShowMoreBtn = document.getElementById('ho-mat-show-more-btn');
-const matModalBackdrop = document.getElementById('ho-mat-modal-backdrop');
-const matModalClose    = document.getElementById('ho-mat-modal-close');
-const matModalImg      = document.getElementById('ho-mat-modal-img');
-const matModalBody     = document.getElementById('ho-mat-modal-body');
-
-let MATERIALS_CACHE = null;
-let matCurrentCategory = 'pavers';
-let matSearchQuery = '';
-let matShowAllForCurrent = false;
 
 async function loadMaterials() {
   try {
@@ -1895,25 +1762,21 @@ async function loadMaterials() {
       .order('category', { ascending: true })
       .order('manufacturer', { ascending: true })
       .order('product_name', { ascending: true });
-
     if (error) {
       matGridEl.innerHTML = `<div class="ho-mat-state">Could not load materials: ${escapeHtml(error.message)}</div>`;
       return;
     }
-
     MATERIALS_CACHE = data || [];
-
-    const firstWithItems = MAT_TAB_ORDER.find(t =>
-      MATERIALS_CACHE.some(m => m.category === t.slug)
-    );
+    const firstWithItems = MAT_TAB_ORDER.find(t => MATERIALS_CACHE.some(m => m.category === t.slug));
     if (firstWithItems) matCurrentCategory = firstWithItems.slug;
-
     renderMatTabs();
     renderMatGrid();
     matMetaEl.textContent = `${MATERIALS_CACHE.length} products`;
   } catch (err) {
     console.error('[loadMaterials]', err);
-    matGridEl.innerHTML = `<div class="ho-mat-state">Could not load materials. Refresh to try again.</div>`;
+    if (matGridEl) {
+      matGridEl.innerHTML = `<div class="ho-mat-state">Could not load materials. Refresh to try again.</div>`;
+    }
   }
 }
 
@@ -1934,7 +1797,6 @@ function renderMatTabs() {
         </button>`;
     })
     .join('');
-
   matTabsEl.querySelectorAll('[data-cat]').forEach(btn => {
     btn.addEventListener('click', () => {
       const slug = btn.getAttribute('data-cat');
@@ -1977,7 +1839,6 @@ function renderMatGrid() {
   const isSearching = matSearchQuery.trim().length > 0;
   const limit = (matShowAllForCurrent || isSearching) ? list.length : MAT_DEFAULT_LIMIT;
   const visible = list.slice(0, limit);
-
   matGridEl.innerHTML = visible.map(renderMatCard).join('');
   matGridEl.querySelectorAll('[data-mat-id]').forEach(card => {
     card.addEventListener('click', () => {
@@ -1986,7 +1847,6 @@ function renderMatGrid() {
       if (material) openMatModal(material);
     });
   });
-
   if (!matShowAllForCurrent && !isSearching && list.length > MAT_DEFAULT_LIMIT) {
     matShowMore.hidden = false;
     matShowMoreBtn.textContent = `Show all ${list.length}`;
@@ -1994,17 +1854,6 @@ function renderMatGrid() {
     matShowMore.hidden = true;
   }
 }
-
-matShowMoreBtn.addEventListener('click', () => {
-  matShowAllForCurrent = true;
-  renderMatGrid();
-});
-
-matSearchEl.addEventListener('input', () => {
-  matSearchQuery = matSearchEl.value;
-  matShowAllForCurrent = false;
-  renderMatGrid();
-});
 
 function renderMatCard(m) {
   const img = m.swatch_url || m.primary_image_url || '';
@@ -2032,7 +1881,6 @@ function openMatModal(m) {
     matModalImg.style.backgroundImage = '';
     matModalImg.innerHTML = `<div class="ho-mat-modal-img-fallback">${escapeHtml(m.manufacturer || 'Bayside')}</div>`;
   }
-
   const specRows = [
     m.color       && ['Color',         m.color],
     m.collection  && ['Collection',    m.collection],
@@ -2041,18 +1889,14 @@ function openMatModal(m) {
     m.pattern     && ['Pattern',       m.pattern],
     m.thickness_mm && ['Thickness',    m.thickness_mm + 'mm'],
   ].filter(Boolean);
-
   const applications = Array.isArray(m.applications) ? m.applications.filter(Boolean) : [];
   const features     = Array.isArray(m.features)     ? m.features.filter(Boolean)     : [];
-
   const actions = [];
   if (m.spec_pdf_url) actions.push({ label: '📄 Spec sheet',  href: m.spec_pdf_url });
   if (m.cut_sheet_url) actions.push({ label: '📐 Cut sheet',   href: m.cut_sheet_url });
-
   const colorLine = m.color
     ? `<span class="ho-mat-modal-color-swatch" style="background:${guessColorHex(m.color)};"></span>${escapeHtml(m.color)}`
     : (m.collection || '');
-
   matModalBody.innerHTML = `
     <div class="ho-mat-modal-mfr">${escapeHtml(m.manufacturer || '')}</div>
     <h3 class="ho-mat-modal-name" id="ho-mat-modal-name">${escapeHtml(m.product_name || 'Unnamed')}</h3>
@@ -2081,7 +1925,6 @@ function openMatModal(m) {
         ${actions.map(a => `<a class="ho-mat-modal-action" href="${escapeAttr(a.href)}" target="_blank" rel="noopener">${escapeHtml(a.label)}</a>`).join('')}
       </div>` : ''}
   `;
-
   matModalBackdrop.hidden = false;
   document.addEventListener('keydown', onMatEscClose);
 }
@@ -2091,11 +1934,6 @@ function closeMatModal() {
   document.removeEventListener('keydown', onMatEscClose);
 }
 function onMatEscClose(e) { if (e.key === 'Escape') closeMatModal(); }
-
-matModalClose.addEventListener('click', closeMatModal);
-matModalBackdrop.addEventListener('click', (e) => {
-  if (e.target === matModalBackdrop) closeMatModal();
-});
 
 function guessColorHex(name) {
   const k = String(name || '').toLowerCase();
@@ -2122,30 +1960,6 @@ function guessColorHex(name) {
   return '#c8a96e';
 }
 
-// ── Sub-nav active-section highlight ─────────────────────────────────
-const subnavLinks = document.querySelectorAll('.ho-subnav a[data-anchor]');
-const sectionEls = Array.from(document.querySelectorAll('main section[id]'));
-if (sectionEls.length > 0 && 'IntersectionObserver' in window) {
-  const obs = new IntersectionObserver((entries) => {
-    let best = null;
-    for (const e of entries) {
-      if (!e.isIntersecting) continue;
-      if (!best || e.intersectionRatio > best.intersectionRatio) best = e;
-    }
-    if (!best) return;
-    const id = best.target.id;
-    subnavLinks.forEach(a => {
-      a.classList.toggle('is-active', a.getAttribute('data-anchor') === id);
-    });
-  }, {
-    rootMargin: '-90px 0px -50% 0px',
-    threshold: [0, 0.25, 0.5, 0.75, 1],
-  });
-  sectionEls.forEach(s => obs.observe(s));
-}
-
-document.getElementById('ho-footer-year').textContent = String(new Date().getFullYear());
-
 function formatUSD(cents) {
   const dollars = (Number(cents) || 0) / 100;
   return dollars.toLocaleString('en-US', {
@@ -2154,22 +1968,16 @@ function formatUSD(cents) {
     maximumFractionDigits: dollars % 1 === 0 ? 0 : 2,
   });
 }
-
 function formatDate(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   });
 }
-
 function formatStatus(s) {
-  const map = {
-    draft: 'Draft', sent: 'Sent', viewed: 'Viewed',
-    signed: 'Signed', in_progress: 'In progress', complete: 'Complete',
-  };
+  const map = { draft: 'Draft', sent: 'Sent', viewed: 'Viewed', signed: 'Signed', in_progress: 'In progress', complete: 'Complete' };
   return map[s] || s;
 }
-
 function escapeHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
