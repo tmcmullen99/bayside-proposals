@@ -1,108 +1,22 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/notify-dispatch — Notification dispatch worker
 //
-// Pulls 'queued' rows from notification_queue, renders branded email content
-// from templates, sends via Resend (with optional CC), updates row status.
+// Pulls 'queued' rows from notification_queue, looks up email template content
+// from notification_templates (DB-stored, edit via SQL), renders with payload
+// merge fields, sends via Resend with optional CC, updates row status.
 //
 // Triggered by:
 //   1. pg_cron 'notification-dispatch-batch' every 5 min (processes due batch)
 //   2. RPC notification_send_now(queue_id) — passes { queue_id } to fire one row
 //
 // Auth: X-Cron-Secret header must match env.CRON_SECRET.
+//
+// Template editing: SELECT * FROM notification_templates;
+//                   UPDATE notification_templates SET subject = '...' WHERE template_key = '...';
 // ═══════════════════════════════════════════════════════════════════════════
 
 const RESEND_URL = 'https://api.resend.com/emails';
 const MAX_BATCH = 100;
-
-const TEMPLATES = {
-  // ── Homeowner-facing ──
-  'new_proposal:homeowner': {
-    subject: 'Your Bayside Pavers proposal is ready',
-    body_md: 'Hi {{client_first_name}},\n\nYour proposal for **{{project_address}}** is ready to view. Take your time exploring the materials, layout, and pricing — and if anything sparks a question, message us directly through the proposal page.\n\nProject total: **${{total_amount}}**',
-  },
-  'proposal_update:homeowner': {
-    subject: 'Your Bayside Pavers proposal was updated',
-    body_md: 'Hi {{client_first_name}},\n\nWe just published an update to your proposal for **{{project_address}}**. The changes reflect our recent conversation — take a look and let us know what you think.\n\nUpdated total: **${{total_amount}}**',
-  },
-  'message_received:homeowner': {
-    subject: 'New message from your Bayside Pavers designer',
-    body_md: 'Hi {{client_first_name}},\n\nYour designer sent you a message:\n\n> {{message_preview}}\n\nReply directly in your proposal portal to keep the conversation in one place.',
-  },
-  'sign_event:homeowner': {
-    subject: 'Signing confirmed — what happens next',
-    body_md: 'Hi {{client_first_name}},\n\nThanks for signing your **{{project_address}}** proposal. Here is what to expect:\n\n- A project coordinator will reach out within 1 business day to schedule a site walkthrough\n- We will share installation timing and a final material confirmation\n- Your signing discount has been applied to the final total\n\nWe are genuinely excited to start. Reach out anytime through the portal.',
-  },
-  'signing_reminder:homeowner': {
-    subject: 'Your signing discount expires in {{hours_left}} hours',
-    body_md: 'Hi {{client_first_name}},\n\nQuick reminder: the **{{discount_pct}}% signing discount** on your **{{project_address}}** proposal expires in {{hours_left}} hours. If you have questions before signing, message us directly through the proposal — we are here.',
-  },
-  'substitution_response:homeowner': {
-    subject: 'Designer responded to your material request',
-    body_md: 'Hi {{client_first_name}},\n\nYour designer responded to your material change request. Open your proposal to see their notes and decide whether to lock in the swap.',
-  },
-  'redesign_response:homeowner': {
-    subject: 'Designer responded to your redesign request',
-    body_md: 'Hi {{client_first_name}},\n\nYour designer reviewed your redesign request and posted a response. Open your proposal to see the updated layout and notes.',
-  },
-  'referral_converted:homeowner': {
-    subject: 'Referral credit earned — your friend just signed!',
-    body_md: 'Hi {{client_first_name}},\n\n{{referred_name}} just signed their Bayside Pavers proposal — which means you have earned **${{credit_amount}}** in referral credit on your project. We will apply it automatically at final billing.',
-  },
-
-  // ── Designer / Master-facing ──
-  'message_received:designer': {
-    subject: 'New message from {{client_name}}',
-    body_md: '**{{client_name}}** sent you a message about their **{{project_address}}** proposal:\n\n> {{message_preview}}\n\nReply in the War Room to keep the conversation in one thread.',
-  },
-  'message_received:master': {
-    subject: 'New message from {{client_name}} (CC)',
-    body_md: '**{{client_name}}** just messaged {{designer_name}} about the **{{project_address}}** proposal:\n\n> {{message_preview}}',
-  },
-  'sign_event:designer': {
-    subject: '🎉 {{client_name}} signed — ${{total_amount}}',
-    body_md: '**{{client_name}}** just signed their proposal for **{{project_address}}**.\n\nProject total: **${{total_amount}}**\nSigning discount applied: {{discount_pct}}%\n\nTime to kick off the project workflow.',
-  },
-  'sign_event:master': {
-    subject: '{{client_name}} signed — ${{total_amount}}',
-    body_md: '**{{client_name}}** signed the **{{project_address}}** proposal owned by {{designer_name}}.\n\nProject total: **${{total_amount}}**',
-  },
-  'substitution_received:designer': {
-    subject: '{{client_name}} requested a material change',
-    body_md: '**{{client_name}}** submitted a material substitution request on their **{{project_address}}** proposal.\n\nHomeowner note:\n> {{homeowner_note}}\n\nReview and respond from the War Room.',
-  },
-  'redesign_received:designer': {
-    subject: '{{client_name}} submitted a redesign request',
-    body_md: '**{{client_name}}** submitted a redesign request on **{{project_address}}**.\n\nHomeowner note:\n> {{homeowner_note}}\n\nOpen the War Room to view their markup and respond.',
-  },
-  'first_view:designer': {
-    subject: '👀 {{client_name}} opened {{project_address}}',
-    body_md: '**{{client_name}}** just opened their proposal for **{{project_address}}** for the first time. Engagement is starting.',
-  },
-
-  // ── NEW: Conversion Engine (Phase N3) ──
-  'stalled_proposals_summary:master': {
-    subject: '{{count}} proposal(s) need a check-in',
-    body_md: 'Heads up: **{{count}}** of your sent proposals haven\'t seen activity in the last few days.\n\n{{proposals_list}}\n\nA personal check-in often unsticks things. Open the War Room to follow up.',
-  },
-  'stalled_proposals_summary:designer': {
-    subject: '{{count}} proposal(s) need a check-in',
-    body_md: 'Heads up: **{{count}}** of your sent proposals haven\'t seen activity in the last few days.\n\n{{proposals_list}}\n\nA personal check-in often unsticks things. Open the War Room to follow up.',
-  },
-
-  // ── Test ──
-  'test_notification:master': {
-    subject: 'Test notification — dispatch worker live',
-    body_md: 'This is a test from the notification dispatch worker.\n\nPayload contents: {{payload_json}}',
-  },
-  'test_notification:designer': {
-    subject: 'Test notification — dispatch worker live',
-    body_md: 'This is a test. Payload: {{payload_json}}',
-  },
-  'test_notification:homeowner': {
-    subject: 'Test notification',
-    body_md: 'Test message. Payload: {{payload_json}}',
-  },
-};
 
 export async function onRequestPost({ request, env }) {
   const json = (status, body) => new Response(JSON.stringify(body), {
@@ -133,12 +47,24 @@ export async function onRequestPost({ request, env }) {
       },
     });
 
+  // ── Load nurture_config (from address, test mode, business info) ──
   const cfgResp = await sb('nurture_config?id=eq.1&select=*&limit=1');
   if (!cfgResp.ok) return json(502, { error: 'Could not load nurture_config' });
   const cfgRows = await cfgResp.json();
   if (!cfgRows || cfgRows.length === 0) return json(500, { error: 'nurture_config row missing' });
   const cfg = cfgRows[0];
 
+  // ── Load all active templates from DB ──
+  const tplResp = await sb('notification_templates?active=eq.true&select=template_key,subject,body_md');
+  if (!tplResp.ok) {
+    const txt = await tplResp.text();
+    return json(502, { error: 'Could not load notification_templates', detail: txt.slice(0, 240) });
+  }
+  const tplRows = await tplResp.json();
+  const TEMPLATES = {};
+  for (const t of tplRows) TEMPLATES[t.template_key] = { subject: t.subject, body_md: t.body_md };
+
+  // ── Load due rows ──
   let rowsPath = 'notification_queue?status=eq.queued';
   if (filterQueueId) {
     rowsPath += '&id=eq.' + encodeURIComponent(filterQueueId);
@@ -156,9 +82,10 @@ export async function onRequestPost({ request, env }) {
   const rows = await rowsResp.json();
 
   if (rows.length === 0) {
-    return json(200, { ok: true, test_mode: cfg.test_mode, processed: 0, sent: 0, skipped: 0, failed: 0, rescheduled: 0 });
+    return json(200, { ok: true, test_mode: cfg.test_mode, templates_loaded: tplRows.length, processed: 0, sent: 0, skipped: 0, failed: 0, rescheduled: 0 });
   }
 
+  // ── Load preferences for recipients (quiet hours) ──
   const userIds = [...new Set(rows.map(r => r.recipient_user_id).filter(Boolean))];
   let prefsMap = {};
   if (userIds.length > 0) {
@@ -166,7 +93,7 @@ export async function onRequestPost({ request, env }) {
     if (prefsResp.ok) prefsMap = Object.fromEntries((await prefsResp.json()).map(p => [p.user_id, p]));
   }
 
-  const results = { ok: true, test_mode: cfg.test_mode, dry_run: dryRun, processed: 0, sent: 0, skipped: 0, failed: 0, rescheduled: 0, items: [] };
+  const results = { ok: true, test_mode: cfg.test_mode, dry_run: dryRun, templates_loaded: tplRows.length, processed: 0, sent: 0, skipped: 0, failed: 0, rescheduled: 0, items: [] };
 
   for (const row of rows) {
     results.processed++;
@@ -265,6 +192,8 @@ export async function onRequestOptions() {
     },
   });
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────
 
 async function markFailed(sb, rowId, msg) {
   return sb('notification_queue?id=eq.' + encodeURIComponent(rowId), {
