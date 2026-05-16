@@ -41,20 +41,10 @@
       margin: 0 0 4px;
       letter-spacing: -0.02em;
     }
-    .hd-subtitle {
-      font-size: 14px;
-      color: #8a8b8d;
-      margin: 0;
-    }
-    .hd-meta {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
+    .hd-subtitle { font-size: 14px; color: #8a8b8d; margin: 0; }
+    .hd-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .hd-last-updated {
-      font-size: 12px;
-      color: #8a8b8d;
+      font-size: 12px; color: #8a8b8d;
       font-family: 'JetBrains Mono', monospace;
     }
     .hd-refresh, .hd-back {
@@ -108,24 +98,13 @@
       margin: 0 auto;
       padding: 24px 32px 60px;
     }
-    .hd-status {
-      text-align: center;
-      padding: 80px 32px;
-      color: #8a8b8d;
-      font-size: 15px;
-    }
+    .hd-status { text-align: center; padding: 80px 32px; color: #8a8b8d; font-size: 15px; }
     .hd-status p { margin: 6px 0; }
     .hd-status-error { color: #b73229; }
     .hd-status-error button {
-      margin-left: 12px;
-      background: #b73229;
-      color: white;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 4px;
-      font-family: inherit;
-      cursor: pointer;
-      font-size: 13px;
+      margin-left: 12px; background: #b73229; color: white;
+      border: none; padding: 6px 14px; border-radius: 4px;
+      font-family: inherit; cursor: pointer; font-size: 13px;
     }
 
     .hd-deals { display: grid; gap: 16px; }
@@ -196,15 +175,8 @@
       margin: 0 0 4px;
       letter-spacing: -0.01em;
     }
-    .hd-address {
-      font-size: 14px;
-      color: #8a8b8d;
-      margin: 0 0 14px;
-    }
-    .hd-address strong {
-      color: #5d7e69;
-      font-weight: 600;
-    }
+    .hd-address { font-size: 14px; color: #8a8b8d; margin: 0 0 14px; }
+    .hd-address strong { color: #5d7e69; font-weight: 600; }
 
     .hd-signal {
       background: #faf3ec;
@@ -219,6 +191,53 @@
     .hd-card.is-hot .hd-signal { background: #fdf3f2; border-left-color: #b73229; }
     .hd-card.is-warming .hd-signal { background: #fdfaeb; border-left-color: #c9a227; }
     .hd-card.is-cold .hd-signal { background: #f0eee6; border-left-color: #9ca3af; }
+
+    /* ── Sparkline trend row ── */
+    .hd-trend-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px dashed #e7e4dc;
+      border-bottom: 1px dashed #e7e4dc;
+      margin-bottom: 14px;
+    }
+    .hd-trend-label {
+      font-size: 11px;
+      color: #8a8b8d;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .hd-sparkline {
+      flex: 1;
+      max-width: 240px;
+      height: 36px;
+      display: block;
+    }
+    .hd-sparkline-empty {
+      flex: 1;
+      max-width: 240px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      font-size: 11px;
+      color: #b3b3b3;
+      font-family: 'JetBrains Mono', monospace;
+      padding-left: 8px;
+      border-left: 2px dashed #e7e4dc;
+    }
+    .hd-trend-delta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      min-width: 60px;
+      text-align: right;
+    }
+    .hd-trend-delta.is-up { color: #5d7e69; }
+    .hd-trend-delta.is-down { color: #b73229; }
+    .hd-trend-delta.is-flat { color: #8a8b8d; }
 
     .hd-stats {
       display: flex;
@@ -306,6 +325,8 @@
       .hd-rank { font-size: 22px; padding: 0; }
       .hd-action { align-items: flex-start; }
       .hd-breakdown { grid-template-columns: repeat(2, 1fr); }
+      .hd-trend-row { flex-wrap: wrap; }
+      .hd-sparkline, .hd-sparkline-empty { max-width: 100%; }
     }
   </style>
 </head>
@@ -318,6 +339,7 @@
       </div>
       <div class="hd-meta">
         <a href="/admin/" class="hd-back">← Admin</a>
+        <a href="/admin/dashboard.html" class="hd-back">📊 Dashboard</a>
         <span class="hd-last-updated" id="lastUpdated"></span>
         <button class="hd-refresh" id="refreshBtn" type="button">Refresh</button>
       </div>
@@ -374,6 +396,12 @@
       if (score >= 20) return 'WARMING';
       return 'COLD';
     }
+    function scoreColor(score) {
+      if (score >= 70) return '#b73229';
+      if (score >= 40) return '#d97441';
+      if (score >= 20) return '#c9a227';
+      return '#9ca3af';
+    }
 
     function formatAmount(amount) {
       const n = Number(amount || 0);
@@ -403,6 +431,45 @@
       return Math.floor(days / 30) + 'mo ago';
     }
 
+    function renderSparkline(history, currentScore) {
+      if (!Array.isArray(history) || history.length < 2) {
+        return `<div class="hd-sparkline-empty">building 7-day history… ${history && history.length ? history.length + ' point' + (history.length === 1 ? '' : 's') : ''}</div>`;
+      }
+      const w = 240, h = 36, pad = 3;
+      const scores = history.map(p => Number(p.score) || 0);
+      const minV = 0;
+      const maxV = 100;
+      const points = scores.map((s, i) => {
+        const x = pad + (i / (scores.length - 1)) * (w - 2 * pad);
+        const y = h - pad - ((s - minV) / (maxV - minV)) * (h - 2 * pad);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      });
+      const color = scoreColor(currentScore);
+      const pathD = `M ${points.join(' L ')}`;
+      const areaD = pathD + ` L ${(w - pad).toFixed(1)},${(h - pad).toFixed(1)} L ${pad.toFixed(1)},${(h - pad).toFixed(1)} Z`;
+      const lastPoint = points[points.length - 1];
+      const [lastX, lastY] = lastPoint.split(',');
+      return `
+        <svg class="hd-sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+          <path d="${areaD}" fill="${color}" fill-opacity="0.12"/>
+          <path d="${pathD}" stroke="${color}" stroke-width="1.8" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="${lastX}" cy="${lastY}" r="3" fill="${color}"/>
+        </svg>
+      `;
+    }
+
+    function trendDelta(history) {
+      if (!Array.isArray(history) || history.length < 2) {
+        return { text: '—', cls: 'is-flat' };
+      }
+      const first = Number(history[0].score) || 0;
+      const last = Number(history[history.length - 1].score) || 0;
+      const delta = last - first;
+      if (delta > 0) return { text: `↑ +${delta}`, cls: 'is-up' };
+      if (delta < 0) return { text: `↓ ${delta}`, cls: 'is-down' };
+      return { text: '→ 0', cls: 'is-flat' };
+    }
+
     function renderSummary(deals) {
       const counts = { 'is-hot': 0, 'is-warm': 0, 'is-warming': 0, 'is-cold': 0 };
       deals.forEach(d => { counts[scoreClass(Number(d.hot_score || 0))]++; });
@@ -424,6 +491,8 @@
       const lastActivity = relativeTime(deal.last_event_at);
       const previewUrl = deal.slug ? `/p/${encodeURIComponent(deal.slug)}` : null;
       const warRoomUrl = `/admin/client?id=${encodeURIComponent(deal.client_id || '')}`;
+      const sparkline = renderSparkline(deal.score_history, score);
+      const delta = trendDelta(deal.score_history);
 
       return `
         <article class="hd-card ${klass}">
@@ -439,6 +508,11 @@
               <strong>· ${formatAmount(deal.total_amount)}</strong>
             </p>
             <div class="hd-signal">${escapeHtml(deal.top_signal || 'Engaged')}</div>
+            <div class="hd-trend-row">
+              <span class="hd-trend-label">7-day trend</span>
+              ${sparkline}
+              <span class="hd-trend-delta ${delta.cls}">${delta.text}</span>
+            </div>
             <div class="hd-stats">
               <div class="hd-stat"><strong>${deal.events_24h}</strong> events 24h</div>
               <div class="hd-stat"><strong>${deal.events_7d}</strong> events 7d</div>
@@ -529,13 +603,8 @@
     (async () => {
       try {
         const { data: { user } } = await supa.auth.getUser();
-        if (!user) {
-          window.location.href = '/admin/';
-          return;
-        }
-      } catch (e) {
-        console.error('Auth check failed:', e);
-      }
+        if (!user) { window.location.href = '/admin/'; return; }
+      } catch (e) { console.error('Auth check failed:', e); }
       load();
       startAutoRefresh();
     })();
