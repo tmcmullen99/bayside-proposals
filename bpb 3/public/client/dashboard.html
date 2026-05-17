@@ -164,6 +164,13 @@
       gap: 14px;
       flex-wrap: wrap;
     }
+    /* Phase 1A — action button row on each card */
+    .proposal-card-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .status-badge {
       display: inline-block;
       padding: 3px 10px;
@@ -194,15 +201,22 @@
       display: inline-block;
       transition: background 0.15s ease;
     }
-    .btn:hover { background: var(--green-dark); }
+    .btn:hover:not(:disabled) { background: var(--green-dark); }
+    .btn:disabled { cursor: not-allowed; }
     .btn-secondary {
       background: #fff;
       color: var(--charcoal);
       border: 1px solid var(--border);
     }
-    .btn-secondary:hover {
+    .btn-secondary:hover:not(:disabled) {
       background: var(--cream);
       border-color: var(--green);
+      color: var(--green-dark);
+    }
+    /* Phase 1A — markup PDF button */
+    .proposal-pdf-btn {
+      font-size: 13px;
+      padding: 9px 14px;
     }
 
     /* Empty state */
