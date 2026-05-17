@@ -2,13 +2,16 @@
 // client-dashboard.js
 // Client dashboard — shows the authenticated homeowner's proposals.
 //
-// Flow:
-//   1. requireClient() — redirect to login if unauthenticated
-//   2. Load client record (linked to auth.uid())
-//   3. Load client_proposals → proposals join
-//   4. Render cards with status badges
-//   5. On card click: mark proposal as 'viewed' (if not already), log activity,
-//      then navigate to the public /p/{slug} page
+// Phase 1A (markup PDF):
+//   - Each proposal card now exposes a "📥 Markup PDF" button that
+//     generates a printable, brand-matched PDF the homeowner can mark
+//     up by hand and send back to their designer.
+//   - Generation is fully client-side via /client/markup-pdf.js (jsPDF
+//     loaded from CDN). Image source columns are auto-detected from
+//     proposals: site_plan_backdrop_url, hero_image_url,
+//     construction_drawing_url.
+//   - The download is logged as a 'markup_pdf_downloaded' activity for
+//     the designer's pipeline analytics.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -19,6 +22,7 @@ import {
   signOut,
   logClientActivity,
 } from '/js/auth-util.js';
+import { generateMarkupPdf } from './markup-pdf.js';
 
 // DOM
 const loadingState = document.getElementById('loadingState');
@@ -35,20 +39,18 @@ const signOutBtn = document.getElementById('signOutBtn');
 const ctx = {
   user: null,
   client: null,
-  proposals: [], // array of { ...client_proposal, proposal: {...} }
+  proposals: [],
 };
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 (async function init() {
   ctx.user = await requireClient();
-  if (!ctx.user) return; // redirect happened
+  if (!ctx.user) return;
 
   userEmailEl.textContent = ctx.user.email;
 
   if (isAdminUser(ctx.user)) {
     adminBanner.style.display = 'block';
-    // For admin preview, load Tim's sandbox — or show a simulation.
-    // For Phase A simplicity, show an informational view.
     welcomeTitle.textContent = 'Admin preview';
     welcomeSubtitle.innerHTML =
       `You don't have a client record yet. To test this view, add yourself as a client at <a href="/admin/clients.html">admin/clients</a>.`;
@@ -62,9 +64,6 @@ const ctx = {
   ctx.client = await getClientRecord(ctx.user);
 
   if (!ctx.client) {
-    // User is authenticated but no clients row exists for this email. This
-    // shouldn't normally happen — Tim would have to invite them first. Show
-    // a helpful message rather than an empty dashboard.
     loadingState.style.display = 'none';
     contentState.style.display = 'block';
     welcomeTitle.textContent = 'Hi there';
@@ -82,6 +81,9 @@ const ctx = {
 })();
 
 async function loadProposals() {
+  // Phase 1A — pull the three image fields we need to populate the
+  // markup PDF. project_address is also pulled so the footer band can
+  // print it without an extra query.
   const { data, error } = await supabase
     .from('client_proposals')
     .select(`
@@ -89,6 +91,10 @@ async function loadProposals() {
       proposal:proposals!proposal_id (
         id,
         address,
+        project_address,
+        site_plan_backdrop_url,
+        hero_image_url,
+        construction_drawing_url,
         created_at,
         published_proposals (id, slug)
       )
@@ -120,19 +126,24 @@ function renderDashboard() {
 
   proposalsGrid.innerHTML = ctx.proposals.map(cp => renderProposalCard(cp)).join('');
 
-  // Wire up click handlers
   proposalsGrid.querySelectorAll('.proposal-view-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', () => {
       const cpId = btn.dataset.cpId;
       const slug = btn.dataset.slug;
       handleProposalView(cpId, slug);
+    });
+  });
+  proposalsGrid.querySelectorAll('.proposal-pdf-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cpId = btn.dataset.cpId;
+      handleMarkupPdfDownload(cpId, btn);
     });
   });
 }
 
 function renderProposalCard(cp) {
   const p = cp.proposal;
-  if (!p) return ''; // proposal was deleted
+  if (!p) return '';
 
   const statusLabel = {
     draft: 'Draft',
@@ -148,6 +159,16 @@ function renderProposalCard(cp) {
     : 'Not sent yet';
 
   const slug = getLatestSlug(p);
+  const hasImagesForPdf = !!(p.site_plan_backdrop_url || p.hero_image_url || p.construction_drawing_url);
+
+  const pdfButton = hasImagesForPdf
+    ? `<button class="btn btn-secondary proposal-pdf-btn"
+               data-cp-id="${escapeAttr(cp.id)}"
+               title="Download a printable PDF you can mark up by hand">
+         📥 Markup PDF
+       </button>`
+    : '';
+
   const viewButton = slug
     ? `<button class="btn proposal-view-btn"
                data-cp-id="${escapeAttr(cp.id)}"
@@ -167,7 +188,10 @@ function renderProposalCard(cp) {
           <span>Sent ${escapeHtml(sentDate)}</span>
         </div>
       </div>
-      ${viewButton}
+      <div class="proposal-card-actions">
+        ${pdfButton}
+        ${viewButton}
+      </div>
     </div>
   `;
 }
@@ -184,7 +208,6 @@ function renderEmptyState() {
 
 // ── Proposal view action ───────────────────────────────────────────────────
 async function handleProposalView(cpId, slug) {
-  // Mark as viewed (if not already) + log activity, fire-and-forget
   const cp = ctx.proposals.find(x => x.id === cpId);
   if (cp && !cp.first_viewed_at) {
     const now = new Date().toISOString();
@@ -199,11 +222,53 @@ async function handleProposalView(cpId, slug) {
         if (error) console.warn('Could not mark viewed:', error.message);
       });
   }
-
   logClientActivity(ctx.client.id, 'proposal_viewed', { slug }, cp?.proposal?.id);
-
-  // Navigate to the public proposal page
   window.location.href = `/p/${slug}`;
+}
+
+// ── Markup PDF download (Phase 1A) ─────────────────────────────────────────
+async function handleMarkupPdfDownload(cpId, btn) {
+  const cp = ctx.proposals.find(x => x.id === cpId);
+  if (!cp || !cp.proposal) return;
+
+  const origText = btn.textContent;
+  const origDisabled = btn.disabled;
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating…';
+
+  try {
+    await generateMarkupPdf(
+      {
+        // Spread only the fields markup-pdf.js needs — keeps the payload small
+        project_address: cp.proposal.project_address || cp.proposal.address,
+        site_plan_backdrop_url: cp.proposal.site_plan_backdrop_url,
+        hero_image_url: cp.proposal.hero_image_url,
+        construction_drawing_url: cp.proposal.construction_drawing_url,
+      },
+      {
+        clientName: ctx.client.name || '',
+      }
+    );
+
+    // Fire-and-forget activity log so designers see download signals
+    logClientActivity(
+      ctx.client.id,
+      'markup_pdf_downloaded',
+      { proposal_id: cp.proposal.id },
+      cp.proposal.id
+    );
+
+    btn.textContent = '✓ Downloaded';
+    setTimeout(() => {
+      btn.textContent = origText;
+      btn.disabled = origDisabled;
+    }, 2200);
+  } catch (err) {
+    console.error('Markup PDF generation failed:', err);
+    btn.textContent = '⚠ Try again';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = origText; }, 2500);
+  }
 }
 
 // ── Sign out ───────────────────────────────────────────────────────────────
@@ -212,7 +277,6 @@ signOutBtn.addEventListener('click', async () => {
 });
 
 // ── Slug / address helpers ─────────────────────────────────────────────────
-// Slugs encode publish date + version: "1728-whitham-ave-2026-04-22-3" = v3 on Apr 22.
 function parseSlugSortKey(slug) {
   if (!slug) return { date: '', version: 0 };
   const match = String(slug).match(/(\d{4})-(\d{2})-(\d{2})(?:-(\d+))?$/);
@@ -236,6 +300,7 @@ function getLatestSlug(proposal) {
 }
 
 function getDisplayAddress(proposal) {
+  if (proposal?.project_address) return proposal.project_address;
   if (proposal?.address) return proposal.address;
   const slug = getLatestSlug(proposal);
   if (slug) {
