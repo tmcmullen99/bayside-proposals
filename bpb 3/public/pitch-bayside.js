@@ -71,43 +71,68 @@ if (timelineSvg && tooltip) {
   });
 }
 
-// Pricing calculator — per-deal-first framing (rebuilt 2026-05-17)
-const dealsSlider = document.getElementById('dealsSlider');
-const dealSizeSlider = document.getElementById('dealSizeSlider');
-const splitSlider = document.getElementById('splitSlider');
-const fmt = (n) => '$' + Math.round(n).toLocaleString('en-US');
+// Pricing calculator — revenue-impact framing (rebuilt 2026-05-17 v3)
+const projectsSlider = document.getElementById('projectsSlider');
+const projectSizeSlider = document.getElementById('projectSizeSlider');
+const liftSlider = document.getElementById('liftSlider');
+const BASELINE_CLOSE_RATE = 0.25;
+const DESIGNER_COMMISSION_PCT = 0.10;
+const PORTAL_FEE_PCT = 0.01;
+
+function fmtKM(n) {
+  const abs = Math.abs(n);
+  if (abs >= 1000000) {
+    const m = n / 1000000;
+    const str = (m % 1 === 0) ? m.toFixed(0) : m.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+    return '$' + str + 'M';
+  }
+  if (abs >= 10000) return '$' + Math.round(n / 1000) + 'K';
+  return '$' + Math.round(n).toLocaleString('en-US');
+}
+
+function fmtExact(n) {
+  return '$' + Math.round(n).toLocaleString('en-US');
+}
 
 function updateCalc() {
-  const deals = parseInt(dealsSlider.value, 10);
-  const dealSize = parseInt(dealSizeSlider.value, 10);
-  const splitPct = parseInt(splitSlider.value, 10);
+  const projects = parseInt(projectsSlider.value, 10);
+  const projectSize = parseInt(projectSizeSlider.value, 10);
+  const liftPts = parseInt(liftSlider.value, 10);
 
-  // Per-deal economics (the headline)
-  const feePerDeal = dealSize * 0.01;
-  const designerSharePerDeal = feePerDeal * (splitPct / 100);
-  const platformSharePerDeal = feePerDeal - designerSharePerDeal;
+  const designerCommission = projectSize * DESIGNER_COMMISSION_PCT;
+  const portalFee = projectSize * PORTAL_FEE_PCT;
 
-  // Annual context
-  const annualFee = feePerDeal * deals;
-  const netCostToBayside = platformSharePerDeal * deals;
+  const liftedRate = BASELINE_CLOSE_RATE + (liftPts / 100);
+  const baselineDeals = projects * BASELINE_CLOSE_RATE;
+  const liftedDeals = projects * liftedRate;
 
-  // Update slider labels
-  document.getElementById('dealsLabel').textContent = deals;
-  document.getElementById('dealSizeLabel').textContent = fmt(dealSize);
-  document.getElementById('splitLabel').textContent = splitPct + '%';
+  const baselineRevenue = baselineDeals * projectSize;
+  const liftedRevenue = liftedDeals * projectSize;
+  const incrementalRevenue = liftedRevenue - baselineRevenue;
+  const totalPortalFees = liftedDeals * portalFee;
+  const portalROI = (totalPortalFees > 0 && incrementalRevenue > 0)
+    ? (incrementalRevenue / totalPortalFees)
+    : 0;
 
-  // Update headline + breakdown
-  document.getElementById('feePerDeal').textContent = fmt(feePerDeal);
-  document.getElementById('feeContext').textContent = '1% of a ' + fmt(dealSize) + ' deal';
-  document.getElementById('designerSharePerDeal').textContent = fmt(designerSharePerDeal);
-  document.getElementById('platformSharePerDeal').textContent = fmt(platformSharePerDeal);
+  document.getElementById('projectsLabel').textContent = projects;
+  document.getElementById('projectSizeLabel').textContent = fmtExact(projectSize);
+  document.getElementById('liftLabel').textContent = '+' + liftPts + ' pts';
 
-  // Update volume context
-  document.getElementById('annualFee').textContent = fmt(annualFee);
-  document.getElementById('netCostToBayside').textContent = fmt(netCostToBayside);
+  document.getElementById('projectValue').textContent = fmtExact(projectSize);
+  document.getElementById('designerCommission').textContent = fmtExact(designerCommission);
+  document.getElementById('portalFee').textContent = fmtExact(portalFee);
+
+  document.getElementById('projectsContext').textContent = projects;
+  document.getElementById('baselineRevenue').textContent = fmtKM(baselineRevenue);
+  document.getElementById('liftedRateLabel').textContent = Math.round(liftedRate * 100) + '%';
+  document.getElementById('liftedRevenue').textContent = fmtKM(liftedRevenue);
+  document.getElementById('pricingIncRevenue').textContent = fmtKM(incrementalRevenue);
+  document.getElementById('totalPortalFees').textContent = fmtExact(totalPortalFees);
+  document.getElementById('portalROI').textContent = portalROI > 0 ? portalROI.toFixed(1) + '×' : '—';
 }
-if (dealsSlider && dealSizeSlider && splitSlider) {
-  [dealsSlider, dealSizeSlider, splitSlider].forEach(s => s.addEventListener('input', updateCalc));
+
+if (projectsSlider && projectSizeSlider && liftSlider) {
+  [projectsSlider, projectSizeSlider, liftSlider].forEach(s => s.addEventListener('input', updateCalc));
   updateCalc();
 }
 
