@@ -8,6 +8,46 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="pitch-bayside.css">
+  <style>
+    .moat-demo{background:#faf8f3;border-radius:16px;padding:28px;margin:40px 0 28px;box-shadow:0 24px 64px rgba(0,0,0,0.35);color:#0e1218}
+    .moat-demo-header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+    .moat-demo-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#5d7e69;font-weight:700;margin-bottom:6px}
+    .moat-demo-title{font-family:'Playfair Display',serif;font-size:22px;margin:0;color:#0e1218;line-height:1.2}
+    .moat-pending-badge{display:none;align-items:center;font-size:11px;color:#b78b3a;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;text-transform:uppercase;background:rgba(183,139,58,0.1);padding:6px 12px;border-radius:20px;border:1px solid rgba(183,139,58,0.3)}
+    .moat-pending-badge.visible{display:inline-flex}
+    .moat-pending-pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#b78b3a;margin-right:8px;animation:moat-pulse 1.4s ease-in-out infinite}
+    @keyframes moat-pulse{0%,100%{opacity:0.4;transform:scale(0.85)}50%{opacity:1;transform:scale(1.15)}}
+    .moat-demo-instruction{font-size:13px;color:rgba(14,18,24,0.65);margin:0 0 16px;text-align:center;padding:10px 14px;background:rgba(93,126,105,0.07);border-radius:8px;border-left:3px solid #5d7e69}
+    .moat-demo-canvas{position:relative;border-radius:10px;overflow:hidden;background:#d4cba8;aspect-ratio:600/360}
+    .moat-demo-canvas svg{display:block;width:100%;height:100%;touch-action:none;user-select:none}
+    .moat-handle{cursor:grab;fill:#fff;stroke:#5d7e69;stroke-width:3;transition:r 0.12s,fill 0.12s,stroke 0.12s}
+    .moat-handle:hover{r:14;fill:#b78b3a;stroke:#fff}
+    .moat-handle:active{cursor:grabbing;fill:#b78b3a}
+    .moat-demo-materials{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:18px}
+    .moat-mat-swatch{background:#fff;border:2px solid rgba(0,0,0,0.07);border-radius:10px;padding:10px;cursor:pointer;transition:all 0.15s;display:flex;gap:10px;align-items:center}
+    .moat-mat-swatch:hover{border-color:rgba(93,126,105,0.4);transform:translateY(-1px)}
+    .moat-mat-swatch.active{border-color:#5d7e69;background:#f4f8f5;box-shadow:0 2px 10px rgba(93,126,105,0.18)}
+    .moat-mat-img{width:42px;height:42px;border-radius:6px;background-size:cover;background-position:center;flex-shrink:0;border:1px solid rgba(0,0,0,0.08)}
+    .moat-mat-info{flex:1;min-width:0}
+    .moat-mat-name{font-size:12px;font-weight:600;color:#0e1218;line-height:1.2}
+    .moat-mat-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(14,18,24,0.6);margin-top:3px;letter-spacing:0.02em}
+    .moat-demo-footer{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:18px;border-top:1px solid rgba(0,0,0,0.08);gap:18px;flex-wrap:wrap}
+    .moat-demo-readout{display:flex;gap:22px;flex-wrap:wrap;flex:1}
+    .moat-readout-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(14,18,24,0.5);font-weight:600;margin-bottom:3px}
+    .moat-readout-value{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:#0e1218;line-height:1}
+    .moat-readout-value.gold{color:#b78b3a;font-size:20px}
+    .moat-demo-cta{background:#5d7e69;color:#fff;border:0;padding:12px 22px;border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.15s,transform 0.1s;letter-spacing:0.01em}
+    .moat-demo-cta:hover:not(:disabled){background:#4a6655;transform:translateY(-1px)}
+    .moat-demo-cta:disabled{background:#4a6655;cursor:default;opacity:0.85}
+    .moat-demo-captions{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:8px;color:rgba(250,248,243,0.78)}
+    .moat-caption{font-size:13px;line-height:1.55}
+    .moat-caption strong{color:#b78b3a;font-weight:600;display:block;margin-bottom:3px;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+    @media (max-width:640px){
+      .moat-demo{padding:18px}
+      .moat-demo-footer{flex-direction:column;align-items:stretch}
+      .moat-demo-cta{width:100%}
+    }
+  </style>
 </head>
 <body>
 
@@ -34,11 +74,11 @@
     <h1>Your designers shouldn't have to <em>guess</em><br>when a homeowner is ready to buy.</h1>
     <p class="hero-sub">Bayside Portal is the sales platform Tim McMullen has built and used on Bayside deals for the last year. It makes homeowner intent visible — in real time, on every deal — so Bayside's design team closes more of what they're already working on.</p>
     <div class="hero-stats">
-      <div><strong class="hero-stat-num" data-count-to="53">0</strong><span class="hero-stat-label">Engagement events</span></div>
-      <div><strong class="hero-stat-num" data-count-to="13">0</strong><span class="hero-stat-label">Distinct sessions</span></div>
-      <div><strong class="hero-stat-num" data-count-to="10">0</strong><span class="hero-stat-label">Active days</span></div>
-      <div><strong class="hero-stat-num">$54K</strong><span class="hero-stat-label">Open contract</span></div>
-      <p class="hero-stat-context"><strong>One active deal in Bayside's pipeline, right now.</strong> Numbers above are what Bayside Portal has captured on it.</p>
+      <div><strong class="hero-stat-num" data-count-to="133">0</strong><span class="hero-stat-label">Engagement events</span></div>
+      <div><strong class="hero-stat-num" data-count-to="26">0</strong><span class="hero-stat-label">Distinct sessions</span></div>
+      <div><strong class="hero-stat-num" data-count-to="17">0</strong><span class="hero-stat-label">Active days · 17 / 17</span></div>
+      <div><strong class="hero-stat-num">$423K</strong><span class="hero-stat-label">Active pipeline</span></div>
+      <p class="hero-stat-context"><strong>These are real numbers from Tim's solo Portal rollout</strong> — 6 active Bayside properties tracked over 17 days, with activity captured every single day. Every page open, every return visit, every session, automatic. Multiplied across Bayside's full design team, this becomes the live instrument panel for the entire sales floor.</p>
     </div>
     <div class="hero-cta-row">
       <a href="#features" class="btn-primary">See how it works ↓</a>
@@ -193,28 +233,102 @@
       </div>
 
       <div class="reveal" style="margin-top:48px;background:linear-gradient(135deg,#0e1218 0%,#1a2030 100%);border-radius:14px;padding:56px 48px;color:#faf8f3;">
-        <div style="text-align:center;max-width:780px;margin:0 auto 40px;">
+        <div style="text-align:center;max-width:780px;margin:0 auto 24px;">
           <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#b78b3a;font-weight:600;margin-bottom:14px;">The moat · the part no other contractor offers</div>
           <h3 style="font-family:'Playfair Display',serif;font-size:38px;line-height:1.1;margin:0 0 18px;color:#faf8f3;">Then you hand the homeowner <em style="color:#b78b3a;">the same tool.</em></h3>
           <p style="font-size:17px;color:rgba(250,248,243,0.78);line-height:1.6;margin:0;">Every Bayside Portal proposal ships with a live editing mode the homeowner can open from their own browser. They drag patio edges. They swap materials. The line items recalculate as they move — no designer in the loop. When the homeowner is satisfied, one tap sends the new spec back to the designer for official re-pricing.</p>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
-          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(183,139,58,0.25);border-radius:10px;padding:28px 24px;">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#b78b3a;font-weight:700;margin-bottom:12px;">01 · Drag to resize</div>
-            <h4 style="font-family:'Playfair Display',serif;font-size:21px;margin:0 0 10px;color:#faf8f3;line-height:1.25;">Pull the patio edge wider.</h4>
-            <p style="font-size:14px;color:rgba(250,248,243,0.7);line-height:1.6;margin:0;">Homeowner drags a region boundary outward. Square footage updates as they drag. The dollar line item updates in real time. They see exactly what an extra 50 sqft costs — no waiting on the designer to quote it.</p>
+
+        <div class="moat-demo" id="moatDemo">
+          <div class="moat-demo-header">
+            <div>
+              <div class="moat-demo-eyebrow">Try it yourself · this is the real homeowner view</div>
+              <h4 class="moat-demo-title">Resize the patio · swap the material · watch the price update</h4>
+            </div>
+            <div class="moat-pending-badge" id="moatPendingBadge">
+              <span class="moat-pending-pulse"></span>
+              <span id="moatPendingText">pending</span>
+            </div>
           </div>
-          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(183,139,58,0.25);border-radius:10px;padding:28px 24px;">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#b78b3a;font-weight:700;margin-bottom:12px;">02 · Swap materials live</div>
-            <h4 style="font-family:'Playfair Display',serif;font-size:21px;margin:0 0 10px;color:#faf8f3;line-height:1.25;">Try Origins instead.</h4>
-            <p style="font-size:14px;color:rgba(250,248,243,0.7);line-height:1.6;margin:0;">Tap a swatch. The whole proposal repaints with the new material — including pricing. Catalina Grana to Origins 12, line item adjusts instantly. The homeowner makes the trade-off themselves, on their own time.</p>
+          <div class="moat-demo-instruction">Drag any white dot to reshape the region · tap a material below to swap it · area + section total update live</div>
+          <div class="moat-demo-canvas">
+            <svg viewBox="0 0 600 360" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <pattern id="moatMaterialPattern" x="0" y="0" width="64" height="64" patternUnits="userSpaceOnUse">
+                  <image id="moatMaterialPatternImage" href="https://gfgbypcnxkschnfsitfb.supabase.co/storage/v1/object/public/proposal-photos/swatches/2f59ac36-3424-463d-a7ab-45bfd9a2bb07.png?v=1776891712228" x="0" y="0" width="64" height="64" preserveAspectRatio="xMidYMid slice"/>
+                </pattern>
+                <pattern id="moatGrass" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <rect width="20" height="20" fill="#a8b88a"/>
+                  <circle cx="3" cy="5" r="0.8" fill="#8b9d6b" opacity="0.5"/>
+                  <circle cx="14" cy="11" r="0.8" fill="#8b9d6b" opacity="0.5"/>
+                  <circle cx="9" cy="17" r="0.8" fill="#8b9d6b" opacity="0.5"/>
+                </pattern>
+              </defs>
+              <rect width="600" height="360" fill="url(#moatGrass)"/>
+              <rect x="0" y="0" width="160" height="74" fill="#f0e8d4" stroke="#8c8267" stroke-width="2" stroke-dasharray="5 3"/>
+              <text x="80" y="44" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#6b6347" letter-spacing="0.12em" font-weight="600">HOUSE</text>
+              <rect x="0" y="290" width="600" height="70" fill="#d4b58a" opacity="0.6"/>
+              <text x="40" y="332" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b5938" letter-spacing="0.1em" font-weight="600">DRIVEWAY</text>
+              <polygon id="moatPolygon" points="160,100 460,100 480,280 130,280" fill="url(#moatMaterialPattern)" stroke="#5d7e69" stroke-width="3.5" opacity="0.96"/>
+              <g id="moatAreaLabel" style="pointer-events:none"></g>
+              <g id="moatHandles"></g>
+            </svg>
           </div>
-          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(183,139,58,0.25);border-radius:10px;padding:28px 24px;">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#b78b3a;font-weight:700;margin-bottom:12px;">03 · Submit for re-pricing</div>
-            <h4 style="font-family:'Playfair Display',serif;font-size:21px;margin:0 0 10px;color:#faf8f3;line-height:1.25;">One tap back to the designer.</h4>
-            <p style="font-size:14px;color:rgba(250,248,243,0.7);line-height:1.6;margin:0;">When the homeowner is happy with their redesign, one tap submits everything back to the designer with all changes flagged. Designer reviews, confirms the official quote, sends back. Days of back-and-forth collapse into a single round trip.</p>
+          <div class="moat-demo-materials" id="moatMaterials">
+            <div class="moat-mat-swatch active" data-name="Catalina Grana" data-color="Scandina Gray" data-price="14.20" data-img="https://gfgbypcnxkschnfsitfb.supabase.co/storage/v1/object/public/proposal-photos/swatches/2f59ac36-3424-463d-a7ab-45bfd9a2bb07.png?v=1776891712228">
+              <div class="moat-mat-img" style="background-image:url('https://gfgbypcnxkschnfsitfb.supabase.co/storage/v1/object/public/proposal-photos/swatches/2f59ac36-3424-463d-a7ab-45bfd9a2bb07.png?v=1776891712228');"></div>
+              <div class="moat-mat-info">
+                <div class="moat-mat-name">Catalina Grana</div>
+                <div class="moat-mat-meta">Scandina Gray · $14.20/sf</div>
+              </div>
+            </div>
+            <div class="moat-mat-swatch" data-name="Origins 12" data-color="Ashwood" data-price="16.80" data-img="https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69e6d07a0f0b40b42237987d_Screenshot%202026-04-20%20at%206.18.47%E2%80%AFPM.png">
+              <div class="moat-mat-img" style="background-image:url('https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69e6d07a0f0b40b42237987d_Screenshot%202026-04-20%20at%206.18.47%E2%80%AFPM.png');"></div>
+              <div class="moat-mat-info">
+                <div class="moat-mat-name">Origins 12</div>
+                <div class="moat-mat-meta">Ashwood · $16.80/sf</div>
+              </div>
+            </div>
+            <div class="moat-mat-swatch" data-name="Cambridge Cobble" data-color="Midnight" data-price="9.80" data-img="https://gfgbypcnxkschnfsitfb.supabase.co/storage/v1/object/public/proposal-photos/swatches/9fb28476-7595-4a48-bff1-38aa1003b199.png?v=1777588866294">
+              <div class="moat-mat-img" style="background-image:url('https://gfgbypcnxkschnfsitfb.supabase.co/storage/v1/object/public/proposal-photos/swatches/9fb28476-7595-4a48-bff1-38aa1003b199.png?v=1777588866294');"></div>
+              <div class="moat-mat-info">
+                <div class="moat-mat-name">Cambridge Cobble</div>
+                <div class="moat-mat-meta">Midnight · $9.80/sf</div>
+              </div>
+            </div>
+            <div class="moat-mat-swatch" data-name="Belgian Cobble" data-color="Bourbon" data-price="10.40" data-img="https://gfgbypcnxkschnfsitfb.supabase.co/storage/v1/object/public/proposal-photos/swatches/86859f5e-9c68-49ef-9546-096aacfd28ff.png?v=1777588763725">
+              <div class="moat-mat-img" style="background-image:url('https://gfgbypcnxkschnfsitfb.supabase.co/storage/v1/object/public/proposal-photos/swatches/86859f5e-9c68-49ef-9546-096aacfd28ff.png?v=1777588763725');"></div>
+              <div class="moat-mat-info">
+                <div class="moat-mat-name">Belgian Cobble</div>
+                <div class="moat-mat-meta">Bourbon · $10.40/sf</div>
+              </div>
+            </div>
+          </div>
+          <div class="moat-demo-footer">
+            <div class="moat-demo-readout">
+              <div>
+                <div class="moat-readout-label">Region area</div>
+                <div class="moat-readout-value"><span id="moatArea">406</span> sqft</div>
+              </div>
+              <div>
+                <div class="moat-readout-label">Material</div>
+                <div class="moat-readout-value" id="moatMaterialDisplay">Catalina Grana</div>
+              </div>
+              <div>
+                <div class="moat-readout-label">Section total</div>
+                <div class="moat-readout-value gold" id="moatTotal">$5,765</div>
+              </div>
+            </div>
+            <button class="moat-demo-cta" id="moatSubmitBtn">Send to designer →</button>
           </div>
         </div>
+
+        <div class="moat-demo-captions">
+          <div class="moat-caption"><strong>01 · Drag to resize</strong>The homeowner pulls a region edge. Square footage and the line-item dollar amount update as they drag. They see exactly what an extra 50 sqft costs — no waiting on a quote.</div>
+          <div class="moat-caption"><strong>02 · Swap materials live</strong>Tap a swatch. The whole region repaints with the new material — pricing included. The homeowner makes the trade-off themselves, at their kitchen table.</div>
+          <div class="moat-caption"><strong>03 · Submit for re-pricing</strong>One tap submits everything back to the designer with all changes flagged. Designer reviews, confirms the official quote, sends back. Days of back-and-forth collapse into one round trip.</div>
+        </div>
+
         <div style="margin-top:44px;padding-top:32px;border-top:1px solid rgba(183,139,58,0.2);">
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px;">
             <div style="display:flex;gap:14px;align-items:flex-start;">
