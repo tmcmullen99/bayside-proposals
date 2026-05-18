@@ -1,17 +1,19 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // client-dashboard.js
-// Client dashboard — shows the authenticated homeowner's proposals.
 //
-// Phase 1A (markup PDF):
-//   - Each proposal card now exposes a "📥 Markup PDF" button that
-//     generates a printable, brand-matched PDF the homeowner can mark
-//     up by hand and send back to their designer.
-//   - Generation is fully client-side via /client/markup-pdf.js (jsPDF
-//     loaded from CDN). Image source columns are auto-detected from
-//     proposals: site_plan_backdrop_url, hero_image_url,
-//     construction_drawing_url.
-//   - The download is logged as a 'markup_pdf_downloaded' activity for
-//     the designer's pipeline analytics.
+// Client dashboard — proposals + Refer & Earn ($500 per referred design
+// consultation). Markup PDF download flow preserved from Phase 1B.
+//
+// Refer & Earn (Phase 1):
+//   - Renders the client's refer_code as a share link:
+//     https://portal-baysidepavers.com/refer.html?code=<refer_code>
+//   - Copy-to-clipboard, email/SMS prefills, native Web Share API
+//   - Credit balance pulled from clients.referral_credit_cents
+//   - Referrals list with status-color badges
+//
+// Markup PDF (Phase 1A + 1B):
+//   - Each proposal card has "📥 Markup PDF" if any image source is set,
+//     OR a designer-curated markup_pdf_images list is non-empty.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '/js/supabase-client.js';
@@ -24,7 +26,7 @@ import {
 } from '/js/auth-util.js';
 import { generateMarkupPdf } from './markup-pdf.js';
 
-// DOM
+// ── DOM ────────────────────────────────────────────────────────────────────
 const loadingState = document.getElementById('loadingState');
 const contentState = document.getElementById('contentState');
 const adminBanner = document.getElementById('adminBanner');
@@ -35,11 +37,24 @@ const proposalsGrid = document.getElementById('proposalsGrid');
 const proposalsCount = document.getElementById('proposalsCount');
 const signOutBtn = document.getElementById('signOutBtn');
 
-// State
+const referCard = document.getElementById('referCard');
+const creditAmount = document.getElementById('creditAmount');
+const referralCount = document.getElementById('referralCount');
+const referProgress = document.getElementById('referProgress');
+const progressLabel = document.getElementById('progressLabel');
+const referLinkInput = document.getElementById('referLinkInput');
+const copyLinkBtn = document.getElementById('copyLinkBtn');
+const shareEmail = document.getElementById('shareEmail');
+const shareSms = document.getElementById('shareSms');
+const shareNative = document.getElementById('shareNative');
+const referralList = document.getElementById('referralList');
+
+// ── State ──────────────────────────────────────────────────────────────────
 const ctx = {
   user: null,
   client: null,
   proposals: [],
+  referrals: [],
 };
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
@@ -57,7 +72,7 @@ const ctx = {
     loadingState.style.display = 'none';
     contentState.style.display = 'block';
     proposalsCount.textContent = '0 proposals';
-    proposalsGrid.innerHTML = renderEmptyState();
+    proposalsGrid.innerHTML = renderProposalEmpty();
     return;
   }
 
@@ -74,16 +89,17 @@ const ctx = {
     return;
   }
 
-  await loadProposals();
+  await Promise.all([loadProposals(), loadReferrals()]);
+
   renderDashboard();
+  renderReferCard();
+
   loadingState.style.display = 'none';
   contentState.style.display = 'block';
 })();
 
+// ── Proposals (existing flow, unchanged behavior) ──────────────────────────
 async function loadProposals() {
-  // Phase 1A — pull the three image fields we need to populate the
-  // markup PDF. project_address is also pulled so the footer band can
-  // print it without an extra query.
   const { data, error } = await supabase
     .from('client_proposals')
     .select(`
@@ -95,6 +111,7 @@ async function loadProposals() {
         site_plan_backdrop_url,
         hero_image_url,
         construction_drawing_url,
+        markup_pdf_images,
         created_at,
         published_proposals (id, slug)
       )
@@ -120,7 +137,7 @@ function renderDashboard() {
   proposalsCount.textContent = `${ctx.proposals.length} proposal${ctx.proposals.length === 1 ? '' : 's'}`;
 
   if (ctx.proposals.length === 0) {
-    proposalsGrid.innerHTML = renderEmptyState();
+    proposalsGrid.innerHTML = renderProposalEmpty();
     return;
   }
 
@@ -128,16 +145,11 @@ function renderDashboard() {
 
   proposalsGrid.querySelectorAll('.proposal-view-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const cpId = btn.dataset.cpId;
-      const slug = btn.dataset.slug;
-      handleProposalView(cpId, slug);
+      handleProposalView(btn.dataset.cpId, btn.dataset.slug);
     });
   });
   proposalsGrid.querySelectorAll('.proposal-pdf-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const cpId = btn.dataset.cpId;
-      handleMarkupPdfDownload(cpId, btn);
-    });
+    btn.addEventListener('click', () => handleMarkupPdfDownload(btn.dataset.cpId, btn));
   });
 }
 
@@ -159,7 +171,9 @@ function renderProposalCard(cp) {
     : 'Not sent yet';
 
   const slug = getLatestSlug(p);
-  const hasImagesForPdf = !!(p.site_plan_backdrop_url || p.hero_image_url || p.construction_drawing_url);
+  const curatedHasItems = Array.isArray(p.markup_pdf_images) && p.markup_pdf_images.length > 0;
+  const hasImagesForPdf = curatedHasItems
+    || !!(p.site_plan_backdrop_url || p.hero_image_url || p.construction_drawing_url);
 
   const pdfButton = hasImagesForPdf
     ? `<button class="btn btn-secondary proposal-pdf-btn"
@@ -196,7 +210,7 @@ function renderProposalCard(cp) {
   `;
 }
 
-function renderEmptyState() {
+function renderProposalEmpty() {
   return `
     <div class="empty-state">
       <div class="empty-state-icon">📋</div>
@@ -206,7 +220,147 @@ function renderEmptyState() {
   `;
 }
 
-// ── Proposal view action ───────────────────────────────────────────────────
+// ── Referrals ──────────────────────────────────────────────────────────────
+async function loadReferrals() {
+  const { data, error } = await supabase
+    .from('referrals')
+    .select(`
+      id, referred_name, referred_email, referred_phone, status,
+      invite_sent_at, scheduled_at, appointment_completed_at,
+      credit_awarded_at, credit_amount_cents, created_at
+    `)
+    .eq('referrer_client_id', ctx.client.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error loading referrals:', error);
+    ctx.referrals = [];
+    return;
+  }
+  ctx.referrals = data || [];
+}
+
+function renderReferCard() {
+  if (!ctx.client || !ctx.client.refer_code) {
+    referCard.style.display = 'none';
+    return;
+  }
+  referCard.style.display = 'block';
+
+  // Credit balance
+  const creditCents = ctx.client.referral_credit_cents || 0;
+  const usedCents = ctx.client.referral_credit_used_cents || 0;
+  const availableCents = Math.max(0, creditCents - usedCents);
+  const availableDollars = Math.floor(availableCents / 100);
+  creditAmount.textContent = '$' + availableDollars.toLocaleString('en-US');
+
+  // Referral count summary
+  const total = ctx.referrals.length;
+  const credited = ctx.referrals.filter(r => r.credit_awarded_at).length;
+  referralCount.textContent =
+    `${total} referral${total === 1 ? '' : 's'} · ${credited} credited`;
+
+  // Progress (every $500 = one milestone, target $2,500 = 5 referrals)
+  const target = 2500;
+  const pct = Math.min(100, (availableDollars / target) * 100);
+  referProgress.style.width = pct + '%';
+  progressLabel.textContent =
+    `$${availableDollars.toLocaleString('en-US')} of $${target.toLocaleString('en-US')} toward your next project`;
+
+  // Share link
+  const shareUrl = buildShareUrl(ctx.client.refer_code);
+  referLinkInput.value = shareUrl;
+
+  // Copy button
+  copyLinkBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      const orig = copyLinkBtn.innerHTML;
+      copyLinkBtn.innerHTML = '✓ Copied';
+      copyLinkBtn.classList.add('copied');
+      setTimeout(() => {
+        copyLinkBtn.innerHTML = orig;
+        copyLinkBtn.classList.remove('copied');
+      }, 2000);
+    } catch (e) {
+      referLinkInput.select();
+      document.execCommand('copy');
+    }
+  });
+
+  // Share buttons
+  const firstName = (ctx.client.name || '').split(/\s+/)[0] || 'a friend';
+  const emailSubject = encodeURIComponent(`${firstName} thinks you'd love Bayside Pavers`);
+  const emailBody = encodeURIComponent(
+    `Hi —\n\n` +
+    `I've been working with Bayside Pavers on a hardscape project and they've been great. ` +
+    `If you've been thinking about a patio, walkway, or retaining wall, they offer free design consultations.\n\n` +
+    `Here's my personal link — book through this and Bayside will credit me, no cost to you:\n${shareUrl}\n\n` +
+    `— ${ctx.client.name || ''}`
+  );
+  shareEmail.href = `mailto:?subject=${emailSubject}&body=${emailBody}`;
+
+  const smsBody = encodeURIComponent(
+    `Hey — Bayside Pavers does great hardscape work. Free design consultation through my link: ${shareUrl}`
+  );
+  shareSms.href = `sms:?&body=${smsBody}`;
+
+  // Native share (mobile)
+  if (navigator.share) {
+    shareNative.style.display = '';
+    shareNative.addEventListener('click', async () => {
+      try {
+        await navigator.share({
+          title: 'Bayside Pavers free design consultation',
+          text: `${firstName} thinks you'd love Bayside Pavers. Book a free consultation:`,
+          url: shareUrl,
+        });
+      } catch (e) {
+        // user canceled — silent
+      }
+    });
+  } else {
+    shareNative.style.display = 'none';
+  }
+
+  // Referrals list
+  if (ctx.referrals.length === 0) {
+    referralList.innerHTML = `
+      <div class="refer-list-empty">
+        No referrals yet — share your link to get started!
+      </div>
+    `;
+  } else {
+    referralList.innerHTML = ctx.referrals.slice(0, 8).map(r => {
+      const status = getReferralStatusLabel(r);
+      const date = new Date(r.invite_sent_at || r.created_at).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric',
+      });
+      return `
+        <div class="refer-list-row">
+          <div>
+            <span class="refer-list-name">${escapeHtml(r.referred_name || r.referred_email)}</span>
+            <span class="refer-list-meta">${escapeHtml(date)}</span>
+          </div>
+          <span class="refer-list-status ${status.cls}">${escapeHtml(status.label)}</span>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+function getReferralStatusLabel(r) {
+  if (r.credit_awarded_at) return { cls: 'credited', label: '✓ $500 earned' };
+  if (r.appointment_completed_at) return { cls: 'completed', label: 'Met w/ Tim' };
+  if (r.scheduled_at) return { cls: 'scheduled', label: 'Scheduled' };
+  return { cls: 'sent', label: 'Invited' };
+}
+
+function buildShareUrl(referCode) {
+  return `https://portal-baysidepavers.com/refer.html?code=${encodeURIComponent(referCode)}`;
+}
+
+// ── Proposal view action (existing) ────────────────────────────────────────
 async function handleProposalView(cpId, slug) {
   const cp = ctx.proposals.find(x => x.id === cpId);
   if (cp && !cp.first_viewed_at) {
@@ -226,7 +380,7 @@ async function handleProposalView(cpId, slug) {
   window.location.href = `/p/${slug}`;
 }
 
-// ── Markup PDF download (Phase 1A) ─────────────────────────────────────────
+// ── Markup PDF download (Phase 1A + 1B, existing) ──────────────────────────
 async function handleMarkupPdfDownload(cpId, btn) {
   const cp = ctx.proposals.find(x => x.id === cpId);
   if (!cp || !cp.proposal) return;
@@ -239,18 +393,15 @@ async function handleMarkupPdfDownload(cpId, btn) {
   try {
     await generateMarkupPdf(
       {
-        // Spread only the fields markup-pdf.js needs — keeps the payload small
         project_address: cp.proposal.project_address || cp.proposal.address,
         site_plan_backdrop_url: cp.proposal.site_plan_backdrop_url,
         hero_image_url: cp.proposal.hero_image_url,
         construction_drawing_url: cp.proposal.construction_drawing_url,
+        markup_pdf_images: cp.proposal.markup_pdf_images,
       },
-      {
-        clientName: ctx.client.name || '',
-      }
+      { clientName: ctx.client.name || '' }
     );
 
-    // Fire-and-forget activity log so designers see download signals
     logClientActivity(
       ctx.client.id,
       'markup_pdf_downloaded',
@@ -315,7 +466,7 @@ function getDisplayAddress(proposal) {
   return 'Untitled proposal';
 }
 
-// ── Utils ──────────────────────────────────────────────────────────────────
+// ── Utilities ──────────────────────────────────────────────────────────────
 function escapeHtml(str) {
   if (str == null) return '';
   return String(str)
