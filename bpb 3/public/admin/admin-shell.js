@@ -48,6 +48,15 @@ const TABS = [
 
   // ── Operations — daily client work ──────────────────────────────────────
   {
+    id: 'today',
+    label: 'Today',
+    href: '/admin/today.html',
+    role: 'designer',
+    group: 'operations',
+    icon: '☀️',
+    description: 'Daily dashboard — today\'s KPIs vs yesterday, this week\'s revenue picture, active pipeline value, the threads waiting on your reply, and which proposals are getting viewed right now.',
+  },
+  {
     id: 'inbox',
     label: 'Inbox',
     href: '/admin/inbox.html',
