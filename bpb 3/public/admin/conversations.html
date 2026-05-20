@@ -529,6 +529,7 @@
 <script type="module" src="/admin/admin-shell.js"></script>
 <script type="module">
   import { requireDesigner } from '/js/auth-util.js';
+  import { openQuickNoteModal } from '/admin/notes-modal.js';
 
   // ─────────────────────────────────────────────────────────────────────
   // Boot — auth + state
@@ -766,6 +767,7 @@
 
       const headerActions = [];
       headerActions.push(`<a class="conv-header-btn" href="/admin/client.html?id=${esc(c.id)}">👤 Client profile</a>`);
+      headerActions.push(`<button class="conv-header-btn" data-action="quick-note" data-client-id="${esc(c.id)}" data-client-name="${esc(c.name || 'client')}">📝 Note</button>`);
       if (proposalUrl) headerActions.push(`<a class="conv-header-btn" href="${esc(proposalUrl)}" target="_blank" rel="noopener">View public proposal</a>`);
       if (editorUrl)   headerActions.push(`<a class="conv-header-btn" href="${esc(editorUrl)}" target="_blank" rel="noopener">Open editor</a>`);
 
@@ -962,6 +964,21 @@
 
     // Refresh thread list every minute
     setInterval(() => loadThreads({ silent: true }), LIST_REFRESH_MS);
+
+    // Sprint 14 — quick-note button delegation (thread header)
+    document.body.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action="quick-note"]');
+      if (!btn) return;
+      e.preventDefault();
+      const clientId   = btn.getAttribute('data-client-id');
+      const clientName = btn.getAttribute('data-client-name') || 'Client';
+      if (!clientId) return;
+      openQuickNoteModal({
+        clientId,
+        clientName,
+        createdBy: SENDER_USER_ID,
+      });
+    });
   }
 </script>
 
