@@ -1,12 +1,12 @@
 /**
- * BPB Sprint 15 — /api/admin-daily-digest
+ * BPB Sprint 15 + 22 — /api/admin-daily-digest
  *
- * Sends the morning digest email to tim@mcmullen.properties. Same data as
- * /admin/today.html but rendered as HTML email — KPIs, pipeline strip,
- * awaiting-reply list, hot-today list.
+ * Sends the morning digest email to tim@mcmullen.properties. Renders the
+ * same data as /admin/today.html plus (Sprint 22) nurture awareness:
+ *   - Tonight's nurture preview (what'll fire at 23:00 UTC)
+ *   - Last 24h nurture activity
  *
  * Auth: requires header `x-bayside-cron-secret` matching env BAYSIDE_CRON_SECRET.
- * Triggered by GitHub Actions weekday mornings (see scheduled-tasks.yml).
  *
  * Query params:
  *   ?dry_run=true  — return the rendered HTML without sending
@@ -58,27 +58,34 @@ export async function onRequestPost({ request, env }) {
   const baseUrl = (env.PORTAL_BASE_URL || 'https://portal-baysidepavers.com').replace(/\/$/, '');
   const fromEmail = env.RESEND_FROM_EMAIL || 'Bayside Portal <tim@mcmullen.properties>';
 
-  // ── 1. Fetch today's state
-  const rpcResp = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/rpc/admin_today_state`,
-    {
-      method: 'POST',
-      headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: '{}',
-    }
-  );
+  const supabaseHeaders = {
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    'Content-Type': 'application/json',
+  };
 
-  if (!rpcResp.ok) {
-    const errText = await rpcResp.text();
-    return jsonResponse({ error: 'RPC failed', detail: errText }, 500);
+  // ── 1. Fetch today's state + nurture context in parallel
+  const [stateResp, nurtureResp] = await Promise.all([
+    fetch(`${env.SUPABASE_URL}/rest/v1/rpc/admin_today_state`, {
+      method: 'POST', headers: supabaseHeaders, body: '{}',
+    }),
+    fetch(`${env.SUPABASE_URL}/rest/v1/rpc/admin_nurture_digest_context`, {
+      method: 'POST', headers: supabaseHeaders, body: '{}',
+    }),
+  ]);
+
+  if (!stateResp.ok) {
+    return jsonResponse({ error: 'admin_today_state RPC failed', detail: await stateResp.text() }, 500);
   }
 
-  const state = await rpcResp.json();
-  const rendered = renderDigest(state, baseUrl);
+  const state = await stateResp.json();
+  // Nurture context is additive — fail soft if it errors
+  let nurture = null;
+  if (nurtureResp.ok) {
+    try { nurture = await nurtureResp.json(); } catch { nurture = null; }
+  }
+
+  const rendered = renderDigest(state, nurture, baseUrl);
 
   if (dryRun) {
     return new Response(rendered.html, {
@@ -113,12 +120,14 @@ export async function onRequestPost({ request, env }) {
     }
 
     return jsonResponse({
-      success:        true,
+      success:           true,
       recipient,
-      subject:        rendered.subject,
-      resend_id:      resendData.id,
-      needs_reply:    state.needs_reply ? state.needs_reply.length : 0,
-      hot_proposals:  state.top_hot_proposals ? state.top_hot_proposals.length : 0,
+      subject:           rendered.subject,
+      resend_id:         resendData.id,
+      needs_reply:       state.needs_reply ? state.needs_reply.length : 0,
+      hot_proposals:     state.top_hot_proposals ? state.top_hot_proposals.length : 0,
+      nurture_preview:   nurture?.tonight_preview?.length || 0,
+      nurture_recent:    nurture?.recent_sends?.length || 0,
     });
   } catch (e) {
     return jsonResponse({ error: 'Internal error', detail: String(e) }, 500);
@@ -129,13 +138,19 @@ export async function onRequestPost({ request, env }) {
 // Digest rendering
 // ─────────────────────────────────────────────────────────────────────
 
-function renderDigest(state, baseUrl) {
+function renderDigest(state, nurture, baseUrl) {
   const today      = state.today      || {};
   const yesterday  = state.yesterday  || {};
   const thisWeek   = state.this_week  || {};
   const pipeline   = state.pipeline   || {};
   const needsReply = state.needs_reply || [];
   const hotToday   = state.top_hot_proposals || [];
+
+  const nurturePreview = nurture?.tonight_preview || [];
+  const nurtureRecent  = nurture?.recent_sends   || [];
+  const nurtureTest    = !!nurture?.test_mode;
+  const nurtureRedirect = nurture?.test_redirect || null;
+  const nurtureRunAt   = nurture?.next_run_at    || null;
 
   const dayStr = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
@@ -146,17 +161,21 @@ function renderDigest(state, baseUrl) {
     ? `${needsReply.length} client${needsReply.length === 1 ? '' : 's'} waiting on you`
     : (today.views > 0
       ? `${today.views} view${today.views === 1 ? '' : 's'} so far today`
-      : 'Quiet morning');
+      : (nurturePreview.length > 0
+        ? `${nurturePreview.length} nurture send${nurturePreview.length === 1 ? '' : 's'} tonight`
+        : 'Quiet morning'));
 
   const subject = `Bayside Portal Morning · ${subjectAttention} · ${dayStr}`;
 
   const html = renderHtml({
     dayStr, today, yesterday, thisWeek, pipeline,
     needsReply, hotToday, baseUrl,
+    nurturePreview, nurtureRecent, nurtureTest, nurtureRedirect, nurtureRunAt,
   });
   const text = renderText({
     dayStr, today, yesterday, thisWeek, pipeline,
     needsReply, hotToday, baseUrl,
+    nurturePreview, nurtureRecent, nurtureTest, nurtureRedirect,
   });
 
   return { subject, html, text };
@@ -182,6 +201,11 @@ function timeAgo(iso) {
   return days + 'd ago';
 }
 
+function fmtPhaseLabel(phase) {
+  if (!phase) return '—';
+  return String(phase).replace(/_/g, ' ');
+}
+
 function truncate(s, max) {
   if (!s) return '';
   s = String(s).replace(/\s+/g, ' ').trim();
@@ -205,7 +229,7 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, hotToday, baseUrl }) {
+function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, hotToday, baseUrl, nurturePreview, nurtureRecent, nurtureTest, nurtureRedirect, nurtureRunAt }) {
   const kpi = (label, n, yest) => `
     <td width="25%" valign="top" style="padding:14px 12px; background:#fff; border:1px solid #e8e8e3; border-radius:8px;">
       <div style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#999; font-weight:600; margin-bottom:6px;">${esc(label)}</div>
@@ -297,6 +321,70 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
       </table>
     `;
 
+  // ── Sprint 22: Tonight's nurture preview
+  const previewRunStr = nurtureRunAt
+    ? new Date(nurtureRunAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+    : 'tonight';
+  const testBanner = nurtureTest
+    ? `<span style="display:inline-block; background:#fef3c7; color:#92400e; padding:1px 7px; border-radius:999px; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; font-weight:600; margin-left:6px;">test mode → ${esc(nurtureRedirect || 'redirect')}</span>`
+    : '';
+  const nurturePreviewHtml = nurturePreview.length === 0
+    ? `<p style="color:#999; font-size:14px; font-style:italic; margin:0 0 22px;">Nothing queued for ${esc(previewRunStr)}.</p>`
+    : `
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:22px;">
+        ${nurturePreview.map((p) => `
+          <tr><td style="padding-bottom:8px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff; border:1px solid #e8e8e3; border-radius:8px;">
+              <tr><td style="padding:11px 14px;">
+                <div style="font-size:14px; color:#1a1f2e; margin-bottom:3px;">
+                  <strong>${esc(p.client_name || 'Unknown')}</strong>
+                  <span style="color:#999; font-size:12px;">  ·  ${esc(p.client_email || '')}</span>
+                </div>
+                <div style="font-size:12px; color:#777; margin-bottom:6px;">
+                  ${esc(p.project_address || '—')}
+                  · <span style="display:inline-block; padding:1px 7px; border-radius:999px; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; font-weight:600; background:#eef3ef; color:#5d7e69;">${esc(fmtPhaseLabel(p.phase))}</span>
+                  · day ${p.day_offset}
+                </div>
+                <div style="padding:7px 11px; background:#faf8f3; border-left:2px solid #c89346; border-radius:3px; font-size:13px; color:#353535; margin:4px 0 6px;">
+                  <strong>Subject:</strong> ${esc(p.template_subject || '')}
+                </div>
+                <a href="${esc(baseUrl)}/admin/nurture-clients" style="display:inline-block; color:#5d7e69; font-size:12px; font-weight:600; text-decoration:underline;">Open in nurture pipeline →</a>
+              </td></tr>
+            </table>
+          </td></tr>
+        `).join('')}
+      </table>
+    `;
+
+  // ── Sprint 22: Recent nurture activity (last 24h) — only show section if any
+  const nurtureRecentHtml = nurtureRecent.length === 0
+    ? ''
+    : `
+      <h2 style="margin:0 0 10px; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#353535; font-weight:700; padding-bottom:6px; border-bottom:1px solid #e8e8e3;">
+        Sent in last 24h <span style="display:inline-block; background:#5d7e69; color:#fff; padding:1px 7px; border-radius:999px; font-size:11px; margin-left:4px;">${nurtureRecent.length}</span>
+      </h2>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:22px;">
+        ${nurtureRecent.map((r) => `
+          <tr><td style="padding-bottom:8px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff; border:1px solid #e8e8e3; border-radius:8px;">
+              <tr><td style="padding:11px 14px;">
+                <div style="font-size:14px; color:#1a1f2e; margin-bottom:3px;">
+                  <strong>${esc(r.client_name || 'Unknown')}</strong>
+                  <span style="color:#999; font-size:12px;">  ·  ${esc(timeAgo(r.sent_at))}${r.recipient_override_email ? '  ·  redirected to ' + esc(r.recipient_override_email) : ''}</span>
+                </div>
+                <div style="font-size:12px; color:#777; margin-bottom:4px;">
+                  ${esc(r.project_address || '—')}
+                  · <span style="display:inline-block; padding:1px 7px; border-radius:999px; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; font-weight:600; background:#eef3ef; color:#5d7e69;">${esc(fmtPhaseLabel(r.phase))}</span>
+                  · day ${r.day_offset}
+                </div>
+                <div style="font-size:13px; color:#353535;">${esc(r.rendered_subject || '')}</div>
+              </td></tr>
+            </table>
+          </td></tr>
+        `).join('')}
+      </table>
+    `;
+
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
@@ -323,8 +411,19 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
           </h2>
           ${hotHtml}
 
+          <h2 style="margin:0 0 10px; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#353535; font-weight:700; padding-bottom:6px; border-bottom:1px solid #e8e8e3;">
+            Nurture queued for ${esc(previewRunStr)} ${nurturePreview.length > 0 ? `<span style="display:inline-block; background:#c89346; color:#fff; padding:1px 7px; border-radius:999px; font-size:11px; margin-left:4px;">${nurturePreview.length}</span>` : ''}${testBanner}
+          </h2>
+          ${nurturePreviewHtml}
+
+          ${nurtureRecentHtml}
+
           <p style="margin:18px 0 0; font-size:12px; color:#999;">
             <a href="${esc(baseUrl)}/admin/today.html" style="color:#5d7e69; text-decoration:underline;">Open Today dashboard →</a>
+            · <a href="${esc(baseUrl)}/admin/nurture-clients" style="color:#5d7e69; text-decoration:underline;">Nurture pipeline →</a>
+            · <a href="${esc(baseUrl)}/admin/nurture-queue.html" style="color:#5d7e69; text-decoration:underline;">7-day queue →</a>
+            · <a href="${esc(baseUrl)}/admin/notes-search.html" style="color:#5d7e69; text-decoration:underline;">Notes search →</a>
+            · <a href="${esc(baseUrl)}/admin/jot.html" style="color:#5d7e69; text-decoration:underline;">Jot a note →</a>
           </p>
 
         </td></tr>
@@ -334,7 +433,7 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
 </body></html>`;
 }
 
-function renderText({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, hotToday, baseUrl }) {
+function renderText({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, hotToday, baseUrl, nurturePreview, nurtureRecent, nurtureTest, nurtureRedirect }) {
   const lines = [];
   lines.push(`Bayside Portal Morning Digest · ${dayStr}`);
   lines.push('');
@@ -355,6 +454,21 @@ function renderText({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
     lines.push('Hot proposals (last 24h):');
     for (const it of hotToday) {
       lines.push(`  • ${it.project_address} · ${it.views_today} views · ${baseUrl}/p/${it.slug || ''}`);
+    }
+    lines.push('');
+  }
+  if (nurturePreview.length > 0) {
+    const testNote = nurtureTest ? ` (test mode → ${nurtureRedirect})` : '';
+    lines.push(`Nurture queued for tonight${testNote}:`);
+    for (const p of nurturePreview) {
+      lines.push(`  • ${p.client_name} · ${fmtPhaseLabel(p.phase)} day ${p.day_offset} · "${p.template_subject}"`);
+    }
+    lines.push('');
+  }
+  if (nurtureRecent.length > 0) {
+    lines.push('Nurture sent in last 24h:');
+    for (const r of nurtureRecent) {
+      lines.push(`  • ${r.client_name} · ${fmtPhaseLabel(r.phase)} day ${r.day_offset} · "${r.rendered_subject}" · ${timeAgo(r.sent_at)}`);
     }
     lines.push('');
   }
