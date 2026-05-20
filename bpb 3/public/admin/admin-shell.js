@@ -58,6 +58,16 @@ const TABS = [
     notifKey: '__inbox_total',
   },
   {
+    id: 'conversations',
+    label: 'Conversations',
+    href: '/admin/conversations.html',
+    role: 'designer',
+    group: 'operations',
+    icon: '💬',
+    description: 'Unified chat across every client thread. Reply inline. Replies to clients who haven\'t set up their account auto-email them with a magic-link sign-in.',
+    notifKey: 'unread_inbound',
+  },
+  {
     id: 'pipeline',
     label: 'Pipeline',
     href: '/admin/pipeline.html',
