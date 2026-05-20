@@ -551,6 +551,7 @@
             <div class="inb-row-note">${esc(truncate(it.body || '', 280))}</div>
           </div>
           <div class="inb-row-actions">
+            ${it.client_id ? `<a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>` : ''}
             <a class="inb-action-btn is-primary" href="${esc(proposalUrl)}" target="_blank" rel="noopener">View &amp; reply</a>
             <a class="inb-action-btn" href="mailto:${esc(it.client_email || '')}">Email direct</a>
           </div>
@@ -586,6 +587,7 @@
             ${it.homeowner_note ? `<div class="inb-row-note">${esc(truncate(it.homeowner_note, 320))}</div>` : ''}
           </div>
           <div class="inb-row-actions">
+            ${it.client_id ? `<a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>` : ''}
             <a class="inb-action-btn is-primary" href="${esc(editorUrl)}" target="_blank" rel="noopener">Open in editor</a>
           </div>
         </div>
@@ -621,6 +623,7 @@
             ${it.homeowner_note ? `<div class="inb-row-note">${esc(truncate(it.homeowner_note, 320))}</div>` : ''}
           </div>
           <div class="inb-row-actions">
+            ${it.client_id ? `<a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>` : ''}
             <a class="inb-action-btn is-primary" href="${esc(editorUrl)}" target="_blank" rel="noopener">Open in editor</a>
           </div>
         </div>
@@ -656,6 +659,7 @@
             </div>
           </div>
           <div class="inb-row-actions">
+            <a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>
             <button class="inb-action-btn is-primary"
                     data-action="resend-invite"
                     data-client-id="${esc(it.client_id)}"
@@ -699,6 +703,7 @@
             </div>
           </div>
           <div class="inb-row-actions">
+            ${it.client_id ? `<a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>` : ''}
             ${resendBtn}
             <a class="inb-action-btn is-primary" href="${esc(proposalUrl)}" target="_blank" rel="noopener">View proposal</a>
           </div>
