@@ -350,6 +350,38 @@
       margin-left: 6px;
     }
 
+    .cli-notes-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--ash-border);
+    }
+    .cli-notes-label {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ash-charcoal);
+      font-weight: 700;
+    }
+    .cli-notes-edit-btn {
+      background: none;
+      border: 1px solid var(--ash-border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ash-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .cli-notes-edit-btn:hover {
+      border-color: var(--ash-green);
+      color: var(--ash-green-dark);
+      background: var(--ash-green-soft);
+    }
     .cli-notes-body {
       padding: 12px;
       background: var(--ash-cream);
@@ -359,13 +391,59 @@
       line-height: 1.5;
       white-space: pre-wrap;
       word-wrap: break-word;
-      max-height: 200px;
+      max-height: 240px;
       overflow-y: auto;
     }
     .cli-notes-body.is-empty {
       color: var(--ash-muted);
       font-style: italic;
       background: #fafafa;
+    }
+    .cli-notes-edit {
+      display: flex;
+      flex-direction: column;
+    }
+    .cli-notes-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--ash-border);
+      border-radius: 6px;
+      font: inherit;
+      font-size: 13px;
+      color: var(--ash-charcoal);
+      background: #fff;
+      resize: vertical;
+      min-height: 140px;
+      max-height: 360px;
+      line-height: 1.5;
+      box-sizing: border-box;
+    }
+    .cli-notes-textarea:focus {
+      outline: none;
+      border-color: var(--ash-green);
+      box-shadow: 0 0 0 3px var(--ash-green-soft);
+    }
+    .cli-notes-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      justify-content: flex-end;
+    }
+    .cli-notes-char {
+      font-size: 11px;
+      color: var(--ash-muted-soft, #999);
+      font-family: 'JetBrains Mono', monospace;
+      margin-right: auto;
+    }
+    .cli-notes-char.is-near-limit { color: #c08a3a; }
+    .cli-notes-char.is-at-limit   { color: var(--ash-danger); font-weight: 600; }
+    .cli-notes-hint {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--ash-muted-soft, #999);
+      font-family: 'JetBrains Mono', monospace;
+      text-align: right;
     }
 
     .cli-info-row {
@@ -934,8 +1012,25 @@
         const hasNotes = c.notes && c.notes.trim();
         return `
           <div class="cli-side-block">
-            <h3 class="cli-section-title">Designer notes</h3>
-            <div class="cli-notes-body${hasNotes ? '' : ' is-empty'}">${hasNotes ? esc(c.notes) : 'No notes yet. (Editable notes coming in a follow-up sprint.)'}</div>
+            <div class="cli-notes-header">
+              <span class="cli-notes-label">Designer notes</span>
+              <button class="cli-notes-edit-btn" id="cliNotesEditBtn" type="button">${hasNotes ? '✎ Edit' : '+ Add'}</button>
+            </div>
+            <div class="cli-notes-body${hasNotes ? '' : ' is-empty'}" id="cliNotesView">${hasNotes ? esc(c.notes) : 'No notes yet. Click + Add to jot something down.'}</div>
+            <div class="cli-notes-edit" id="cliNotesEdit" style="display: none;">
+              <textarea
+                class="cli-notes-textarea"
+                id="cliNotesTextarea"
+                rows="6"
+                maxlength="50000"
+                placeholder="Called him 5/17 — wants to talk pricing after Memorial Day. Said the patio is the priority…"></textarea>
+              <div class="cli-notes-actions">
+                <span class="cli-notes-char" id="cliNotesChar">0 / 50,000</span>
+                <button class="cli-btn" id="cliNotesCancelBtn" type="button">Cancel</button>
+                <button class="cli-btn is-primary" id="cliNotesSaveBtn" type="button">Save</button>
+              </div>
+              <div class="cli-notes-hint">⌘ + Enter to save · Esc to cancel</div>
+            </div>
           </div>
         `;
       }
@@ -999,6 +1094,112 @@
         const resendBtn = document.getElementById('cliResendBtn');
         if (resendBtn) {
           resendBtn.addEventListener('click', () => sendMagicLink(c));
+        }
+
+        const editBtn   = document.getElementById('cliNotesEditBtn');
+        const cancelBtn = document.getElementById('cliNotesCancelBtn');
+        const saveBtn   = document.getElementById('cliNotesSaveBtn');
+        const textarea  = document.getElementById('cliNotesTextarea');
+
+        if (editBtn)   editBtn.addEventListener('click', () => enterNotesEditMode(c));
+        if (cancelBtn) cancelBtn.addEventListener('click', () => exitNotesEditMode(c));
+        if (saveBtn)   saveBtn.addEventListener('click', () => saveNotes(c));
+
+        if (textarea) {
+          textarea.addEventListener('input', updateNotesCharCount);
+          textarea.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault();
+              saveNotes(c);
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              exitNotesEditMode(c);
+            }
+          });
+        }
+      }
+
+      function enterNotesEditMode(c) {
+        const viewEl    = document.getElementById('cliNotesView');
+        const editEl    = document.getElementById('cliNotesEdit');
+        const editBtn   = document.getElementById('cliNotesEditBtn');
+        const textarea  = document.getElementById('cliNotesTextarea');
+        if (!viewEl || !editEl || !textarea) return;
+
+        viewEl.style.display = 'none';
+        editEl.style.display = 'flex';
+        if (editBtn) editBtn.style.display = 'none';
+
+        textarea.value = c.notes || '';
+        updateNotesCharCount();
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+
+      function exitNotesEditMode() {
+        const viewEl  = document.getElementById('cliNotesView');
+        const editEl  = document.getElementById('cliNotesEdit');
+        const editBtn = document.getElementById('cliNotesEditBtn');
+        if (viewEl)  viewEl.style.display = '';
+        if (editEl)  editEl.style.display = 'none';
+        if (editBtn) editBtn.style.display = '';
+      }
+
+      function updateNotesCharCount() {
+        const ta = document.getElementById('cliNotesTextarea');
+        const char = document.getElementById('cliNotesChar');
+        if (!ta || !char) return;
+        const len = ta.value.length;
+        char.textContent = `${len.toLocaleString()} / 50,000`;
+        char.className = 'cli-notes-char';
+        if (len >= 50000)     char.classList.add('is-at-limit');
+        else if (len > 45000) char.classList.add('is-near-limit');
+      }
+
+      async function saveNotes(c) {
+        const ta        = document.getElementById('cliNotesTextarea');
+        const saveBtn   = document.getElementById('cliNotesSaveBtn');
+        const cancelBtn = document.getElementById('cliNotesCancelBtn');
+        if (!ta || !saveBtn) return;
+
+        const newNotes = ta.value;
+        saveBtn.disabled = true;
+        if (cancelBtn) cancelBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+
+        try {
+          const resp = await fetch('/api/admin-client-notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              client_id: c.id,
+              notes: newNotes,
+            }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) {
+            toast(`Save failed: ${data.error || resp.status}`, 'error');
+            return;
+          }
+
+          // Update local state + view
+          c.notes = data.notes || '';
+          const viewEl = document.getElementById('cliNotesView');
+          const editBtn = document.getElementById('cliNotesEditBtn');
+          const hasNotes = c.notes && c.notes.trim();
+          if (viewEl) {
+            viewEl.textContent = hasNotes ? c.notes : 'No notes yet. Click + Add to jot something down.';
+            viewEl.className = `cli-notes-body${hasNotes ? '' : ' is-empty'}`;
+          }
+          if (editBtn) editBtn.textContent = hasNotes ? '✎ Edit' : '+ Add';
+          exitNotesEditMode();
+          toast('✓ Notes saved', 'success');
+        } catch (e) {
+          toast('Network error: ' + (e.message || e), 'error');
+        } finally {
+          saveBtn.disabled = false;
+          if (cancelBtn) cancelBtn.disabled = false;
+          saveBtn.textContent = 'Save';
         }
       }
 
@@ -1064,7 +1265,12 @@
       }
 
       load();
-      setInterval(load, REFRESH_MS);
+      setInterval(() => {
+        // Skip auto-refresh while user is editing notes to avoid blowing away their draft
+        const editEl = document.getElementById('cliNotesEdit');
+        if (editEl && editEl.style.display !== 'none') return;
+        load();
+      }, REFRESH_MS);
     }
   }
 </script>
