@@ -314,6 +314,94 @@
   }
   .ho-qs-body p { margin-bottom: 12px; }
   .ho-qs-body p:last-child { margin-bottom: 0; }
+
+  /* NEW · Sprint 28 · PDF warranty CTA inside accordion #5 */
+  .ho-qs-warranty-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    padding: 9px 16px;
+    background: var(--bp-green);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .15s, transform .15s;
+  }
+  .ho-qs-warranty-cta:hover { background: var(--bp-green-dk); transform: translateY(-1px); }
+
+  /* NEW · Sprint 28 · Installation videos sub-section under "How we build" */
+  .ho-iv-section {
+    background: var(--bp-cream);
+    border: 1px solid var(--bp-border);
+    border-radius: 12px;
+    padding: 22px 22px 26px;
+    margin-top: 18px;
+  }
+  .ho-iv-head { margin-bottom: 14px; }
+  .ho-iv-head h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--bp-text);
+    margin-bottom: 4px;
+  }
+  .ho-iv-head p {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--bp-muted);
+    max-width: 540px;
+  }
+  .ho-iv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  .ho-iv-card {
+    display: block;
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 8px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+  .ho-iv-card:hover {
+    border-color: var(--bp-green);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(93,126,105,0.10);
+  }
+  .ho-iv-thumb {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: #000;
+    overflow: hidden;
+  }
+  .ho-iv-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ho-iv-thumb.pdf {
+    background: var(--bp-tan);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bp-charcoal);
+    font-size: 13px; font-weight: 700; letter-spacing: 0.1em;
+  }
+  .ho-iv-play {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.94);
+    font-size: 28px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.55);
+    pointer-events: none;
+  }
+  .ho-iv-label {
+    padding: 8px 10px 10px;
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--bp-text);
+    font-weight: 500;
+  }
+
   .ho-credit-card {
     background: #fff;
     border: 1px solid var(--bp-border);
@@ -686,12 +774,16 @@
     border-bottom: 1px solid var(--bp-border);
     flex-shrink: 0;
   }
+  /* Sprint 28 · Switched modal hero from background-image to <img> so onerror fallback works.
+     Previously primary_image_url (often Belgard CDN with hotlink protection) blocked silently;
+     now we fall back to swatch_url, then to manufacturer text. Fixes the Cambridge Cobble blank-modal bug. */
   .ho-mat-modal-img {
     width: 100%; height: 100%;
-    background: inherit;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    overflow: hidden;
+  }
+  .ho-mat-modal-img img {
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
   }
   .ho-mat-modal-img-fallback {
     width: 100%; height: 100%;
@@ -813,6 +905,111 @@
     border-color: var(--bp-green);
     color: var(--bp-green-dk);
   }
+
+  /* NEW · Sprint 28 · Warranty + install guides inside material modal */
+  .ho-mat-modal-warranty-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .ho-mat-modal-warranty-card {
+    background: var(--bp-cream);
+    border-left: 3px solid var(--bp-tan);
+    border-radius: 6px;
+    padding: 11px 14px;
+  }
+  .ho-mat-modal-warranty-card.bayside {
+    border-left-color: var(--bp-green);
+    background: var(--bp-green-soft);
+  }
+  .ho-mat-modal-warranty-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--bp-charcoal);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .ho-mat-modal-warranty-card.bayside .ho-mat-modal-warranty-label { color: var(--bp-green-dk); }
+  .ho-mat-modal-warranty-text {
+    font-size: 13px;
+    color: var(--bp-text);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+  .ho-mat-modal-warranty-text:last-child { margin-bottom: 0; }
+  .ho-mat-modal-warranty-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bp-green-dk);
+    text-decoration: underline;
+  }
+  .ho-mat-modal-guides {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .ho-mat-modal-guide-card {
+    display: block;
+    background: #fff;
+    border: 1px solid var(--bp-border);
+    border-radius: 6px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, transform .15s;
+  }
+  .ho-mat-modal-guide-card:hover { border-color: var(--bp-green); transform: translateY(-1px); }
+  .ho-mat-modal-guide-thumb {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: #000;
+    overflow: hidden;
+  }
+  .ho-mat-modal-guide-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ho-mat-modal-guide-thumb.pdf {
+    background: var(--bp-tan);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bp-charcoal);
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  }
+  .ho-mat-modal-guide-play {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.94);
+    font-size: 18px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.55);
+    pointer-events: none;
+  }
+  .ho-mat-modal-guide-title {
+    padding: 6px 8px 8px;
+    font-size: 10px;
+    line-height: 1.3;
+    color: var(--bp-text);
+    font-weight: 500;
+  }
+  .ho-mat-modal-process-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 6px 0 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bp-green-dk);
+    text-decoration: underline;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+  }
+  .ho-mat-modal-process-cta:hover { color: var(--bp-green); }
+
   .ho-modal-backdrop {
     position: fixed; inset: 0;
     background: rgba(31, 33, 37, 0.5);
@@ -1028,7 +1225,7 @@
     </div>
     <p class="ho-section-sub">
       Every paver, slab, wall block, and accessory we install — searchable, tabbed by category.
-      Tap any product for full specs, applications, and downloadable cut-sheets.
+      Tap any product for full specs, applications, warranty, and matching install videos.
     </p>
 
     <div class="ho-mat-section">
@@ -1127,8 +1324,19 @@
       <div class="ho-qs-body">
         <p>The last day is when most homeowners notice everything coming together. Polymeric jointing sand goes in, gets activated with water, and locks every joint. Where the design calls for sealing, we use the right sealer for the surface — penetrating for natural stone, joint-stabilizing for concrete pavers, none for some porcelain — and apply only after the install has fully cured.</p>
         <p>Belgard's transferable lifetime limited warranty covers the materials, and we stand behind the workmanship. Adherence to ICPI (Interlocking Concrete Paver Institute) standards isn't optional for us — it's how we keep that warranty intact and how we sleep at night.</p>
+        <a href="https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf3c6e47/68d2db027d1d1b4ad1543f05_Bayside%20Pavers%20Presentation%20(1)_compressed%20(1).pdf" target="_blank" rel="noopener" class="ho-qs-warranty-cta">📄 View full warranty PDF →</a>
       </div>
     </details>
+
+    <div class="ho-iv-section">
+      <div class="ho-iv-head">
+        <h3>Installation videos</h3>
+        <p>See exactly how we build. Click any video to watch on YouTube.</p>
+      </div>
+      <div class="ho-iv-grid" id="ho-iv-grid">
+        <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--bp-muted);font-size:13px;">Loading videos…</div>
+      </div>
+    </div>
   </section>
 
   <section id="refer" class="ho-section">
@@ -1287,12 +1495,8 @@ const MAT_TAB_ORDER = [
 
 // ── DOM refs ──────────────────────────────────────────────────────────
 // Sprint 14C.16 hotfix: ALL const lookups happen here, BEFORE the
-// auth-gate await below. Previously the materials refs (matGridEl etc.)
-// were declared AFTER `await loadAccount()`, so loadMaterials() — which
-// runs inside loadAccount via Promise.all — hit a temporal-dead-zone
-// ReferenceError on the first access to matGridEl, and the catch block
-// hit the same error trying to display it. Result: silent failure with
-// the loading spinner stuck forever.
+// auth-gate await below. Sprint 28 adds ivGridEl for the new install
+// videos sub-section under "How we build".
 const navName       = document.getElementById('ho-nav-name');
 const navOut        = document.getElementById('ho-nav-out');
 const heroTitle     = document.getElementById('ho-hero-title');
@@ -1325,13 +1529,37 @@ const matModalBackdrop = document.getElementById('ho-mat-modal-backdrop');
 const matModalClose    = document.getElementById('ho-mat-modal-close');
 const matModalImg      = document.getElementById('ho-mat-modal-img');
 const matModalBody     = document.getElementById('ho-mat-modal-body');
+const ivGridEl         = document.getElementById('ho-iv-grid');
 
 // ── Mutable state ─────────────────────────────────────────────────────
 let currentClient = null;
 let MATERIALS_CACHE = null;
+let MANUFACTURERS_CACHE = null;
+let INSTALL_GUIDES_CACHE = null;
 let matCurrentCategory = 'pavers';
 let matSearchQuery = '';
 let matShowAllForCurrent = false;
+
+// ── Window helpers (for inline handlers) ──────────────────────────────
+// Sprint 28 · onerror fallback for the modal hero image. Tries swatch_url
+// when primary_image_url fails (Belgard CDN sometimes hotlink-blocks).
+window.bpHandleModalImgError = function(img) {
+  const fb = img.getAttribute('data-fallback');
+  const mfr = img.getAttribute('data-mfr') || 'Bayside';
+  if (fb && img.src !== fb) {
+    img.src = fb;
+    return;
+  }
+  const parent = img.parentElement;
+  if (parent) parent.innerHTML = '<div class="ho-mat-modal-img-fallback">' + (mfr.replace(/[<>"]/g, '')) + '</div>';
+};
+window.bpScrollToHowWeBuild = function() {
+  closeMatModal();
+  setTimeout(() => {
+    const el = document.getElementById('how-we-build');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+};
 
 // ── Event listeners (all wired before any await) ──────────────────────
 navOut.addEventListener('click', async () => {
@@ -1507,6 +1735,8 @@ async function loadAccount() {
     loadProposals(client.id),
     loadReferrals(client.id),
     loadMaterials(),
+    loadManufacturers(),
+    loadInstallGuides(),
   ]);
 }
 
@@ -1780,6 +2010,102 @@ async function loadMaterials() {
   }
 }
 
+// Sprint 28 · Manufacturer warranty + brand metadata
+async function loadManufacturers() {
+  try {
+    const { data, error } = await supabase
+      .from('manufacturer_info')
+      .select('name, display_name, logo_url, website_url, about, warranty_summary, warranty_url, quality_standards')
+      .eq('is_active', true);
+    if (error) {
+      console.warn('[loadManufacturers]', error);
+      MANUFACTURERS_CACHE = [];
+      return;
+    }
+    MANUFACTURERS_CACHE = data || [];
+  } catch (err) {
+    console.warn('[loadManufacturers]', err);
+    MANUFACTURERS_CACHE = [];
+  }
+}
+
+// Sprint 28 · Install guides (YouTube videos + PDFs + links)
+async function loadInstallGuides() {
+  try {
+    const { data, error } = await supabase
+      .from('install_guides')
+      .select('id, kind, video_id, url, title, description, category, manufacturer, thumbnail_url, sort_order')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    if (error) {
+      console.warn('[loadInstallGuides]', error);
+      INSTALL_GUIDES_CACHE = [];
+      ivGridEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--bp-muted);font-size:13px;">Videos coming soon.</div>';
+      return;
+    }
+    INSTALL_GUIDES_CACHE = data || [];
+    renderInstallVideosGrid();
+  } catch (err) {
+    console.warn('[loadInstallGuides]', err);
+    INSTALL_GUIDES_CACHE = [];
+    if (ivGridEl) {
+      ivGridEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--bp-muted);font-size:13px;">Videos coming soon.</div>';
+    }
+  }
+}
+
+function renderInstallVideosGrid() {
+  if (!ivGridEl || !INSTALL_GUIDES_CACHE) return;
+  if (INSTALL_GUIDES_CACHE.length === 0) {
+    ivGridEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--bp-muted);font-size:13px;">Videos coming soon.</div>';
+    return;
+  }
+  ivGridEl.innerHTML = INSTALL_GUIDES_CACHE.map(renderInstallVideoCard).join('');
+}
+
+function renderInstallVideoCard(g) {
+  const title = g.title || (g.manufacturer ? `${g.manufacturer} install guide` : 'Installation guide');
+  if (g.kind === 'youtube' && g.video_id) {
+    const thumb = g.thumbnail_url || `https://i.ytimg.com/vi/${g.video_id}/hqdefault.jpg`;
+    return `<a class="ho-iv-card" href="https://www.youtube.com/watch?v=${escapeAttr(g.video_id)}" target="_blank" rel="noopener">
+      <div class="ho-iv-thumb"><img src="${escapeAttr(thumb)}" alt="" loading="lazy"><div class="ho-iv-play">▶</div></div>
+      <div class="ho-iv-label">${escapeHtml(title)}</div>
+    </a>`;
+  }
+  const kindLabel = g.kind === 'pdf' ? 'PDF' : 'LINK';
+  return `<a class="ho-iv-card" href="${escapeAttr(g.url || '#')}" target="_blank" rel="noopener">
+    <div class="ho-iv-thumb pdf"><span>${kindLabel}</span></div>
+    <div class="ho-iv-label">${escapeHtml(title)}</div>
+  </a>`;
+}
+
+// Sprint 28 · Returns matched install guides ranked by relevance
+function filterGuidesForMaterial(m, max) {
+  if (!INSTALL_GUIDES_CACHE || INSTALL_GUIDES_CACHE.length === 0) return [];
+  const mfrName = (m && m.manufacturer) || '';
+  const cat = (m && m.category) || '';
+  const ranked = INSTALL_GUIDES_CACHE.map(g => {
+    let rank = 9;
+    if (g.manufacturer === mfrName) rank = 0;
+    else if (g.manufacturer === 'Bayside' && g.category === cat) rank = 1;
+    else if (g.category === cat) rank = 2;
+    else if (g.manufacturer === 'Bayside') rank = 3;
+    return { g, rank };
+  }).filter(x => x.rank < 9);
+  ranked.sort((a, b) => a.rank - b.rank || (a.g.sort_order || 0) - (b.g.sort_order || 0));
+  const top = ranked.map(x => x.g);
+  return typeof max === 'number' ? top.slice(0, max) : top;
+}
+
+function findManufacturerForMaterial(m) {
+  if (!MANUFACTURERS_CACHE || !m || !m.manufacturer) return null;
+  return MANUFACTURERS_CACHE.find(x => x.name === m.manufacturer) || null;
+}
+function findBayside() {
+  if (!MANUFACTURERS_CACHE) return null;
+  return MANUFACTURERS_CACHE.find(x => x.name === 'Bayside') || null;
+}
+
 function renderMatTabs() {
   if (!MATERIALS_CACHE) return;
   const counts = new Map();
@@ -1872,31 +2198,81 @@ function renderMatCard(m) {
     </button>`;
 }
 
+// Sprint 28 · openMatModal extended: hero image with <img> + onerror fallback (fixes Cambridge Cobble bug),
+// + manufacturer warranty card + Bayside installation warranty card with PDF link + matching install guides.
 function openMatModal(m) {
-  const heroImg = m.primary_image_url || m.swatch_url || '';
-  if (heroImg) {
-    matModalImg.style.backgroundImage = `url('${heroImg.replace(/'/g, "\\'")}')`;
-    matModalImg.innerHTML = '';
+  const primary = m.primary_image_url || '';
+  const swatch  = m.swatch_url || '';
+  if (primary || swatch) {
+    const first = primary || swatch;
+    const fallback = (primary && swatch && primary !== swatch) ? swatch : '';
+    matModalImg.innerHTML = `<img src="${escapeAttr(first)}" alt="${escapeAttr(m.product_name || '')}" data-fallback="${escapeAttr(fallback)}" data-mfr="${escapeAttr(m.manufacturer || 'Bayside')}" onerror="window.bpHandleModalImgError(this)">`;
   } else {
-    matModalImg.style.backgroundImage = '';
     matModalImg.innerHTML = `<div class="ho-mat-modal-img-fallback">${escapeHtml(m.manufacturer || 'Bayside')}</div>`;
   }
+
   const specRows = [
-    m.color       && ['Color',         m.color],
-    m.collection  && ['Collection',    m.collection],
-    m.product_type && ['Type',         m.product_type],
-    m.size_spec   && ['Size',          m.size_spec],
-    m.pattern     && ['Pattern',       m.pattern],
-    m.thickness_mm && ['Thickness',    m.thickness_mm + 'mm'],
+    m.color        && ['Color',      m.color],
+    m.collection   && ['Collection', m.collection],
+    m.product_type && ['Type',       m.product_type],
+    m.size_spec    && ['Size',       m.size_spec],
+    m.pattern      && ['Pattern',    m.pattern],
+    m.thickness_mm && ['Thickness',  m.thickness_mm + 'mm'],
   ].filter(Boolean);
   const applications = Array.isArray(m.applications) ? m.applications.filter(Boolean) : [];
   const features     = Array.isArray(m.features)     ? m.features.filter(Boolean)     : [];
   const actions = [];
-  if (m.spec_pdf_url) actions.push({ label: '📄 Spec sheet',  href: m.spec_pdf_url });
-  if (m.cut_sheet_url) actions.push({ label: '📐 Cut sheet',   href: m.cut_sheet_url });
+  if (m.spec_pdf_url)  actions.push({ label: '📄 Spec sheet', href: m.spec_pdf_url });
+  if (m.cut_sheet_url) actions.push({ label: '📐 Cut sheet',  href: m.cut_sheet_url });
   const colorLine = m.color
     ? `<span class="ho-mat-modal-color-swatch" style="background:${guessColorHex(m.color)};"></span>${escapeHtml(m.color)}`
     : (m.collection || '');
+
+  // Sprint 28 · warranty cards
+  const mfrInfo = findManufacturerForMaterial(m);
+  const bayInfo = findBayside();
+  let warrantyHtml = '';
+  const hasMfrWarranty = mfrInfo && (mfrInfo.warranty_summary || mfrInfo.warranty_url);
+  const hasBayWarranty = bayInfo && (bayInfo.warranty_summary || bayInfo.warranty_url);
+  if (hasMfrWarranty || hasBayWarranty) {
+    warrantyHtml += '<div class="ho-mat-modal-section-label">Warranty</div><div class="ho-mat-modal-warranty-block">';
+    if (hasMfrWarranty) {
+      warrantyHtml += `
+        <div class="ho-mat-modal-warranty-card">
+          <div class="ho-mat-modal-warranty-label">${escapeHtml(mfrInfo.display_name || mfrInfo.name)} warranty</div>
+          ${mfrInfo.warranty_summary ? `<div class="ho-mat-modal-warranty-text">${escapeHtml(mfrInfo.warranty_summary)}</div>` : ''}
+          ${mfrInfo.warranty_url ? `<a class="ho-mat-modal-warranty-link" href="${escapeAttr(mfrInfo.warranty_url)}" target="_blank" rel="noopener">View full warranty →</a>` : ''}
+        </div>`;
+    }
+    if (hasBayWarranty) {
+      warrantyHtml += `
+        <div class="ho-mat-modal-warranty-card bayside">
+          <div class="ho-mat-modal-warranty-label">Bayside installation warranty</div>
+          ${bayInfo.warranty_summary ? `<div class="ho-mat-modal-warranty-text">${escapeHtml(bayInfo.warranty_summary)}</div>` : ''}
+          ${bayInfo.warranty_url ? `<a class="ho-mat-modal-warranty-link" href="${escapeAttr(bayInfo.warranty_url)}" target="_blank" rel="noopener">View full warranty PDF →</a>` : ''}
+        </div>`;
+    }
+    warrantyHtml += '</div>';
+  }
+
+  // Sprint 28 · install guides matched to this material
+  const guides = filterGuidesForMaterial(m, 4);
+  let guidesHtml = '';
+  if (guides.length > 0) {
+    guidesHtml = `
+      <div class="ho-mat-modal-section-label">How we install this</div>
+      <div class="ho-mat-modal-guides">
+        ${guides.map(renderModalGuideCard).join('')}
+      </div>
+      <button type="button" class="ho-mat-modal-process-cta" onclick="window.bpScrollToHowWeBuild()">See all install videos &amp; our 5-phase process →</button>
+    `;
+  } else {
+    guidesHtml = `
+      <div class="ho-mat-modal-section-label">Installation</div>
+      <button type="button" class="ho-mat-modal-process-cta" onclick="window.bpScrollToHowWeBuild()">See our 5-phase install process →</button>
+    `;
+  }
+
   matModalBody.innerHTML = `
     <div class="ho-mat-modal-mfr">${escapeHtml(m.manufacturer || '')}</div>
     <h3 class="ho-mat-modal-name" id="ho-mat-modal-name">${escapeHtml(m.product_name || 'Unnamed')}</h3>
@@ -1920,6 +2296,8 @@ function openMatModal(m) {
       <div class="ho-mat-modal-chips">
         ${features.map(f => `<span class="ho-mat-modal-chip">${escapeHtml(f)}</span>`).join('')}
       </div>` : ''}
+    ${warrantyHtml}
+    ${guidesHtml}
     ${actions.length > 0 ? `
       <div class="ho-mat-modal-actions">
         ${actions.map(a => `<a class="ho-mat-modal-action" href="${escapeAttr(a.href)}" target="_blank" rel="noopener">${escapeHtml(a.label)}</a>`).join('')}
@@ -1927,6 +2305,22 @@ function openMatModal(m) {
   `;
   matModalBackdrop.hidden = false;
   document.addEventListener('keydown', onMatEscClose);
+}
+
+function renderModalGuideCard(g) {
+  const title = g.title || (g.manufacturer ? `${g.manufacturer} install guide` : 'Installation guide');
+  if (g.kind === 'youtube' && g.video_id) {
+    const thumb = g.thumbnail_url || `https://i.ytimg.com/vi/${g.video_id}/hqdefault.jpg`;
+    return `<a class="ho-mat-modal-guide-card" href="https://www.youtube.com/watch?v=${escapeAttr(g.video_id)}" target="_blank" rel="noopener">
+      <div class="ho-mat-modal-guide-thumb"><img src="${escapeAttr(thumb)}" alt="" loading="lazy"><div class="ho-mat-modal-guide-play">▶</div></div>
+      <div class="ho-mat-modal-guide-title">${escapeHtml(title)}</div>
+    </a>`;
+  }
+  const kindLabel = g.kind === 'pdf' ? 'PDF' : 'LINK';
+  return `<a class="ho-mat-modal-guide-card" href="${escapeAttr(g.url || '#')}" target="_blank" rel="noopener">
+    <div class="ho-mat-modal-guide-thumb pdf"><span>${kindLabel}</span></div>
+    <div class="ho-mat-modal-guide-title">${escapeHtml(title)}</div>
+  </a>`;
 }
 
 function closeMatModal() {
