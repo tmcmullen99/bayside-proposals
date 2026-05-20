@@ -794,6 +794,26 @@
               title: 'Lock-in completed',
               body: `${fmtMoneyFull(d.bid_total)} · ${linkProposal}`,
             };
+          case 'note_added':
+            return {
+              color: 'green',
+              dot: '📝',
+              title: 'Designer note added',
+              quoted: d.body || '',
+            };
+          case 'note_appended':
+            return {
+              color: 'green',
+              dot: '📝',
+              title: 'Designer note appended',
+              quoted: d.body || '',
+            };
+          case 'note_cleared':
+            return {
+              color: 'neutral',
+              dot: '✕',
+              title: 'Designer notes cleared',
+            };
           default:
             return {
               color: 'neutral',
@@ -1174,6 +1194,7 @@
             body: JSON.stringify({
               client_id: c.id,
               notes: newNotes,
+              created_by: auth.user.id,
             }),
           });
           const data = await resp.json();
