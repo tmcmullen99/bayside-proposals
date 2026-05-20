@@ -496,6 +496,7 @@
             ${it.last_inbound_body ? `<div class="tod-row-note">${esc(truncate(it.last_inbound_body, 200))}</div>` : ''}
           </div>
           <div class="tod-row-actions">
+            <a class="tod-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>
             <a class="tod-btn is-primary" href="/admin/conversations.html?client_id=${esc(it.client_id)}">Open thread →</a>
           </div>
         </div>
