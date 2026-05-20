@@ -552,6 +552,7 @@
           </div>
           <div class="inb-row-actions">
             ${it.client_id ? `<a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>` : ''}
+            ${it.client_id ? `<button class="inb-action-btn" data-action="quick-note" data-client-id="${esc(it.client_id)}" data-client-name="${esc(it.client_name || 'client')}">📝 Note</button>` : ''}
             <a class="inb-action-btn is-primary" href="${esc(proposalUrl)}" target="_blank" rel="noopener">View &amp; reply</a>
             <a class="inb-action-btn" href="mailto:${esc(it.client_email || '')}">Email direct</a>
           </div>
@@ -588,6 +589,7 @@
           </div>
           <div class="inb-row-actions">
             ${it.client_id ? `<a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>` : ''}
+            ${it.client_id ? `<button class="inb-action-btn" data-action="quick-note" data-client-id="${esc(it.client_id)}" data-client-name="${esc(it.client_name || 'client')}">📝 Note</button>` : ''}
             <a class="inb-action-btn is-primary" href="${esc(editorUrl)}" target="_blank" rel="noopener">Open in editor</a>
           </div>
         </div>
@@ -624,6 +626,7 @@
           </div>
           <div class="inb-row-actions">
             ${it.client_id ? `<a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>` : ''}
+            ${it.client_id ? `<button class="inb-action-btn" data-action="quick-note" data-client-id="${esc(it.client_id)}" data-client-name="${esc(it.client_name || 'client')}">📝 Note</button>` : ''}
             <a class="inb-action-btn is-primary" href="${esc(editorUrl)}" target="_blank" rel="noopener">Open in editor</a>
           </div>
         </div>
@@ -660,6 +663,7 @@
           </div>
           <div class="inb-row-actions">
             <a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>
+            <button class="inb-action-btn" data-action="quick-note" data-client-id="${esc(it.client_id)}" data-client-name="${esc(it.name || 'client')}">📝 Note</button>
             <button class="inb-action-btn is-primary"
                     data-action="resend-invite"
                     data-client-id="${esc(it.client_id)}"
@@ -704,6 +708,7 @@
           </div>
           <div class="inb-row-actions">
             ${it.client_id ? `<a class="inb-action-btn" href="/admin/client.html?id=${esc(it.client_id)}">👤 Profile</a>` : ''}
+            ${it.client_id ? `<button class="inb-action-btn" data-action="quick-note" data-client-id="${esc(it.client_id)}" data-client-name="${esc(it.client_name || 'client')}">📝 Note</button>` : ''}
             ${resendBtn}
             <a class="inb-action-btn is-primary" href="${esc(proposalUrl)}" target="_blank" rel="noopener">View proposal</a>
           </div>
@@ -887,5 +892,23 @@
 })();
 </script>
 
+<script type="module">
+  // Sprint 14 — Quick-add notes from inbox rows
+  import { openQuickNoteModal } from '/admin/notes-modal.js';
+  import { requireDesigner }    from '/js/auth-util.js';
+
+  const auth = await requireDesigner();
+  const createdBy = auth && auth.user ? auth.user.id : undefined;
+
+  document.body.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="quick-note"]');
+    if (!btn) return;
+    e.preventDefault();
+    const clientId   = btn.getAttribute('data-client-id');
+    const clientName = btn.getAttribute('data-client-name') || 'Client';
+    if (!clientId) return;
+    openQuickNoteModal({ clientId, clientName, createdBy });
+  });
+</script>
 </body>
 </html>
