@@ -1,6 +1,6 @@
-// account-build.js · Sprint 29
-// Injects project-type-tabbed guide section below the 5 quality standard accordions.
-// Loads install_guides + renders videos / install guides / catalogs per project type.
+// account-build.js · Sprint 29.1
+// Project-type-tabbed guides under "How we build".
+// Merges catalogs + spec_sheets under "Browse products" with distinct badges.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -30,14 +30,9 @@ let currentTab = 'pavers';
 (async function init() {
   const howWeBuild = document.getElementById('how-we-build');
   if (!howWeBuild) return;
-
   injectStyles();
-
-  // Remove the universal install videos section from Sprint 28 — replaced by per-type tabs
   const oldIv = howWeBuild.querySelector('.ho-iv-section');
   if (oldIv) oldIv.remove();
-
-  // Inject the project-type guide section
   const section = document.createElement('div');
   section.className = 'ho-pt-section';
   section.innerHTML = `
@@ -51,7 +46,6 @@ let currentTab = 'pavers';
     </div>
   `;
   howWeBuild.appendChild(section);
-
   await loadGuides();
   renderTabs();
   renderBody();
@@ -179,6 +173,17 @@ function injectStyles() {
       text-align: center;
       line-height: 1.2;
     }
+    .ho-pt-card-thumb.spec {
+      background: linear-gradient(135deg, var(--bp-green-soft) 0%, var(--bp-cream) 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--bp-green-dk);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 8px;
+      text-align: center;
+      line-height: 1.2;
+    }
     .ho-pt-card-play {
       position: absolute; inset: 0;
       display: flex; align-items: center; justify-content: center;
@@ -295,7 +300,8 @@ function renderBody() {
   const guides = getGuidesForType(type.slug);
   const videos = guides.filter(g => g.content_type === 'video');
   const installGuides = guides.filter(g => g.content_type === 'install_guide');
-  const catalogs = guides.filter(g => g.content_type === 'catalog');
+  // Sprint 29.1 · merge catalogs + spec_sheets under "Browse products"
+  const products = guides.filter(g => g.content_type === 'catalog' || g.content_type === 'spec_sheet');
 
   const ledeHtml = `<p class="ho-pt-lede">${escapeHtml(type.lede)}</p>`;
 
@@ -325,11 +331,11 @@ function renderBody() {
         <div class="ho-pt-grid">${installGuides.map(renderPdfCard).join('')}</div>
       </div>`;
   }
-  if (catalogs.length > 0) {
+  if (products.length > 0) {
     html += `
       <div class="ho-pt-sub">
-        <h4>Browse products</h4>
-        <div class="ho-pt-grid">${catalogs.map(renderCatalogCard).join('')}</div>
+        <h4>Browse products &amp; specs</h4>
+        <div class="ho-pt-grid">${products.map(renderProductCard).join('')}</div>
       </div>`;
   }
   bodyEl.innerHTML = html;
@@ -361,13 +367,27 @@ function renderPdfCard(g) {
   </a>`;
 }
 
-function renderCatalogCard(g) {
-  const title = g.title || (g.manufacturer ? `${g.manufacturer} catalog` : 'Product catalog');
+// Sprint 29.1 · merged card renderer for both catalogs and spec_sheets
+function renderProductCard(g) {
+  const title = g.title || (g.manufacturer ? `${g.manufacturer} product` : 'Product');
+  const isSpec = g.content_type === 'spec_sheet';
+  const isPdf  = g.kind === 'pdf';
+  const kindLabel = isSpec
+    ? (isPdf ? 'Cut sheet' : 'Product page')
+    : 'Catalog';
+  let thumbClass, thumbContent;
+  if (isPdf) {
+    thumbClass = 'pdf';
+    thumbContent = isSpec ? 'CUTSHEET' : 'CATALOG';
+  } else {
+    thumbClass = isSpec ? 'spec' : 'catalog';
+    thumbContent = escapeHtml(g.manufacturer || 'Product');
+  }
   return `<a class="ho-pt-card" href="${escapeAttr(g.url || '#')}" target="_blank" rel="noopener">
-    <div class="ho-pt-card-thumb catalog">${escapeHtml(g.manufacturer || 'Catalog')}</div>
+    <div class="ho-pt-card-thumb ${thumbClass}">${thumbContent}</div>
     <div class="ho-pt-card-label">
       <div class="ho-pt-card-title">${escapeHtml(title)}</div>
-      <div class="ho-pt-card-kind">Catalog</div>
+      <div class="ho-pt-card-kind">${kindLabel}</div>
     </div>
   </a>`;
 }
