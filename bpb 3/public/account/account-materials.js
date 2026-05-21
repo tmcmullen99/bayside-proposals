@@ -278,7 +278,7 @@ function renderGrid() {
   });
 }
 function renderCard(m) {
-  const img = m.primary_image_url || m.swatch_url || null;
+  const img = pickImageUrl(m);
   const imgBlock = img
     ? `<img src="${escapeAttr(img)}" alt="${escapeAttr(m.product_name || 'Material')}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;vm-card-placeholder&quot;>${escapeAttr((m.manufacturer || 'Material').toUpperCase())}</div>'">`
     : `<div class="vm-card-placeholder">${escapeHtml((m.manufacturer || 'Material').toUpperCase())}</div>`;
@@ -301,7 +301,7 @@ function openModal(mid) {
   const mfr = findManufacturer(m.manufacturer);
   const bayside = findBayside();
   const guides = filterGuidesForMaterial(m);
-  const heroImg = m.primary_image_url || m.swatch_url || null;
+  const heroImg = pickImageUrl(m);
   const heroBlock = heroImg
     ? `<img src="${escapeAttr(heroImg)}" alt="${escapeAttr(m.product_name || '')}" onerror="this.parentElement.innerHTML='<div class=&quot;vm-modal-hero-placeholder&quot;>${escapeAttr((m.manufacturer || 'Material').toUpperCase())}</div>'">`
     : `<div class="vm-modal-hero-placeholder">${escapeHtml((m.manufacturer || 'Material').toUpperCase())}</div>`;
