@@ -218,6 +218,11 @@ function filterGuidesForMaterial(m) {
 }
 
 // ── Rendering ────────────────────────────────────────────
+function pickImageUrl(m) {
+  const hostBlocked = (u) => /belgard\.com/i.test(u || '');
+  const urls = [m.primary_image_url, m.swatch_url].filter(Boolean);
+  return urls.find(u => !hostBlocked(u)) || urls[0] || null;
+}
 function matchesCat(m) {
   if (activeCat === 'all') return true;
   return (m.category || '').toLowerCase() === activeCat;
