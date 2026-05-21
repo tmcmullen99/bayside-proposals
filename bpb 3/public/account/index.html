@@ -242,7 +242,8 @@
   .v2-loading { text-align: center; padding: 36px; color: var(--bp-muted); font-size: 13px; }
   .v2-error-msg { background: #fef2f2; color: var(--bp-err); border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; font-size: 13px; margin-bottom: 18px; }
 
-  /* Quality standards accordions */
+  /* Quality standards accordions (retained for any embedded use; primary
+     install accordion now lives inside library-tabs.js) */
   .ho-qs-card { background: #fff; border: 1px solid var(--bp-border); border-radius: 12px; overflow: hidden; margin-bottom: 10px; transition: border-color .15s; }
   .ho-qs-card:hover { border-color: var(--bp-green); }
   .ho-qs-card[open] { border-color: var(--bp-green); }
@@ -316,8 +317,7 @@
       </div>
       <div class="v2-nav-group">
         <div class="v2-nav-group-label">Library</div>
-        <button type="button" class="v2-nav-btn" data-pane="how-we-install">How we install</button>
-        <button type="button" class="v2-nav-btn" data-pane="materials">Materials catalog</button>
+        <button type="button" class="v2-nav-btn" data-pane="library">Library</button>
       </div>
       <div class="v2-nav-group">
         <div class="v2-nav-group-label">Earn</div>
@@ -368,9 +368,9 @@
           <div class="v2-action-title"><span class="v2-action-icon">📅</span> Schedule a call</div>
           <div class="v2-action-desc">Pick a time with your designer.</div>
         </a>
-        <a class="v2-action" href="#" data-jump-pane="how-we-install">
-          <div class="v2-action-title"><span class="v2-action-icon">📚</span> How we install</div>
-          <div class="v2-action-desc">5-phase process, videos, catalogs by project type.</div>
+        <a class="v2-action" href="#" data-jump-pane="library">
+          <div class="v2-action-title"><span class="v2-action-icon">📚</span> Library</div>
+          <div class="v2-action-desc">5-phase install standards, videos, guides, materials, and expert articles by project type.</div>
         </a>
         <a class="v2-action" href="#" data-jump-pane="refer">
           <div class="v2-action-title"><span class="v2-action-icon">🎁</span> Refer &amp; earn</div>
@@ -415,102 +415,12 @@
       </div>
     </section>
 
-    <!-- Pane · How we install -->
-    <section class="v2-pane" data-pane="how-we-install">
+    <!-- Pane · Library (replaces "How we install" + "Materials catalog") -->
+    <section class="v2-pane" data-pane="library">
       <div class="v2-pane-eyebrow">Library</div>
-      <h1>How we install</h1>
-      <p class="v2-pane-lede">Our 5-phase quality standard plus deep dives by project type — pavers, driveways, pool decks, walls, turf, drainage, fire features, lighting. Videos, catalogs, and cutsheets included.</p>
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:32px;">
-        <a class="v2-action" href="/account/how.html?type=pavers"><div class="v2-action-title"><span class="v2-action-icon">🧱</span> Pavers</div><div class="v2-action-desc">Full installation guide</div></a>
-        <a class="v2-action" href="/account/how.html?type=driveway"><div class="v2-action-title"><span class="v2-action-icon">🚗</span> Driveways</div><div class="v2-action-desc">Full installation guide</div></a>
-        <a class="v2-action" href="/account/how.html?type=pool_deck"><div class="v2-action-title"><span class="v2-action-icon">🏊</span> Pool decks</div><div class="v2-action-desc">Full installation guide</div></a>
-        <a class="v2-action" href="/account/how.html?type=walls"><div class="v2-action-title"><span class="v2-action-icon">🧱</span> Retaining walls</div><div class="v2-action-desc">Full installation guide</div></a>
-        <a class="v2-action" href="/account/how.html?type=turf"><div class="v2-action-title"><span class="v2-action-icon">🌱</span> Artificial turf</div><div class="v2-action-desc">Full installation guide</div></a>
-        <a class="v2-action" href="/account/how.html?type=drainage"><div class="v2-action-title"><span class="v2-action-icon">💧</span> Drainage</div><div class="v2-action-desc">Full installation guide</div></a>
-        <a class="v2-action" href="/account/how.html?type=fire_features"><div class="v2-action-title"><span class="v2-action-icon">🔥</span> Fire features</div><div class="v2-action-desc">Full installation guide</div></a>
-        <a class="v2-action" href="/account/how.html?type=lighting"><div class="v2-action-title"><span class="v2-action-icon">💡</span> Landscape lighting</div><div class="v2-action-desc">Full installation guide</div></a>
-      </div>
-      <section id="how-we-build">
-        <details class="ho-qs-card">
-          <summary class="ho-qs-summary">
-            <span class="ho-qs-num">01</span>
-            <span class="ho-qs-title-wrap">
-              <span class="ho-qs-title">Site preparation</span>
-              <span class="ho-qs-tagline">Where every long-lasting hardscape begins</span>
-            </span>
-            <span class="ho-qs-arrow">›</span>
-          </summary>
-          <div class="ho-qs-body">
-            <p>Before a single paver lands, we set the stage. Our crew excavates to the right depth for your soil type and project category — patios, driveways, and pool decks each have their own minimum specs. We mark utilities, set up edge lines, and confirm grading so water flows away from your house, not toward it.</p>
-            <p>This is the unglamorous part of the project, but it's the difference between a hardscape that looks great for 5 years and one that looks great for 30. Most failures we get called in to fix come from someone skipping this phase.</p>
-          </div>
-        </details>
-        <details class="ho-qs-card">
-          <summary class="ho-qs-summary">
-            <span class="ho-qs-num">02</span>
-            <span class="ho-qs-title-wrap">
-              <span class="ho-qs-title">Base &amp; drainage</span>
-              <span class="ho-qs-tagline">The foundation under your finished surface</span>
-            </span>
-            <span class="ho-qs-arrow">›</span>
-          </summary>
-          <div class="ho-qs-body">
-            <p>The foundation is built in lifts of compacted aggregate — typically 2 to 4 inches at a time — to the standard your project demands. Patios get at least 4 inches; driveways get 8 inches; pool decks and parking get more. Every lift is compacted with the right equipment so the base reaches 98% Standard Proctor density before we move on.</p>
-            <p>Drainage is engineered in at this phase, not bolted on later. Surfaces are sloped a minimum of 2% away from structures, and where the project calls for it, perforated pipe and free-draining backfill carry water out before it can pool, freeze, or heave.</p>
-          </div>
-        </details>
-        <details class="ho-qs-card">
-          <summary class="ho-qs-summary">
-            <span class="ho-qs-num">03</span>
-            <span class="ho-qs-title-wrap">
-              <span class="ho-qs-title">Surface installation</span>
-              <span class="ho-qs-tagline">Pavers, porcelain, and finish work</span>
-            </span>
-            <span class="ho-qs-arrow">›</span>
-          </summary>
-          <div class="ho-qs-body">
-            <p>Concrete pavers go down on a precisely screeded one-inch bedding-sand layer, with edge restraints staked into the compacted base. Joints get tight tolerances (1/16 to 3/16 inch) and proper polymeric jointing sand to lock everything together and resist weed and insect intrusion.</p>
-            <p>Porcelain is a different beast — slabs are heavier, more brittle, and require pre-compacted bedding sand and 4mm plastic spacers between every unit. Porcelain is never compacted with a plate compactor after install (a common mistake that breaks slabs); we hand-set, level, and verify alignment instead.</p>
-          </div>
-        </details>
-        <details class="ho-qs-card">
-          <summary class="ho-qs-summary">
-            <span class="ho-qs-num">04</span>
-            <span class="ho-qs-title-wrap">
-              <span class="ho-qs-title">Walls &amp; vertical features</span>
-              <span class="ho-qs-tagline">Retaining walls, fire features, seat walls</span>
-            </span>
-            <span class="ho-qs-arrow">›</span>
-          </summary>
-          <div class="ho-qs-body">
-            <p>Retaining walls are engineered, not stacked. We start with a leveling pad of compacted aggregate, lay the first course slightly below grade for stability, and build up using running-bond patterns with proper backfill drainage and (where required) geosynthetic reinforcement layers based on soil type and wall height.</p>
-            <p>Fire features and seat walls get the same care — proper bases, weather-resistant adhesives where they belong, gas lines run by licensed plumbers when applicable, and finish caps mortared in to last.</p>
-          </div>
-        </details>
-        <details class="ho-qs-card">
-          <summary class="ho-qs-summary">
-            <span class="ho-qs-num">05</span>
-            <span class="ho-qs-title-wrap">
-              <span class="ho-qs-title">Finishing &amp; warranty</span>
-              <span class="ho-qs-tagline">Polymeric sand, sealing, and what we stand behind</span>
-            </span>
-            <span class="ho-qs-arrow">›</span>
-          </summary>
-          <div class="ho-qs-body">
-            <p>The last day is when most homeowners notice everything coming together. Polymeric jointing sand goes in, gets activated with water, and locks every joint. Where the design calls for sealing, we use the right sealer for the surface — penetrating for natural stone, joint-stabilizing for concrete pavers, none for some porcelain — and apply only after the install has fully cured.</p>
-            <p>Belgard's transferable lifetime limited warranty covers the materials, and we stand behind the workmanship. Adherence to ICPI (Interlocking Concrete Paver Institute) standards isn't optional for us — it's how we keep that warranty intact and how we sleep at night.</p>
-            <a href="https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf3c6e47/68d2db027d1d1b4ad1543f05_Bayside%20Pavers%20Presentation%20(1)_compressed%20(1).pdf" target="_blank" rel="noopener" class="ho-qs-warranty-cta">📄 View full warranty PDF →</a>
-          </div>
-        </details>
-      </section>
-    </section>
-
-    <!-- Pane · Materials catalog -->
-    <section class="v2-pane" data-pane="materials">
-      <div class="v2-pane-eyebrow">Library</div>
-      <h1>Materials catalog</h1>
-      <p class="v2-pane-lede">Every paver, slab, wall block, and finish we install — searchable, tabbed by category, with manufacturer specs, warranties, and install guides per product. Click any material to dive in.</p>
-      <div id="v2-materials-mount"></div>
+      <h1>Library</h1>
+      <p class="v2-pane-lede">Everything we install — pavers, driveways, pool decks, walls, turf, drainage, fire features, lighting. Pick a tab to dive into how it gets built, the videos and install guides we follow, the expert articles behind each call, and every material we carry in that category.</p>
+      <section id="bpb-library" data-mode="portal"></section>
     </section>
 
     <!-- Pane · Refer & earn -->
@@ -572,6 +482,7 @@
 
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { mountLibrary } from '/account/library-tabs.js';
 
 const SUPABASE_URL  = 'https://gfgbypcnxkschnfsitfb.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZ2J5cGNueGtzY2huZnNpdGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MTkzMTUsImV4cCI6MjA5MjI5NTMxNX0.EAwmiNR5OWcaI8Sr36MVn7FuMhYoZvfngse7y0ZOgvA';
@@ -601,6 +512,14 @@ const creditFill = document.getElementById('v2-credit-fill');
 let currentClient = null;
 let LATEST_PROPOSAL = null;
 
+// ─── Hash slug normalization ──────────────────────────────────────────────
+// Old "How we install" (#how-we-install) and "Materials catalog" (#materials)
+// bookmarks redirect to #library after the Sprint 35 consolidation.
+function normalizeHashSlug(slug) {
+  if (slug === 'how-we-install' || slug === 'materials') return 'library';
+  return slug;
+}
+
 // Sidebar nav
 function activatePane(slug) {
   document.querySelectorAll('.v2-nav-btn').forEach(b =>
@@ -626,7 +545,11 @@ document.querySelectorAll('[data-jump-pane]').forEach(a => {
   });
 });
 window.addEventListener('hashchange', () => {
-  const slug = (window.location.hash || '#overview').slice(1);
+  const raw = (window.location.hash || '#overview').slice(1).split('/')[0];
+  const slug = normalizeHashSlug(raw);
+  if (slug !== raw) {
+    history.replaceState(null, '', '#' + slug);
+  }
   if (document.querySelector(`[data-pane="${slug}"]`)) activatePane(slug);
 });
 
@@ -635,15 +558,26 @@ document.getElementById('v2-signout').addEventListener('click', async () => {
   window.location.replace('/account/signin.html');
 });
 
+// ─── Mount the Library (RLS-public data — runs before auth resolves) ──────
+const libContainer = document.getElementById('bpb-library');
+if (libContainer) {
+  mountLibrary(libContainer, { mode: 'portal' })
+    .catch(err => console.error('Library mount failed:', err));
+}
+
 // Auth gate
 const { data: { session } } = await supabase.auth.getSession();
 if (!session) {
-  window.location.replace('/account/signin.html?next=/account/v2/');
+  window.location.replace('/account/signin.html?next=/account/');
 } else {
   await loadAccount();
 }
 
-const initialHash = (window.location.hash || '#overview').slice(1);
+const rawInitialHash = (window.location.hash || '#overview').slice(1).split('/')[0];
+const initialHash = normalizeHashSlug(rawInitialHash);
+if (initialHash !== rawInitialHash) {
+  history.replaceState(null, '', '#' + initialHash);
+}
 if (document.querySelector(`[data-pane="${initialHash}"]`)) activatePane(initialHash);
 
 function showError(msg) {
