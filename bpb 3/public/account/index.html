@@ -357,7 +357,7 @@
           <div class="v2-action-desc">Full bid, line items, materials, and timeline.</div>
         </a>
         <a class="v2-action" href="#" data-jump-pane="war-room">
-          <div class="v2-action-title"><span class="v2-action-icon">💬</span> War room</div>
+          <div class="v2-action-title"><span class="v2-action-icon">💬</span> Chat with Designer</div>
           <div class="v2-action-desc">Direct line to your designer — chat, photos, requests.</div>
         </a>
         <a class="v2-action" href="#" data-jump-pane="print">
@@ -387,9 +387,9 @@
       <div id="v2-prop-area"><div class="v2-loading">Loading your proposals…</div></div>
     </section>
 
-    <!-- Pane · War room -->
+    <!-- Pane · Chat with Designer -->
     <section class="v2-pane" data-pane="war-room">
-      <div class="v2-pane-eyebrow">War room</div>
+      <div class="v2-pane-eyebrow">Chat with Designer</div>
       <h1>Direct line to your designer</h1>
       <p class="v2-pane-lede">Questions, requests, photos, or just a quick check-in — your designer responds within one business day.</p>
       <div id="ho-chat-section"></div>
@@ -399,7 +399,7 @@
     <section class="v2-pane" data-pane="print">
       <div class="v2-pane-eyebrow">Print to mark up</div>
       <h1>Print and mark up your plan</h1>
-      <p class="v2-pane-lede">Print a marked-up-ready copy of your plan, draw notes by hand, and snap a photo back to your designer in the War room.</p>
+      <p class="v2-pane-lede">Print a marked-up-ready copy of your plan, draw notes by hand, and snap a photo back to your designer in the Chat with Designer.</p>
       <div id="v2-print-area"><div class="v2-loading">Loading proposals…</div></div>
     </section>
 
@@ -829,9 +829,9 @@ function renderOverviewFromLatest() {
   const heroCopy = {
     draft:       { t: 'Your proposal is in draft', b: 'Your designer is finalizing the line items. We\'ll notify you when it\'s ready to review.' },
     sent:        { t: 'Your proposal is ready', b: 'Open the Proposal tab to review your full bid, line items, and materials.' },
-    viewed:      { t: 'Ready when you are', b: 'You\'ve viewed your proposal. Lock it in, request changes, or hop in the War room with your designer.' },
+    viewed:      { t: 'Ready when you are', b: 'You\'ve viewed your proposal. Lock it in, request changes, or hop in the Chat with Designer with your designer.' },
     signed:      { t: 'Signed — install on deck', b: 'Your project is confirmed. Your designer will schedule the install crew shortly.' },
-    in_progress: { t: 'Install in progress', b: 'Your project is being built. Check the War room for daily updates.' },
+    in_progress: { t: 'Install in progress', b: 'Your project is being built. Check the Chat with Designer for daily updates.' },
     complete:    { t: 'Project complete', b: 'Enjoy the new space. If anything needs attention, your installation warranty covers it.' },
   }[status] || { t: 'Your project is live', b: 'Open the Proposal tab for details.' };
 
