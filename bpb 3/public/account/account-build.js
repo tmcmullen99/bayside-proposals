@@ -38,6 +38,7 @@ const PROJECT_DIAGRAMS = {
 
 let GUIDES_CACHE = [];
 let STEPS_CACHE = [];
+let MFR_CACHE = [];
 let currentTab = 'pavers';
 
 (async function init() {
@@ -59,7 +60,7 @@ let currentTab = 'pavers';
     </div>
   `;
   howWeBuild.appendChild(section);
-  await Promise.all([loadGuides(), loadSteps()]);
+  await Promise.all([loadGuides(), loadSteps(), loadWarranties()]);
   renderTabs();
   renderBody();
 })();
@@ -143,6 +144,16 @@ function injectStyles() {
     .ho-pt-step-detail p { font-size: 13px; color: var(--bp-charcoal); line-height: 1.6; margin: 0 0 8px; }
     .ho-pt-step-bullets { margin: 0; padding-left: 18px; }
     .ho-pt-step-bullets li { font-size: 12.5px; color: var(--bp-muted); line-height: 1.5; margin-bottom: 3px; }
+    .ho-pt-step-source { font-size: 12px; color: var(--bp-muted); margin: 10px 0 0; }
+    .ho-pt-step-source a { color: var(--bp-green); text-decoration: none; }
+    .ho-pt-tab:focus-visible, .ho-pt-step-head:focus-visible, .ho-pt-card:focus-visible { outline: 2px solid var(--bp-green); outline-offset: 2px; border-radius: 6px; }
+    @media (prefers-reduced-motion: reduce) { .ho-pt-step-arrow, .ho-pt-tab, .ho-pt-card { transition: none !important; } }
+    .ho-pt-warranty { display: flex; flex-direction: column; gap: 8px; }
+    .ho-pt-warranty-item { border: 1px solid var(--bp-border); border-radius: 8px; padding: 12px 14px; background: #fff; }
+    .ho-pt-warranty-primary { border-color: var(--bp-green); background: var(--bp-cream); }
+    .ho-pt-warranty-name { font-weight: 600; font-size: 13px; color: var(--bp-text); margin-bottom: 4px; }
+    .ho-pt-warranty-item p { margin: 0 0 6px; font-size: 13px; color: var(--bp-charcoal); line-height: 1.55; }
+    .ho-pt-warranty-item a { font-size: 12px; color: var(--bp-green); text-decoration: none; }
     .ho-pt-sub { margin-bottom: 22px; }
     .ho-pt-sub:last-child { margin-bottom: 0; }
     .ho-pt-sub h4 {
@@ -290,7 +301,7 @@ async function loadSteps() {
   try {
     const { data, error } = await supabase
       .from('installation_steps')
-      .select('project_type, step_order, title, body_md, bullets')
+      .select('project_type, step_order, title, body_md, bullets, source_url, source_page')
       .eq('is_active', true)
       .order('step_order', { ascending: true });
     if (error) throw error;
@@ -298,6 +309,21 @@ async function loadSteps() {
   } catch (err) {
     console.warn('[account-build loadSteps]', err);
     STEPS_CACHE = [];
+  }
+}
+
+async function loadWarranties() {
+  try {
+    const { data, error } = await supabase
+      .from('manufacturer_info')
+      .select('name, display_name, warranty_summary, warranty_url')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    MFR_CACHE = data || [];
+  } catch (err) {
+    console.warn('[account-build loadWarranties]', err);
+    MFR_CACHE = [];
   }
 }
 
@@ -315,6 +341,22 @@ function getStepsForType(slug) {
   return STEPS_CACHE
     .filter(s => s.project_type === slug)
     .sort((a, b) => (a.step_order || 0) - (b.step_order || 0));
+}
+
+const STEP_SOURCE_LABELS = [
+  { match: 'belgard.com',     label: 'Belgard Product Installation Guide' },
+  { match: 'msisurfaces.com', label: 'MSI Evergrass Installation Guide' },
+];
+
+function stepSourceCitation(steps) {
+  const withSrc = (steps || []).find(s => s.source_url);
+  if (!withSrc) return '';
+  let label = 'Manufacturer installation guide';
+  for (const s of STEP_SOURCE_LABELS) {
+    if (withSrc.source_url.includes(s.match)) { label = s.label; break; }
+  }
+  const page = withSrc.source_page ? ` (p. ${withSrc.source_page})` : '';
+  return `<p class="ho-pt-step-source">Source: <a href="${escapeAttr(withSrc.source_url)}" target="_blank" rel="noopener">${escapeHtml(label + page)}</a></p>`;
 }
 
 function renderStepsSection(slug) {
@@ -342,6 +384,39 @@ function renderStepsSection(slug) {
     <h4>Step-by-step build</h4>
     ${intro && intro.body_md ? `<p class="ho-pt-steps-intro">${escapeHtml(intro.body_md)}</p>` : ''}
     <div class="ho-pt-steps">${items}</div>
+    ${stepSourceCitation(steps)}
+  </div>`;
+}
+
+function renderWarrantySection(slug) {
+  if (!MFR_CACHE.length) return '';
+  const bayside = MFR_CACHE.find(m => (m.name || '').toLowerCase() === 'bayside' && m.warranty_summary);
+  const present = new Set(
+    getGuidesForType(slug).map(g => (g.manufacturer || '').toLowerCase().trim()).filter(Boolean)
+  );
+  const mfrs = MFR_CACHE.filter(m => {
+    if (!m.warranty_summary) return false;
+    const nm = (m.name || '').toLowerCase().trim();
+    const dn = (m.display_name || '').toLowerCase().trim();
+    if (nm === 'bayside') return false;
+    return present.has(nm) || present.has(dn) ||
+      [...present].some(p => (nm && (p.includes(nm) || nm.includes(p))) ||
+                             (dn && (p.includes(dn) || dn.includes(p))));
+  });
+  if (!bayside && !mfrs.length) return '';
+  const card = (name, summary, url, primary) =>
+    `<div class="ho-pt-warranty-item${primary ? ' ho-pt-warranty-primary' : ''}">
+      <div class="ho-pt-warranty-name">${escapeHtml(name)}</div>
+      <p>${escapeHtml(summary)}</p>
+      ${url ? `<a href="${escapeAttr(url)}" target="_blank" rel="noopener">View warranty</a>` : ''}
+    </div>`;
+  const baysideHtml = bayside
+    ? card('Bayside Pavers — workmanship', bayside.warranty_summary, bayside.warranty_url, true) : '';
+  const mfrHtml = mfrs.map(m =>
+    card(`${m.display_name || m.name} — materials`, m.warranty_summary, m.warranty_url, false)).join('');
+  return `<div class="ho-pt-sub">
+    <h4>What protects it</h4>
+    <div class="ho-pt-warranty">${baysideHtml}${mfrHtml}</div>
   </div>`;
 }
 
@@ -374,7 +449,7 @@ function renderBody() {
   if (!type) { bodyEl.innerHTML = ''; return; }
 
   const guides = getGuidesForType(type.slug);
-  const videos = guides.filter(g => g.content_type === 'video');
+  const videos = guides.filter(g => g.video_id);
   const installGuides = guides.filter(g => g.content_type === 'install_guide');
   // Sprint 29.1 · merge catalogs + spec_sheets under "Browse products"
   const products = guides.filter(g => g.content_type === 'catalog' || g.content_type === 'spec_sheet');
@@ -385,12 +460,14 @@ function renderBody() {
     ? `<div class="ho-pt-sub"><h4>How it's built</h4><img class="ho-pt-diagram" src="${escapeAttr(dgm.src)}" alt="${escapeAttr(dgm.alt)}" loading="lazy"></div>`
     : '';
   const stepsHtml = renderStepsSection(type.slug);
+  const warrantyHtml = renderWarrantySection(type.slug);
 
   if (guides.length === 0) {
     bodyEl.innerHTML = `
       ${ledeHtml}
       ${diagramHtml}
       ${stepsHtml}
+      ${warrantyHtml}
       <div class="ho-pt-empty">
         <p>Detailed ${escapeHtml(type.label.toLowerCase())} content is coming soon.</p>
         <p>Schedule a design appointment to walk through your specific project with our team.</p>
@@ -399,7 +476,7 @@ function renderBody() {
     return;
   }
 
-  let html = ledeHtml + diagramHtml + stepsHtml;
+  let html = ledeHtml + diagramHtml + stepsHtml + warrantyHtml;
   if (videos.length > 0) {
     html += `
       <div class="ho-pt-sub">
