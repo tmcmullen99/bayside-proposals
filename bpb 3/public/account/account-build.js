@@ -37,6 +37,7 @@ const PROJECT_DIAGRAMS = {
 };
 
 let GUIDES_CACHE = [];
+let STEPS_CACHE = [];
 let currentTab = 'pavers';
 
 (async function init() {
@@ -58,7 +59,7 @@ let currentTab = 'pavers';
     </div>
   `;
   howWeBuild.appendChild(section);
-  await loadGuides();
+  await Promise.all([loadGuides(), loadSteps()]);
   renderTabs();
   renderBody();
 })();
@@ -128,6 +129,20 @@ function injectStyles() {
       border-bottom: 1px solid var(--bp-border);
     }
     .ho-pt-diagram { width: 100%; height: auto; display: block; border: 1px solid var(--bp-border); border-radius: 12px; background: var(--bp-cream); }
+    .ho-pt-steps-intro { font-size: 13px; color: var(--bp-muted); line-height: 1.6; margin-bottom: 12px; }
+    .ho-pt-steps { display: flex; flex-direction: column; gap: 8px; }
+    .ho-pt-step { border: 1px solid var(--bp-border); border-radius: 8px; overflow: hidden; }
+    .ho-pt-step[open] { border-color: var(--bp-green); }
+    .ho-pt-step-head { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 11px 14px; user-select: none; }
+    .ho-pt-step-head::-webkit-details-marker { display: none; }
+    .ho-pt-step-num { font-size: 11px; font-weight: 700; color: var(--bp-green); font-family: monospace; }
+    .ho-pt-step-title { font-size: 13px; font-weight: 600; color: var(--bp-text); flex: 1; }
+    .ho-pt-step-arrow { color: var(--bp-muted); font-size: 16px; transition: transform .2s; }
+    .ho-pt-step[open] .ho-pt-step-arrow { transform: rotate(90deg); }
+    .ho-pt-step-detail { padding: 0 14px 14px; }
+    .ho-pt-step-detail p { font-size: 13px; color: var(--bp-charcoal); line-height: 1.6; margin: 0 0 8px; }
+    .ho-pt-step-bullets { margin: 0; padding-left: 18px; }
+    .ho-pt-step-bullets li { font-size: 12.5px; color: var(--bp-muted); line-height: 1.5; margin-bottom: 3px; }
     .ho-pt-sub { margin-bottom: 22px; }
     .ho-pt-sub:last-child { margin-bottom: 0; }
     .ho-pt-sub h4 {
@@ -271,6 +286,21 @@ async function loadGuides() {
   }
 }
 
+async function loadSteps() {
+  try {
+    const { data, error } = await supabase
+      .from('installation_steps')
+      .select('project_type, step_order, title, body_md, bullets')
+      .eq('is_active', true)
+      .order('step_order', { ascending: true });
+    if (error) throw error;
+    STEPS_CACHE = data || [];
+  } catch (err) {
+    console.warn('[account-build loadSteps]', err);
+    STEPS_CACHE = [];
+  }
+}
+
 function countGuidesForType(slug) {
   return GUIDES_CACHE.filter(g =>
     Array.isArray(g.project_types) && g.project_types.includes(slug)
@@ -280,6 +310,39 @@ function getGuidesForType(slug) {
   return GUIDES_CACHE.filter(g =>
     Array.isArray(g.project_types) && g.project_types.includes(slug)
   );
+}
+function getStepsForType(slug) {
+  return STEPS_CACHE
+    .filter(s => s.project_type === slug)
+    .sort((a, b) => (a.step_order || 0) - (b.step_order || 0));
+}
+
+function renderStepsSection(slug) {
+  const steps = getStepsForType(slug);
+  if (!steps.length) return '';
+  const intro = steps.find(s => s.step_order === 0);
+  const body = steps.filter(s => s.step_order > 0);
+  const items = body.map(s => {
+    const bullets = Array.isArray(s.bullets) && s.bullets.length
+      ? `<ul class="ho-pt-step-bullets">${s.bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`
+      : '';
+    return `<details class="ho-pt-step">
+      <summary class="ho-pt-step-head">
+        <span class="ho-pt-step-num">${String(s.step_order).padStart(2, '0')}</span>
+        <span class="ho-pt-step-title">${escapeHtml(s.title || '')}</span>
+        <span class="ho-pt-step-arrow">›</span>
+      </summary>
+      <div class="ho-pt-step-detail">
+        ${s.body_md ? `<p>${escapeHtml(s.body_md)}</p>` : ''}
+        ${bullets}
+      </div>
+    </details>`;
+  }).join('');
+  return `<div class="ho-pt-sub">
+    <h4>Step-by-step build</h4>
+    ${intro && intro.body_md ? `<p class="ho-pt-steps-intro">${escapeHtml(intro.body_md)}</p>` : ''}
+    <div class="ho-pt-steps">${items}</div>
+  </div>`;
 }
 
 function renderTabs() {
@@ -321,11 +384,13 @@ function renderBody() {
   const diagramHtml = dgm
     ? `<div class="ho-pt-sub"><h4>How it's built</h4><img class="ho-pt-diagram" src="${escapeAttr(dgm.src)}" alt="${escapeAttr(dgm.alt)}" loading="lazy"></div>`
     : '';
+  const stepsHtml = renderStepsSection(type.slug);
 
   if (guides.length === 0) {
     bodyEl.innerHTML = `
       ${ledeHtml}
       ${diagramHtml}
+      ${stepsHtml}
       <div class="ho-pt-empty">
         <p>Detailed ${escapeHtml(type.label.toLowerCase())} content is coming soon.</p>
         <p>Schedule a design appointment to walk through your specific project with our team.</p>
@@ -334,7 +399,7 @@ function renderBody() {
     return;
   }
 
-  let html = ledeHtml + diagramHtml;
+  let html = ledeHtml + diagramHtml + stepsHtml;
   if (videos.length > 0) {
     html += `
       <div class="ho-pt-sub">
