@@ -1,0 +1,87 @@
+<svg viewBox="0 0 980 680" xmlns="http://www.w3.org/2000/svg" font-family="'Onest', -apple-system, BlinkMacSystemFont, system-ui, sans-serif">
+  <defs>
+    <pattern id="soil" width="28" height="24" patternUnits="userSpaceOnUse">
+      <rect width="28" height="24" fill="#8c7a62"/>
+      <path d="M3 7 q3 -3 6 0" stroke="#71604a" stroke-width="1.2" fill="none" opacity="0.5"/>
+      <circle cx="19" cy="11" r="1.7" fill="#6c5b45" opacity="0.55"/><circle cx="7" cy="17" r="1.1" fill="#6c5b45" opacity="0.5"/>
+    </pattern>
+    <pattern id="aggregate" width="32" height="28" patternUnits="userSpaceOnUse">
+      <rect width="32" height="28" fill="#b0afa4"/>
+      <polygon points="6,5 12,7 10,13 4,11" fill="#959489" opacity="0.75"/>
+      <polygon points="21,4 27,6 26,12 20,11" fill="#8f8e83" opacity="0.6"/>
+      <polygon points="14,16 20,18 18,24 12,22" fill="#9b9a8f" opacity="0.7"/>
+      <polygon points="1,19 6,20 5,26 0,24" fill="#8f8e83" opacity="0.55"/>
+    </pattern>
+    <pattern id="dg" width="11" height="9" patternUnits="userSpaceOnUse">
+      <rect width="11" height="9" fill="#d9c9a4"/>
+      <circle cx="2" cy="2.5" r="0.9" fill="#c2ad81"/><circle cx="7" cy="6" r="0.9" fill="#c2ad81"/><circle cx="9.5" cy="2" r="0.7" fill="#cbb88f"/>
+    </pattern>
+    <pattern id="turf" width="14" height="40" patternUnits="userSpaceOnUse">
+      <rect width="14" height="40" fill="#6f8f5a"/>
+      <line x1="3" y1="40" x2="3" y2="8" stroke="#88a670" stroke-width="2"/>
+      <line x1="8" y1="40" x2="8" y2="14" stroke="#5e7e4c" stroke-width="2"/>
+      <line x1="12" y1="40" x2="12" y2="6" stroke="#7c9a64" stroke-width="1.6"/>
+      <circle cx="5" cy="37" r="1" fill="#dccfa9"/><circle cx="11" cy="38" r="0.9" fill="#dccfa9"/>
+    </pattern>
+  </defs>
+
+  <rect width="980" height="680" fill="#faf8f3"/>
+  <rect x="24" y="24" width="932" height="632" fill="none" stroke="#e3ddcd" stroke-width="1"/>
+
+  <text x="70" y="62" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="12.5" letter-spacing="3" fill="#5d7e69" font-weight="600">BAYSIDE · HOW WE BUILD IT</text>
+  <text x="69" y="100" font-family="'Playfair Display', Georgia, serif" font-size="33" fill="#353535" font-weight="600">Anatomy of an artificial turf lawn</text>
+  <line x1="70" y1="120" x2="470" y2="120" stroke="#d8d1bf" stroke-width="1.5"/>
+
+  <text x="250" y="144" text-anchor="middle" font-style="italic" font-size="13" fill="#7a6f54">silica infill keeps blades upright</text>
+
+  <!-- stack -->
+  <rect x="70" y="394" width="400" height="154" fill="url(#soil)"/>
+  <rect x="70" y="386" width="400" height="8" fill="#7f8a6e"/>
+  <line x1="70" y1="390" x2="470" y2="390" stroke="#faf8f3" stroke-width="1" stroke-dasharray="7 5" opacity="0.85"/>
+  <rect x="70" y="214" width="400" height="172" fill="url(#aggregate)"/>
+  <rect x="70" y="190" width="400" height="24" fill="url(#dg)"/>
+  <rect x="70" y="150" width="400" height="40" fill="url(#turf)"/>
+  <line x1="70" y1="189" x2="470" y2="189" stroke="#494941" stroke-width="2"/>
+
+  <!-- nailed perimeter spike -->
+  <line x1="86" y1="150" x2="86" y2="236" stroke="#5b5b53" stroke-width="2.4"/>
+  <path d="M80 152 L92 152 L86 150 Z" fill="#5b5b53"/>
+
+  <rect x="70" y="150" width="400" height="398" fill="none" stroke="#cfc6b2" stroke-width="1.25"/>
+
+  <!-- leaders + labels -->
+  <g stroke="#5d7e69" stroke-width="1.1" fill="none">
+    <path d="M470 170 L504 170 L520 150"/><path d="M470 202 L504 202 L520 232"/>
+    <path d="M470 300 L504 300 L520 318"/><path d="M470 390 L504 390 L520 404"/>
+    <path d="M470 471 L504 471 L520 486"/>
+  </g>
+  <g fill="#5d7e69"><circle cx="470" cy="170" r="2.6"/><circle cx="470" cy="202" r="2.6"/><circle cx="470" cy="300" r="2.6"/><circle cx="470" cy="390" r="2.6"/><circle cx="470" cy="471" r="2.6"/></g>
+
+  <text x="528" y="145" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">01</text>
+  <text x="528" y="166" font-size="17" fill="#353535" font-weight="600">Turf, nailed &amp; infilled</text>
+  <text x="528" y="186" font-size="13.5" fill="#6b6b63">Rolled out, seamed, and spiked at the perimeter;</text>
+  <text x="528" y="204" font-size="13.5" fill="#6b6b63">silica infill brushed in to keep blades standing.</text>
+
+  <text x="528" y="227" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">02</text>
+  <text x="528" y="248" font-size="17" fill="#353535" font-weight="600">Decomposed-granite leveling</text>
+  <text x="528" y="268" font-size="13.5" fill="#6b6b63">A thin DG or sharp-sand course, screeded smooth</text>
+  <text x="528" y="286" font-size="13.5" fill="#6b6b63">so the turf lays flat and seams disappear.</text>
+
+  <text x="528" y="313" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">03</text>
+  <text x="528" y="334" font-size="17" fill="#353535" font-weight="600">Compacted aggregate base</text>
+  <text x="528" y="354" font-size="13.5" fill="#6b6b63">Class II road base, compacted and graded so water</text>
+  <text x="528" y="372" font-size="13.5" fill="#6b6b63">drains straight through the permeable backing.</text>
+
+  <text x="528" y="399" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">04</text>
+  <text x="528" y="420" font-size="17" fill="#353535" font-weight="600">Weed-barrier fabric</text>
+  <text x="528" y="440" font-size="13.5" fill="#6b6b63">Stops growth from pushing up through the lawn</text>
+  <text x="528" y="458" font-size="13.5" fill="#6b6b63">while still letting water pass.</text>
+
+  <text x="528" y="481" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">05</text>
+  <text x="528" y="502" font-size="17" fill="#353535" font-weight="600">Compacted subgrade</text>
+  <text x="528" y="522" font-size="13.5" fill="#6b6b63">Native soil cleared of old lawn, graded, and</text>
+  <text x="528" y="540" font-size="13.5" fill="#6b6b63">compacted to drain away from the house.</text>
+
+  <line x1="70" y1="616" x2="910" y2="616" stroke="#e3ddcd" stroke-width="1"/>
+  <text x="70" y="640" font-size="12.5" fill="#9a9384">Typical assembly. Base depth, infill, and drainage vary by use and site — your project's spec governs the final build.</text>
+</svg>

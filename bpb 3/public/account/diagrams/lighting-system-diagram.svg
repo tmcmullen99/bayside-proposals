@@ -1,0 +1,82 @@
+<svg viewBox="0 0 980 680" xmlns="http://www.w3.org/2000/svg" font-family="'Onest', -apple-system, BlinkMacSystemFont, system-ui, sans-serif">
+  <defs>
+    <pattern id="soil" width="28" height="24" patternUnits="userSpaceOnUse">
+      <rect width="28" height="24" fill="#8c7a62"/>
+      <path d="M3 7 q3 -3 6 0" stroke="#71604a" stroke-width="1.2" fill="none" opacity="0.5"/>
+      <circle cx="19" cy="11" r="1.7" fill="#6c5b45" opacity="0.55"/><circle cx="7" cy="17" r="1.1" fill="#6c5b45" opacity="0.5"/>
+    </pattern>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4d488" stop-opacity="0.55"/><stop offset="1" stop-color="#f4d488" stop-opacity="0.08"/></linearGradient>
+  </defs>
+
+  <rect width="980" height="680" fill="#faf8f3"/>
+  <rect x="24" y="24" width="932" height="632" fill="none" stroke="#e3ddcd" stroke-width="1"/>
+
+  <text x="70" y="62" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="12.5" letter-spacing="3" fill="#5d7e69" font-weight="600">BAYSIDE · HOW WE BUILD IT</text>
+  <text x="69" y="100" font-family="'Playfair Display', Georgia, serif" font-size="33" fill="#353535" font-weight="600">Anatomy of low-voltage lighting</text>
+  <line x1="70" y1="120" x2="600" y2="120" stroke="#d8d1bf" stroke-width="1.5"/>
+
+  <!-- ground -->
+  <rect x="70" y="430" width="600" height="90" fill="url(#soil)"/>
+  <line x1="70" y1="430" x2="670" y2="430" stroke="#6f8f5a" stroke-width="2"/>
+  <g stroke="#6f8f5a" stroke-width="2"><line x1="150" y1="430" x2="146" y2="422"/><line x1="360" y1="430" x2="356" y2="422"/><line x1="500" y1="430" x2="496" y2="422"/></g>
+
+  <!-- house wall + outlet + transformer -->
+  <rect x="70" y="160" width="50" height="270" fill="#ece6d6" stroke="#d8d1bf" stroke-width="1"/>
+  <rect x="90" y="250" width="22" height="28" fill="#d8d2c2" stroke="#b3ad9e" stroke-width="1"/>
+  <line x1="98" y1="257" x2="98" y2="271" stroke="#9a9384" stroke-width="1.6"/><line x1="104" y1="257" x2="104" y2="271" stroke="#9a9384" stroke-width="1.6"/>
+  <path d="M101 278 Q90 288 113 290" stroke="#5b5b53" stroke-width="1.6" fill="none"/>
+  <rect x="84" y="290" width="58" height="52" rx="4" fill="#4f6a57" stroke="#3c5142" stroke-width="1.5"/>
+  <text x="113" y="321" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="13" fill="#eef1ec" font-weight="600">12V</text>
+
+  <!-- cable run + connectors -->
+  <path d="M113 342 L113 452 L640 452" stroke="#3b3b35" stroke-width="3" fill="none"/>
+  <g stroke="#3b3b35" stroke-width="2.4"><line x1="300" y1="452" x2="300" y2="430"/><line x1="450" y1="452" x2="450" y2="430"/><line x1="560" y1="452" x2="560" y2="430"/></g>
+  <g fill="#c9a23f" stroke="#a9863131" ><rect x="293" y="446" width="14" height="12" rx="3" fill="#c9a23f"/><rect x="443" y="446" width="14" height="12" rx="3" fill="#c9a23f"/><rect x="553" y="446" width="14" height="12" rx="3" fill="#c9a23f"/></g>
+
+  <!-- burial depth -->
+  <g stroke="#5d7e69" stroke-width="1"><line x1="180" y1="430" x2="180" y2="452"/><line x1="176" y1="430" x2="184" y2="430"/><line x1="176" y1="452" x2="184" y2="452"/></g>
+  <text x="190" y="446" font-family="'JetBrains Mono', monospace" font-size="11" fill="#5d7e69">≈6 in.</text>
+
+  <!-- path light -->
+  <polygon points="290,392 310,392 326,430 274,430" fill="url(#beam)"/>
+  <rect x="297" y="388" width="6" height="42" fill="#5b5b53"/>
+  <path d="M280 388 Q300 372 320 388 Z" fill="#5b5b53"/>
+  <text x="300" y="370" text-anchor="middle" font-style="italic" font-size="12.5" fill="#7a6f54">path light</text>
+
+  <!-- tree + up-light -->
+  <polygon points="430,420 446,420 478,330 416,330" fill="url(#beam)"/>
+  <circle cx="450" cy="316" r="42" fill="#6f8f5a"/>
+  <rect x="444" y="332" width="12" height="98" fill="#7a5a3f"/>
+  <rect x="424" y="420" width="16" height="10" fill="#5b5b53"/>
+  <text x="450" y="250" text-anchor="middle" font-style="italic" font-size="12.5" fill="#7a6f54">tree up-light</text>
+
+  <!-- well light -->
+  <polygon points="548,430 572,430 584,330 536,330" fill="url(#beam)"/>
+  <ellipse cx="560" cy="430" rx="16" ry="5" fill="#5b5b53"/>
+  <text x="560" y="318" text-anchor="middle" font-style="italic" font-size="12.5" fill="#7a6f54">in-grade well light</text>
+
+  <!-- labels -->
+  <g stroke="#5d7e69" stroke-width="1.1" fill="none">
+    <path d="M142 316 L690 200"/>
+    <path d="M240 452 L690 290"/>
+    <path d="M300 452 L300 470 L690 380"/>
+  </g>
+  <g fill="#5d7e69"><circle cx="142" cy="316" r="2.6"/><circle cx="240" cy="452" r="2.6"/><circle cx="300" cy="458" r="2.6"/></g>
+
+  <text x="698" y="195" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">01</text>
+  <text x="698" y="216" font-size="17" fill="#353535" font-weight="600">Transformer</text>
+  <text x="698" y="236" font-size="13.5" fill="#6b6b63">Steps 120V house power down</text>
+  <text x="698" y="254" font-size="13.5" fill="#6b6b63">to a safe 12–15V, on a timer.</text>
+
+  <text x="698" y="285" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">02</text>
+  <text x="698" y="306" font-size="17" fill="#353535" font-weight="600">Direct-burial cable</text>
+  <text x="698" y="326" font-size="13.5" fill="#6b6b63">Low-voltage cable, buried shallow</text>
+  <text x="698" y="344" font-size="13.5" fill="#6b6b63">along the run — no deep trenching.</text>
+
+  <text x="698" y="375" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">03</text>
+  <text x="698" y="396" font-size="17" fill="#353535" font-weight="600">Connectors + fixtures</text>
+  <text x="698" y="416" font-size="13.5" fill="#6b6b63">Sealed taps feed each fixture —</text>
+  <text x="698" y="434" font-size="13.5" fill="#6b6b63">path, up-, and well lights.</text>
+
+  <text x="70" y="640" font-size="12.5" fill="#9a9384">Typical layout. Fixture count, cable gauge, and transformer size are matched to the run so every light gets enough voltage.</text>
+</svg>

@@ -1,0 +1,104 @@
+<svg viewBox="0 0 980 680" xmlns="http://www.w3.org/2000/svg" font-family="'Onest', -apple-system, BlinkMacSystemFont, system-ui, sans-serif">
+  <defs>
+    <pattern id="soil" width="28" height="24" patternUnits="userSpaceOnUse">
+      <rect width="28" height="24" fill="#8c7a62"/>
+      <path d="M3 7 q3 -3 6 0" stroke="#71604a" stroke-width="1.2" fill="none" opacity="0.5"/>
+      <path d="M15 19 q2.5 -2.5 5 0" stroke="#71604a" stroke-width="1" fill="none" opacity="0.42"/>
+      <circle cx="19" cy="11" r="1.7" fill="#6c5b45" opacity="0.55"/><circle cx="7" cy="17" r="1.1" fill="#6c5b45" opacity="0.5"/>
+    </pattern>
+    <pattern id="aggregate" width="32" height="28" patternUnits="userSpaceOnUse">
+      <rect width="32" height="28" fill="#b0afa4"/>
+      <polygon points="6,5 12,7 10,13 4,11" fill="#959489" opacity="0.75"/>
+      <polygon points="21,4 27,6 26,12 20,11" fill="#8f8e83" opacity="0.6"/>
+      <polygon points="14,16 20,18 18,24 12,22" fill="#9b9a8f" opacity="0.7"/>
+      <polygon points="1,19 6,20 5,26 0,24" fill="#8f8e83" opacity="0.55"/>
+    </pattern>
+    <pattern id="sand" width="13" height="11" patternUnits="userSpaceOnUse">
+      <rect width="13" height="11" fill="#e6dabd"/>
+      <circle cx="2.5" cy="3" r="0.9" fill="#ccbb95"/><circle cx="8" cy="7" r="0.9" fill="#ccbb95"/><circle cx="11" cy="2" r="0.8" fill="#d4c6a4"/>
+    </pattern>
+    <pattern id="concrete" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="20" height="20" fill="#cdc8bb"/><line x1="0" y1="0" x2="0" y2="20" stroke="#b3ad9e" stroke-width="1" opacity="0.45"/>
+    </pattern>
+    <linearGradient id="paverTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfc4a8"/><stop offset="1" stop-color="#bcb094"/></linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9cad6"/><stop offset="1" stop-color="#79a4b3"/></linearGradient>
+  </defs>
+
+  <rect width="980" height="680" fill="#faf8f3"/>
+  <rect x="24" y="24" width="932" height="632" fill="none" stroke="#e3ddcd" stroke-width="1"/>
+
+  <text x="70" y="62" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="12.5" letter-spacing="3" fill="#5d7e69" font-weight="600">BAYSIDE · HOW WE BUILD IT</text>
+  <text x="69" y="100" font-family="'Playfair Display', Georgia, serif" font-size="33" fill="#353535" font-weight="600">Anatomy of a paver pool deck</text>
+  <line x1="70" y1="120" x2="470" y2="120" stroke="#d8d1bf" stroke-width="1.5"/>
+
+  <!-- inline callouts -->
+  <text x="112" y="144" text-anchor="middle" font-style="italic" font-size="13" fill="#7a6f54">bullnose coping</text>
+  <text x="408" y="144" text-anchor="middle" font-style="italic" font-size="13" fill="#7a6f54">deck drain</text>
+  <line x1="440" y1="146" x2="440" y2="156" stroke="#4a4a44" stroke-width="1" stroke-dasharray="2 2"/>
+
+  <!-- pool water + shell -->
+  <rect x="70" y="182" width="50" height="366" fill="url(#water)"/>
+  <path d="M76 188 q8 -4 16 0 t16 0" stroke="#cfe4ea" stroke-width="1.4" fill="none" opacity="0.8"/>
+  <path d="M76 198 q8 -4 16 0 t16 0" stroke="#cfe4ea" stroke-width="1.2" fill="none" opacity="0.6"/>
+  <rect x="120" y="150" width="12" height="398" fill="url(#concrete)"/>
+
+  <!-- deck stack (x132–470) -->
+  <rect x="132" y="388" width="338" height="160" fill="url(#soil)"/>
+  <rect x="132" y="378" width="338" height="10" fill="#7f8a6e"/>
+  <line x1="132" y1="383" x2="470" y2="383" stroke="#faf8f3" stroke-width="1" stroke-dasharray="7 5" opacity="0.85"/>
+  <rect x="132" y="228" width="338" height="150" fill="url(#aggregate)"/>
+  <rect x="132" y="198" width="338" height="30" fill="url(#sand)"/>
+  <rect x="132" y="150" width="338" height="48" fill="url(#paverTop)"/>
+  <line x1="176" y1="156" x2="460" y2="162" stroke="#ddd2b7" stroke-width="1.5"/>
+  <g stroke="#9c906f" stroke-width="3">
+    <line x1="215" y1="150" x2="215" y2="198"/><line x1="290" y1="150" x2="290" y2="198"/><line x1="365" y1="150" x2="365" y2="198"/>
+  </g>
+  <!-- slope arrow on surface -->
+  <g stroke="#5d7e69" stroke-width="1.6" fill="none"><path d="M210 170 L300 174 M294 170 L300 174 L294 178"/></g>
+
+  <!-- coping cap (bullnose, overhanging the water) -->
+  <path d="M64 166 Q64 150 80 150 L176 150 L176 180 L80 180 Q64 180 64 166 Z" fill="url(#paverTop)" stroke="#b3ad9e" stroke-width="1"/>
+  <line x1="80" y1="153" x2="172" y2="153" stroke="#ddd2b7" stroke-width="1.3"/>
+
+  <!-- deck drain slot + channel -->
+  <rect x="434" y="150" width="12" height="6" fill="#4a4a44"/>
+  <rect x="437" y="156" width="6" height="44" fill="#cfc6b2"/>
+
+  <rect x="132" y="150" width="338" height="398" fill="none" stroke="#cfc6b2" stroke-width="1.25"/>
+
+  <!-- leaders + labels -->
+  <g stroke="#5d7e69" stroke-width="1.1" fill="none">
+    <path d="M470 174 L504 174 L520 150"/><path d="M470 213 L504 213 L520 232"/>
+    <path d="M470 303 L504 303 L520 318"/><path d="M470 383 L504 383 L520 404"/>
+    <path d="M470 468 L504 468 L520 486"/>
+  </g>
+  <g fill="#5d7e69"><circle cx="470" cy="174" r="2.6"/><circle cx="470" cy="213" r="2.6"/><circle cx="470" cy="303" r="2.6"/><circle cx="470" cy="383" r="2.6"/><circle cx="470" cy="468" r="2.6"/></g>
+
+  <text x="528" y="145" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">01</text>
+  <text x="528" y="166" font-size="17" fill="#353535" font-weight="600">Deck pavers, pitched to drain</text>
+  <text x="528" y="186" font-size="13.5" fill="#6b6b63">Surface set on a slight slope away from the pool</text>
+  <text x="528" y="204" font-size="13.5" fill="#6b6b63">to a deck drain, so water never pools at the edge.</text>
+
+  <text x="528" y="227" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">02</text>
+  <text x="528" y="248" font-size="17" fill="#353535" font-weight="600">Bedding sand</text>
+  <text x="528" y="268" font-size="13.5" fill="#6b6b63">~1 in. coarse sand, screeded to hold the pitch</text>
+  <text x="528" y="286" font-size="13.5" fill="#6b6b63">evenly across the deck.</text>
+
+  <text x="528" y="313" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">03</text>
+  <text x="528" y="334" font-size="17" fill="#353535" font-weight="600">Compacted aggregate base</text>
+  <text x="528" y="354" font-size="13.5" fill="#6b6b63">Crushed road base, graded for drainage and</text>
+  <text x="528" y="372" font-size="13.5" fill="#6b6b63">stability around the pool shell.</text>
+
+  <text x="528" y="399" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">04</text>
+  <text x="528" y="420" font-size="17" fill="#353535" font-weight="600">Geotextile fabric</text>
+  <text x="528" y="440" font-size="13.5" fill="#6b6b63">Separation layer between base rock and the</text>
+  <text x="528" y="458" font-size="13.5" fill="#6b6b63">native soil.</text>
+
+  <text x="528" y="481" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">05</text>
+  <text x="528" y="502" font-size="17" fill="#353535" font-weight="600">Compacted subgrade</text>
+  <text x="528" y="522" font-size="13.5" fill="#6b6b63">Native soil graded and compacted as the</text>
+  <text x="528" y="540" font-size="13.5" fill="#6b6b63">foundation for the deck.</text>
+
+  <line x1="70" y1="616" x2="910" y2="616" stroke="#e3ddcd" stroke-width="1"/>
+  <text x="70" y="640" font-size="12.5" fill="#9a9384">Typical assembly. Depths, slope, and drain layout vary by site and local code — your project's engineered spec governs the final build.</text>
+</svg>

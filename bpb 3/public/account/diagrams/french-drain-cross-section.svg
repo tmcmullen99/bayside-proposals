@@ -1,0 +1,83 @@
+<svg viewBox="0 0 980 680" xmlns="http://www.w3.org/2000/svg" font-family="'Onest', -apple-system, BlinkMacSystemFont, system-ui, sans-serif">
+  <defs>
+    <pattern id="soil" width="28" height="24" patternUnits="userSpaceOnUse">
+      <rect width="28" height="24" fill="#8c7a62"/>
+      <path d="M3 7 q3 -3 6 0" stroke="#71604a" stroke-width="1.2" fill="none" opacity="0.5"/>
+      <path d="M15 19 q2.5 -2.5 5 0" stroke="#71604a" stroke-width="1" fill="none" opacity="0.42"/>
+      <circle cx="19" cy="11" r="1.7" fill="#6c5b45" opacity="0.55"/><circle cx="7" cy="17" r="1.1" fill="#6c5b45" opacity="0.5"/>
+    </pattern>
+    <pattern id="gravel" width="20" height="18" patternUnits="userSpaceOnUse">
+      <rect width="20" height="18" fill="#c5c5b8"/>
+      <circle cx="4" cy="5" r="3.2" fill="#aeae9f"/><circle cx="14" cy="8" r="3.6" fill="#b7b7a8"/>
+      <circle cx="8" cy="14" r="3.2" fill="#a9a99a"/><circle cx="18" cy="15" r="2.4" fill="#b7b7a8"/>
+    </pattern>
+  </defs>
+
+  <rect width="980" height="680" fill="#faf8f3"/>
+  <rect x="24" y="24" width="932" height="632" fill="none" stroke="#e3ddcd" stroke-width="1"/>
+
+  <text x="70" y="62" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="12.5" letter-spacing="3" fill="#5d7e69" font-weight="600">BAYSIDE · HOW WE BUILD IT</text>
+  <text x="69" y="100" font-family="'Playfair Display', Georgia, serif" font-size="33" fill="#353535" font-weight="600">Anatomy of a French drain</text>
+  <line x1="70" y1="120" x2="560" y2="120" stroke="#d8d1bf" stroke-width="1.5"/>
+
+  <!-- soil ground -->
+  <rect x="70" y="214" width="490" height="334" fill="url(#soil)"/>
+  <line x1="70" y1="214" x2="245" y2="214" stroke="#6f8f5a" stroke-width="2"/>
+  <line x1="355" y1="214" x2="560" y2="214" stroke="#6f8f5a" stroke-width="2"/>
+
+  <!-- surface inflow arrows -->
+  <g stroke="#5b8aa6" stroke-width="1.8" fill="none">
+    <path d="M170 196 L236 214 M232 207 L236 214 L228 213"/>
+    <path d="M450 196 L364 214 M368 213 L364 214 L370 207"/>
+  </g>
+
+  <!-- trench: fabric liner -->
+  <path d="M226 226 L245 214 L245 452 Q245 462 255 462 L345 462 Q355 462 355 452 L355 214 L374 226"
+        fill="none" stroke="#6f8f5a" stroke-width="2.4"/>
+  <!-- gravel fill -->
+  <path d="M247 230 L247 452 Q247 460 255 460 L345 460 Q353 460 353 452 L353 230 Q300 218 247 230 Z" fill="url(#gravel)"/>
+  <!-- fabric overlap wrap on top -->
+  <path d="M247 230 Q300 216 353 230" fill="none" stroke="#6f8f5a" stroke-width="2" stroke-dasharray="6 4"/>
+
+  <!-- percolation arrows -->
+  <g stroke="#5b8aa6" stroke-width="1.6" fill="none">
+    <path d="M285 250 L285 290 M281 284 L285 290 L289 284"/>
+    <path d="M318 258 L318 298 M314 292 L318 298 L322 292"/>
+  </g>
+
+  <!-- perforated pipe -->
+  <circle cx="300" cy="430" r="16" fill="#6f6f66" stroke="#4f4f47" stroke-width="1.5"/>
+  <g fill="#cdcdc4"><circle cx="292" cy="421" r="1.5"/><circle cx="300" cy="418" r="1.5"/><circle cx="308" cy="421" r="1.5"/></g>
+  <path d="M300 408 L300 420 M296 415 L300 420 L304 415" stroke="#5b8aa6" stroke-width="1.6" fill="none"/>
+
+  <!-- labels -->
+  <g stroke="#5d7e69" stroke-width="1.1" fill="none">
+    <path d="M353 244 L500 226 L600 166"/>
+    <path d="M330 330 L500 330 L600 250"/>
+    <path d="M316 430 L500 430 L600 350"/>
+    <path d="M150 300 L150 444 L600 444"/>
+  </g>
+  <g fill="#5d7e69"><circle cx="353" cy="244" r="2.6"/><circle cx="330" cy="330" r="2.6"/><circle cx="316" cy="430" r="2.6"/><circle cx="150" cy="300" r="2.6"/></g>
+
+  <text x="608" y="161" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">01</text>
+  <text x="608" y="182" font-size="17" fill="#353535" font-weight="600">Filter fabric, wrapped</text>
+  <text x="608" y="202" font-size="13.5" fill="#6b6b63">Lines the trench and folds over the top — lets</text>
+  <text x="608" y="220" font-size="13.5" fill="#6b6b63">water in, keeps silt and roots out.</text>
+
+  <text x="608" y="245" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">02</text>
+  <text x="608" y="266" font-size="17" fill="#353535" font-weight="600">Washed drainage rock</text>
+  <text x="608" y="286" font-size="13.5" fill="#6b6b63">Clean, angular gravel gives water a fast path</text>
+  <text x="608" y="304" font-size="13.5" fill="#6b6b63">down to the pipe with no fines to clog it.</text>
+
+  <text x="608" y="345" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">03</text>
+  <text x="608" y="366" font-size="17" fill="#353535" font-weight="600">Perforated collector pipe</text>
+  <text x="608" y="386" font-size="13.5" fill="#6b6b63">Slots up, bedded in the gravel, pitched at least</text>
+  <text x="608" y="404" font-size="13.5" fill="#6b6b63">~1% so collected water runs to a daylight outlet.</text>
+
+  <text x="608" y="439" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="1.5" fill="#5d7e69">04</text>
+  <text x="608" y="460" font-size="17" fill="#353535" font-weight="600">Graded surrounding soil</text>
+  <text x="608" y="480" font-size="13.5" fill="#6b6b63">The yard is shaped to fall toward the trench so</text>
+  <text x="608" y="498" font-size="13.5" fill="#6b6b63">surface water finds it instead of the foundation.</text>
+
+  <text x="70" y="640" font-size="12.5" fill="#9a9384">Typical assembly. Trench depth, pipe size, and outlet location are set by site grading and flow — your project's drainage plan governs the build.</text>
+</svg>
