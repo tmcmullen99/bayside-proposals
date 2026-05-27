@@ -297,7 +297,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // ─── CONFIG ──────────────────────────────────────────────────────────
 // 👉 Paste your Supabase anon key (Dashboard → Settings → API → anon public)
 const SUPABASE_URL      = 'https://gfgbypcnxkschnfsitfb.supabase.co';
-const SUPABASE_ANON_KEY = 'PASTE_ANON_KEY_HERE';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZ2J5cGNueGtzY2huZnNpdGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MTkzMTUsImV4cCI6MjA5MjI5NTMxNX0.EAwmiNR5OWcaI8Sr36MVn7FuMhYoZvfngse7y0ZOgvA';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
