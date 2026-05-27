@@ -1,54 +1,733 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin · Bayside Proposal Builder</title>
-  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/admin/admin-shell.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Bayside Pavers</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#fafaf9; --surface:#fff; --surface-alt:#f5f5f4; --surface-hover:#fafaf9;
+    --border:#e7e5e4; --border-strong:#d6d3d1;
+    --text:#1c1917; --muted:#78716c; --muted-2:#a8a29e;
+    --accent:#16a34a; --accent-fg:#fff;
+    --hot:#dc2626; --hot-bg:#fef2f2; --hot-border:#fecaca;
+    --warm:#ea580c; --warm-bg:#fff7ed; --warm-border:#fed7aa;
+    --cool:#2563eb; --cool-bg:#eff6ff;
+    --good:#16a34a; --good-bg:#dcfce7;
+    --warn:#ca8a04; --warn-bg:#fef9c3;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.04);
+    --shadow:0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.06);
+    --shadow-md:0 4px 6px -1px rgba(0,0,0,.08),0 2px 4px -2px rgba(0,0,0,.06);
+    --shadow-lg:0 10px 25px -3px rgba(0,0,0,.10),0 4px 6px -4px rgba(0,0,0,.05);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font:14px/1.5 'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font:inherit;cursor:pointer;color:inherit;background:none;border:0}
+  input,select{font:inherit;color:inherit}
+  .hidden{display:none!important}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* Topbar */
+  #topbar{position:sticky;top:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:14px}
+  #topbar .brand{font-weight:700;font-size:15px;letter-spacing:-.01em}
+  #topbar .org{color:var(--muted);font-weight:500;font-size:13px}
+  #topbar .spacer{flex:1}
+  #topbar .icon-btn{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-weight:500;color:var(--muted);background:var(--surface);transition:all .1s}
+  #topbar .icon-btn:hover{border-color:var(--border-strong);color:var(--text)}
+  #topbar .user{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500}
+  #topbar .avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-weight:600;font-size:12px}
+  #topbar .pulse{width:6px;height:6px;border-radius:50%;background:var(--good);box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+
+  /* KPI strip */
+  #kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+  .kpi{background:var(--surface);padding:16px 20px}
+  .kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .kpi-value{font-size:24px;font-weight:700;margin-top:4px;letter-spacing:-.02em}
+  .kpi.hot .kpi-value{color:var(--hot)}
+  .kpi.warn .kpi-value{color:var(--warn)}
+  .kpi.good .kpi-value{color:var(--good)}
+
+  /* Tabs */
+  nav#tabs{display:flex;gap:4px;padding:8px 24px 0;border-bottom:1px solid var(--border);background:var(--surface)}
+  nav#tabs button{padding:10px 14px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+  nav#tabs button:hover{color:var(--text)}
+  nav#tabs button.active{color:var(--text);border-bottom-color:var(--text)}
+
+  /* Views */
+  .view{padding:18px 24px 80px;max-width:1500px;margin:0 auto}
+  .view-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .view-title{font-size:17px;font-weight:700;letter-spacing:-.01em}
+  .view-actions{display:flex;gap:8px}
+  .view-actions button{padding:6px 11px;font-size:12px;font-weight:500;border:1px solid var(--border);border-radius:6px;color:var(--muted);background:var(--surface);transition:all .1s}
+  .view-actions button:hover{border-color:var(--border-strong);color:var(--text)}
+  .view-actions button.on{color:var(--text);border-color:var(--border-strong);background:var(--surface-alt)}
+
+  /* Deal cards */
+  .deals-grid{display:grid;gap:8px}
+  .deal-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:60px 1fr auto;gap:14px;align-items:center;cursor:pointer;transition:border-color .12s,box-shadow .12s,transform .12s}
+  .deal-card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md)}
+  .score-chip{width:60px;height:60px;border-radius:12px;display:grid;place-items:center;font-size:20px;font-weight:700;background:var(--surface-alt);color:var(--muted-2);border:1px solid var(--border);letter-spacing:-.02em}
+  .score-chip.hot{background:var(--hot-bg);color:var(--hot);border-color:var(--hot-border)}
+  .score-chip.warm{background:var(--warm-bg);color:var(--warm);border-color:var(--warm-border)}
+  .score-chip .label{font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:inherit;opacity:.8}
+
+  .deal-body{min-width:0}
+  .deal-name-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .deal-name{font-weight:600;font-size:15px;letter-spacing:-.01em}
+  .deal-address{color:var(--muted);font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .deal-signal{margin-top:8px;font-size:12px;color:var(--text);display:inline-block;background:var(--surface-alt);padding:4px 9px;border-radius:6px;font-weight:500}
+
+  .deal-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap}
+  .deal-amount{font-size:17px;font-weight:700;letter-spacing:-.01em}
+  .deal-owner{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .deal-owner .dot{width:6px;height:6px;background:var(--accent);border-radius:50%}
+  .deal-when{font-size:11px;color:var(--muted-2)}
+
+  .pill{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:3px 8px;border-radius:999px}
+  .pill.draft{background:var(--surface-alt);color:var(--muted)}
+  .pill.sent{background:var(--warn-bg);color:#713f12}
+  .pill.viewed{background:var(--cool-bg);color:#1e3a8a}
+  .pill.signed{background:var(--good-bg);color:#14532d}
+  .pill.archived{background:var(--surface-alt);color:var(--muted-2)}
+  .pill.warn{background:var(--warn-bg);color:#713f12}
+  .pill.hot{background:var(--hot-bg);color:var(--hot)}
+  .pill.cool{background:var(--cool-bg);color:#1e3a8a}
+
+  .empty-state{text-align:center;padding:60px 16px;color:var(--muted);font-size:14px}
+  .loading{text-align:center;padding:40px 16px;color:var(--muted);font-size:13px}
+
+  /* Drill-in pane */
+  #drill-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:99;opacity:0;transition:opacity .15s;pointer-events:none}
+  #drill-backdrop.show{opacity:1;pointer-events:auto}
+  #drill{position:fixed;top:0;right:0;bottom:0;width:100%;max-width:760px;background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow-lg);overflow-y:auto;z-index:100;transform:translateX(100%);transition:transform .22s ease-out}
+  #drill.open{transform:translateX(0)}
+  .drill-header{position:sticky;top:0;z-index:1;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:12px}
+  .drill-header h2{font-size:16px;font-weight:700;flex:1;letter-spacing:-.01em}
+  .drill-close{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;display:grid;place-items:center;font-size:18px;color:var(--muted);background:var(--surface)}
+  .drill-close:hover{color:var(--text);border-color:var(--border-strong)}
+  .drill-body{padding:18px 22px}
+  .drill-section{margin-bottom:24px}
+  .drill-section h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:10px}
+
+  .drill-summary{font-size:14px;line-height:1.5}
+  .drill-summary .addr{font-size:15px;font-weight:500}
+  .drill-summary .meta{margin-top:6px;color:var(--muted);font-size:13px}
+  .drill-summary .total{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+
+  .score-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .score-row{background:var(--surface-alt);padding:10px 12px;border-radius:7px}
+  .score-row-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .score-row-value{font-size:18px;font-weight:700;margin-top:2px;letter-spacing:-.02em}
+  .score-row-bar{height:4px;background:var(--border);border-radius:999px;margin-top:7px;overflow:hidden}
+  .score-row-bar > span{display:block;height:100%;background:var(--accent);transition:width .3s}
+  .score-meta{margin-top:10px;color:var(--muted);font-size:12px}
+
+  .timeline{padding-left:24px;position:relative}
+  .timeline::before{content:'';position:absolute;left:6px;top:8px;bottom:8px;width:1px;background:var(--border)}
+  .timeline-item{position:relative;margin-bottom:14px;font-size:13px}
+  .timeline-item::before{content:'';position:absolute;left:-22px;top:4px;width:11px;height:11px;border-radius:50%;background:var(--surface);border:2px solid var(--border)}
+  .timeline-item.done::before{background:var(--accent);border-color:var(--accent)}
+  .timeline-item .label{font-weight:500}
+  .timeline-item .when{color:var(--muted);font-size:11px;margin-top:1px}
+
+  .help-list{list-style:none}
+  .help-list li{background:var(--good-bg);border:1px solid #a7f3d0;border-radius:7px;padding:10px 12px;margin-bottom:6px;font-size:13px;color:#064e3b;line-height:1.4}
+  .help-list li.warn{background:var(--warn-bg);border-color:#fde047;color:#713f12}
+  .help-list li.hot{background:var(--hot-bg);border-color:var(--hot-border);color:#7f1d1d}
+
+  .intent-card{background:var(--surface-alt);border-left:3px solid var(--hot);padding:10px 12px;border-radius:0 7px 7px 0;margin-bottom:6px}
+  .msg-card{border-left:3px solid var(--accent);padding:8px 12px;margin-bottom:6px;background:var(--surface-alt);border-radius:0 7px 7px 0}
+  .msg-card.homeowner{border-left-color:var(--cool)}
+  .msg-card .who{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .msg-card .body{font-size:13px;margin-top:4px;line-height:1.4}
+
+  .events-list{max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:7px}
+  .event-row{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .event-row:last-child{border-bottom:none}
+  .event-row .type{font-weight:500}
+  .event-row .when{color:var(--muted);font-size:11px}
+
+  /* Team view */
+  .team-grid{display:grid;gap:8px;margin-bottom:24px}
+  .member-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px}
+  .member-card .avatar{width:38px;height:38px;background:var(--accent);color:var(--accent-fg);border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:14px}
+  .member-card.inactive .avatar{background:var(--muted-2)}
+  .member-card .who{flex:1;min-width:0}
+  .member-card .name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+  .member-card .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .role-pill{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 8px;border-radius:999px;background:var(--surface-alt);color:var(--muted)}
+  .role-pill.master{background:#fef3c7;color:#78350f}
+  .role-pill.designer{background:#e0e7ff;color:#312e81}
+  .role-pill.pending{background:var(--warn-bg);color:#713f12}
+  .member-card.inactive{opacity:.55}
+  .member-stats{display:flex;gap:18px;font-size:12px;margin-left:8px}
+  .member-stats .stat{text-align:right}
+  .member-stats .v{font-size:18px;font-weight:700;letter-spacing:-.02em;display:block;line-height:1}
+  .member-stats .l{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-top:2px}
+
+  .add-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px}
+  .add-card h3{font-size:14px;font-weight:700;margin-bottom:14px;letter-spacing:-.01em}
+  .form-row{display:grid;grid-template-columns:1fr 1fr 120px auto;gap:10px;align-items:end}
+  .form-row > div label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:5px}
+  .form-row input,.form-row select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface);transition:border-color .1s}
+  .form-row input:focus,.form-row select:focus{outline:none;border-color:var(--text)}
+  .form-row .submit{padding:10px 16px;background:var(--text);color:var(--accent-fg);border-radius:6px;font-size:13px;font-weight:600;height:38px;transition:opacity .1s}
+  .form-row .submit:hover:not(:disabled){opacity:.85}
+  .form-row .submit:disabled{opacity:.4;cursor:not-allowed}
+  .form-msg{margin-top:10px;font-size:12px;font-weight:500}
+  .form-msg.err{color:var(--hot)}
+  .form-msg.ok{color:var(--good)}
+
+  /* Login */
+  #login-overlay{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:200;padding:20px}
+  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px;width:100%;max-width:380px;box-shadow:var(--shadow-lg)}
+  .login-card h2{font-size:20px;letter-spacing:-.02em}
+  .login-card .sub{color:var(--muted);font-size:13px;margin-top:4px;margin-bottom:22px}
+  .login-card .field{margin-bottom:12px}
+  .login-card label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted);margin-bottom:5px}
+  .login-card input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:7px;font-size:14px;transition:border-color .1s}
+  .login-card input:focus{outline:none;border-color:var(--text)}
+  .login-card .primary{width:100%;padding:11px;background:var(--text);color:var(--accent-fg);border-radius:7px;font-size:14px;font-weight:600;margin-top:6px;transition:opacity .1s}
+  .login-card .primary:hover:not(:disabled){opacity:.85}
+  .login-card .primary:disabled{opacity:.4;cursor:not-allowed}
+  .login-card .secondary{display:block;margin-top:14px;text-align:center;font-size:12px;color:var(--muted);background:none;border:none;width:100%;font-weight:500}
+  .login-card .secondary:hover{color:var(--text);text-decoration:underline}
+  .login-card .msg{margin-top:10px;font-size:12px;text-align:center}
+  .login-card .msg.err{color:var(--hot)}
+  .login-card .msg.ok{color:var(--good)}
+
+  /* Mobile */
+  @media (max-width:780px){
+    #kpis{grid-template-columns:repeat(2,1fr)}
+    .kpi{padding:12px 14px}
+    .kpi-value{font-size:20px}
+    .view{padding:14px 14px 80px}
+    .deal-card{grid-template-columns:46px 1fr;gap:12px;padding:12px}
+    .deal-card .deal-side{grid-column:1/-1;flex-direction:row;justify-content:space-between;align-items:center;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)}
+    .score-chip{width:46px;height:46px;font-size:15px;border-radius:10px}
+    .form-row{grid-template-columns:1fr}
+    .member-stats{display:none}
+    #topbar{padding:10px 14px;gap:10px;flex-wrap:wrap}
+    #topbar .org{display:none}
+  }
+</style>
 </head>
 <body>
 
-<!-- Top bar: Bayside lockup left, role badge + sign out right -->
-<header class="ash-topbar">
-  <div class="ash-topbar-inner">
-    <a href="/admin/" class="ash-brand">
-      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
-      <span class="ash-brand-divider">/</span>
-      <span class="ash-brand-section">Admin</span>
-    </a>
-    <div class="ash-topbar-right">
-      <span class="ash-role-badge" id="ashRoleBadge">…</span>
-      <span class="ash-user-email" id="ashUserEmail"></span>
-      <a class="ash-link-back" href="/dashboard">← Editor</a>
-      <button class="ash-signout" id="ashSignOutBtn" type="button">Sign out</button>
-    </div>
+<header id="topbar" class="hidden">
+  <div class="brand">Admin</div>
+  <span class="org" id="org-name">Bayside Pavers</span>
+  <span class="pulse" title="Live"></span>
+  <span class="spacer"></span>
+  <button class="icon-btn" id="refresh-btn" title="Refresh now">↻ Refresh</button>
+  <div class="user">
+    <span class="avatar" id="user-avatar">·</span>
+    <span id="user-name">…</span>
   </div>
+  <button class="icon-btn" id="signout-btn">Sign out</button>
 </header>
 
-<!-- Tab strip: rendered by admin-shell.js based on TABS registry + role -->
-<nav class="ash-tabs" id="ashTabs" aria-label="Admin sections">
-  <!-- populated by JS -->
+<section id="kpis" class="hidden">
+  <div class="kpi hot"><div class="kpi-label">🔥 Hot</div><div class="kpi-value" id="kpi-hot">—</div></div>
+  <div class="kpi"><div class="kpi-label">Engaged 24h</div><div class="kpi-value" id="kpi-engaged">—</div></div>
+  <div class="kpi warn"><div class="kpi-label">⚠ Stalled</div><div class="kpi-value" id="kpi-stalled">—</div></div>
+  <div class="kpi good"><div class="kpi-label">💰 Signed (wk)</div><div class="kpi-value" id="kpi-signed">—</div></div>
+  <div class="kpi"><div class="kpi-label">📊 Open pipeline</div><div class="kpi-value" id="kpi-pipeline">—</div></div>
+</section>
+
+<nav id="tabs" class="hidden">
+  <button data-view="feed" class="active">Deals</button>
+  <button data-view="team">Team</button>
 </nav>
 
-<main class="ash-shell">
-  <!-- Default landing view: tile grid of every tool the current user can access.
-       Hidden when JS detects we're rendering as the chrome of another page;
-       individual admin pages will swap their content into <main> directly. -->
-  <div id="ashLanding">
-    <div class="ash-intro">
-      <div class="ash-eyebrow" id="ashIntroEyebrow">Admin home</div>
-      <h1 class="ash-title" id="ashIntroTitle">Loading…</h1>
-      <p class="ash-lede" id="ashIntroLede"></p>
-    </div>
-
-    <div class="ash-tile-groups" id="ashTileGroups">
-      <!-- populated by JS -->
+<section id="view-feed" class="view hidden">
+  <div class="view-header">
+    <div class="view-title">Live deal feed</div>
+    <div class="view-actions">
+      <button id="toggle-archived">Show archived</button>
     </div>
   </div>
-</main>
+  <div class="deals-grid" id="deals-grid"><div class="loading">Loading deals…</div></div>
+</section>
 
-<script type="module" src="/admin/admin-shell.js"></script>
+<section id="view-team" class="view hidden">
+  <div class="view-header"><div class="view-title">Team</div></div>
+  <div class="team-grid" id="team-grid"></div>
+  <div class="add-card">
+    <h3>Add a salesperson</h3>
+    <div class="form-row">
+      <div><label for="add-name">Name</label><input id="add-name" placeholder="Jorge Martinez"></div>
+      <div><label for="add-email">Email</label><input id="add-email" type="email" placeholder="jorge@baysidepavers.com"></div>
+      <div><label for="add-role">Role</label><select id="add-role"><option value="designer">Designer</option><option value="master">Admin</option></select></div>
+      <div><button class="submit" id="add-btn">Add</button></div>
+    </div>
+    <div class="form-msg" id="add-msg"></div>
+    <div id="pending-block"></div>
+  </div>
+</section>
 
+<div id="drill-backdrop"></div>
+<aside id="drill" class="hidden">
+  <div class="drill-header">
+    <h2 id="drill-title">…</h2>
+    <button class="drill-close" id="drill-close">×</button>
+  </div>
+  <div class="drill-body" id="drill-body"></div>
+</aside>
+
+<div id="login-overlay">
+  <div class="login-card">
+    <h2>Bayside Pavers</h2>
+    <p class="sub">Admin sign-in</p>
+    <div class="field"><label>Email</label><input id="login-email" type="email" autocomplete="email"></div>
+    <div class="field"><label>Password</label><input id="login-password" type="password" autocomplete="current-password"></div>
+    <button class="primary" id="login-btn">Sign in</button>
+    <button class="secondary" id="magic-btn">Email me a sign-in link instead</button>
+    <div class="msg" id="login-msg"></div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// ─── CONFIG ──────────────────────────────────────────────────────────
+// 👉 Paste your Supabase anon key (Dashboard → Settings → API → anon public)
+const SUPABASE_URL      = 'https://gfgbypcnxkschnfsitfb.supabase.co';
+const SUPABASE_ANON_KEY = 'PASTE_ANON_KEY_HERE';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
+});
+
+// ─── DOM + utilities ────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const $$ = sel => document.querySelectorAll(sel);
+
+const escHTML = s => s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt$ = n => n == null ? '—' : '$' + Number(n).toLocaleString('en-US',{maximumFractionDigits:0});
+const initials = name => { if(!name) return '?'; const p = String(name).trim().split(/\s+/); return ((p[0]?.[0]||'') + (p[1]?.[0]||'')).toUpperCase() || '?'; };
+const fmtTime = iso => {
+  if (!iso) return '—';
+  const d = new Date(iso), now = new Date(), diffMin = (now - d)/60000;
+  if (diffMin < 1)   return 'just now';
+  if (diffMin < 60)  return Math.round(diffMin) + 'm ago';
+  if (diffMin < 1440) return Math.round(diffMin/60) + 'h ago';
+  const days = Math.round(diffMin/1440);
+  if (days < 7) return days + 'd ago';
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+};
+const fmtDate = iso => iso ? new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
+const scoreClass = s => (s ?? 0) >= 20 ? 'hot' : (s ?? 0) >= 10 ? 'warm' : '';
+const daysSince = iso => iso ? (Date.now() - new Date(iso).getTime()) / 86400000 : null;
+const hoursSince = iso => iso ? (Date.now() - new Date(iso).getTime()) / 3600000 : null;
+
+// ─── State ──────────────────────────────────────────────────────────
+let self = null;
+let showArchived = false;
+let refreshTimer = null;
+
+// ─── Auth & boot ────────────────────────────────────────────────────
+async function init() {
+  const { data:{ session } } = await supabase.auth.getSession();
+  if (!session) return showLogin();
+  await loadSelf();
+}
+
+function showLogin() {
+  $('login-overlay').classList.remove('hidden');
+  ['topbar','kpis','tabs','view-feed','view-team'].forEach(id => $(id).classList.add('hidden'));
+}
+
+async function loadSelf() {
+  const { data, error } = await supabase.rpc('get_admin_self');
+  if (error || !data || data.error) {
+    setLoginMsg(data?.error === 'forbidden' ? 'Access denied. Admin role required.' : (error?.message || 'Could not load profile.'), 'err');
+    await supabase.auth.signOut();
+    showLogin();
+    return;
+  }
+  self = data;
+  $('login-overlay').classList.add('hidden');
+  $('topbar').classList.remove('hidden');
+  $('kpis').classList.remove('hidden');
+  $('tabs').classList.remove('hidden');
+  $('view-feed').classList.remove('hidden');
+  $('user-name').textContent = self.display_name || self.email;
+  $('user-avatar').textContent = initials(self.display_name || self.email);
+  await refreshAll();
+  refreshTimer = setInterval(refreshAll, 30000);
+}
+
+function setLoginMsg(text, kind) {
+  const el = $('login-msg');
+  el.textContent = text || '';
+  el.className = 'msg' + (kind ? ' ' + kind : '');
+}
+
+$('login-btn').addEventListener('click', async () => {
+  const email = $('login-email').value.trim();
+  const password = $('login-password').value;
+  if (!email || !password) return setLoginMsg('Email and password required.', 'err');
+  setLoginMsg('Signing in…');
+  $('login-btn').disabled = true;
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  $('login-btn').disabled = false;
+  if (error) return setLoginMsg(error.message, 'err');
+  await loadSelf();
+});
+
+$('magic-btn').addEventListener('click', async () => {
+  const email = $('login-email').value.trim();
+  if (!email) return setLoginMsg('Enter your email first.', 'err');
+  setLoginMsg('Sending sign-in link…');
+  const { error } = await supabase.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.href } });
+  if (error) return setLoginMsg(error.message, 'err');
+  setLoginMsg('Check your email — click the link to sign in.', 'ok');
+});
+
+$('signout-btn').addEventListener('click', async () => {
+  if (refreshTimer) clearInterval(refreshTimer);
+  await supabase.auth.signOut();
+  location.reload();
+});
+
+// ─── KPIs ───────────────────────────────────────────────────────────
+async function loadKpis() {
+  const { data } = await supabase.rpc('get_admin_kpis');
+  if (!data || data.error) return;
+  $('kpi-hot').textContent      = data.hot_count ?? '—';
+  $('kpi-engaged').textContent  = data.engaged_24h ?? '—';
+  $('kpi-stalled').textContent  = data.stalled_count ?? '—';
+  $('kpi-signed').textContent   = data.signed_this_week ?? '—';
+  $('kpi-pipeline').textContent = fmt$(data.open_pipeline);
+}
+
+// ─── Deals feed ─────────────────────────────────────────────────────
+async function loadFeed() {
+  const { data, error } = await supabase.rpc('get_admin_deals_feed', { p_include_archived: showArchived });
+  const grid = $('deals-grid');
+  if (error) { grid.innerHTML = `<div class="empty-state">Couldn't load deals: ${escHTML(error.message)}</div>`; return; }
+  const deals = Array.isArray(data) ? data : [];
+  if (deals.length === 0) {
+    grid.innerHTML = '<div class="empty-state">No active deals. Add a lead and watch the feed light up.</div>';
+    return;
+  }
+  grid.innerHTML = deals.map(renderDealCard).join('');
+  grid.querySelectorAll('.deal-card').forEach(el => {
+    el.addEventListener('click', () => openDrill(el.dataset.pid, el.dataset.name));
+  });
+}
+
+function renderDealCard(d) {
+  const score = d.hot_score ?? 0;
+  const stage = d.stage || 'draft';
+  const signal = d.top_signal || (d.events_24h > 0 ? `${d.events_24h} event${d.events_24h===1?'':'s'} in 24h` : null);
+  const when = d.last_viewed_at ? `Viewed ${fmtTime(d.last_viewed_at)}`
+            : d.sent_at        ? `Sent ${fmtTime(d.sent_at)}`
+            :                    `Updated ${fmtTime(d.updated_at)}`;
+  const pills = [
+    `<span class="pill ${stage}">${stage}</span>`,
+    d.has_signing_intent ? `<span class="pill hot">✍ Sign intent</span>` : '',
+    d.nurture_phase === 'cooling' ? `<span class="pill warn">❄ Cooling</span>` : '',
+    d.nurture_phase === 'design_in_progress' ? `<span class="pill cool">✎ Design in progress</span>` : ''
+  ].filter(Boolean).join(' ');
+
+  return `
+    <div class="deal-card" data-pid="${escHTML(d.proposal_id)}" data-name="${escHTML(d.client_name)}">
+      <div class="score-chip ${scoreClass(score)}">${score}</div>
+      <div class="deal-body">
+        <div class="deal-name-row">
+          <span class="deal-name">${escHTML(d.client_name)}</span>
+          ${pills}
+        </div>
+        <div class="deal-address">${escHTML(d.project_address || d.client_address || '')}</div>
+        ${signal ? `<div class="deal-signal">${escHTML(signal)}</div>` : ''}
+      </div>
+      <div class="deal-side">
+        <div class="deal-amount">${fmt$(d.total_amount)}</div>
+        <div class="deal-owner"><span class="dot"></span>${escHTML(d.owner_name || '—')}</div>
+        <div class="deal-when">${when}</div>
+      </div>
+    </div>
+  `;
+}
+
+// ─── Drill-in ───────────────────────────────────────────────────────
+async function openDrill(proposalId, name) {
+  $('drill').classList.remove('hidden');
+  $('drill-backdrop').classList.add('show');
+  requestAnimationFrame(() => $('drill').classList.add('open'));
+  $('drill-title').textContent = name || 'Loading…';
+  $('drill-body').innerHTML = '<div class="loading">Loading deal…</div>';
+
+  const { data, error } = await supabase.rpc('get_admin_deal_detail', { p_proposal_id: proposalId });
+  if (error || !data || data.error) {
+    $('drill-body').innerHTML = `<div class="empty-state">Couldn't load deal${error ? ': ' + escHTML(error.message) : ''}.</div>`;
+    return;
+  }
+  $('drill-body').innerHTML = renderDrillBody(data);
+}
+
+function renderDrillBody(data) {
+  const deal = data.deal || {};
+  const score = data.score || {};
+  const events = data.recent_events || [];
+  const intents = data.signing_intents || [];
+  const msgs = data.recent_messages || [];
+
+  const stages = [
+    { label:'Proposal sent',  when: deal.sent_at,        done: !!deal.sent_at },
+    { label:'First viewed',   when: deal.first_viewed_at, done: !!deal.first_viewed_at },
+    { label:'Sign clicked',   when: intents[0]?.clicked_at, done: intents.length > 0 },
+    { label:'Signed',         when: deal.signed_at,      done: !!deal.signed_at }
+  ];
+
+  const suggestions = computeSuggestions(deal, score, intents);
+
+  const summary = `
+    <div class="drill-section">
+      <h3>Summary</h3>
+      <div class="drill-summary">
+        <div class="addr">${escHTML(deal.project_address || '')}</div>
+        <div class="total">${fmt$(deal.total_amount)}</div>
+        <div class="meta">Owned by <strong>${escHTML(deal.owner_name || '—')}</strong></div>
+        <div style="margin-top:8px;">
+          <span class="pill ${deal.stage || 'draft'}">${escHTML(deal.stage || 'draft')}</span>
+          ${deal.nurture_phase === 'cooling' ? '<span class="pill warn" style="margin-left:6px;">❄ Cooling</span>' : ''}
+          ${deal.nurture_phase === 'design_in_progress' ? '<span class="pill cool" style="margin-left:6px;">✎ Design in progress</span>' : ''}
+          ${deal.has_used_free_revision ? '<span class="pill" style="margin-left:6px;">Free revision used</span>' : ''}
+        </div>
+      </div>
+    </div>`;
+
+  const scoreSection = score.hot_score != null ? `
+    <div class="drill-section">
+      <h3>Engagement · ${score.hot_score} &nbsp; <span style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;">${escHTML(score.top_signal || '')}</span></h3>
+      <div class="score-grid">
+        ${scoreBar('Engagement', score.engagement_score)}
+        ${scoreBar('Recency',    score.recency_score)}
+        ${scoreBar('Urgency',    score.urgency_score)}
+        ${scoreBar('Intent',     score.intent_score)}
+      </div>
+      <div class="score-meta">${score.events_24h ?? 0} events 24h · ${score.events_7d ?? 0} 7d · ${score.distinct_sessions ?? 0} sessions · scored ${fmtTime(score.computed_at)}</div>
+    </div>` : '';
+
+  const timeline = `
+    <div class="drill-section">
+      <h3>Deal timeline</h3>
+      <div class="timeline">
+        ${stages.map(s => `
+          <div class="timeline-item ${s.done ? 'done' : ''}">
+            <div class="label">${s.label}</div>
+            <div class="when">${s.when ? fmtDate(s.when) : (s.done ? '' : '(not yet)')}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  const help = suggestions.length ? `
+    <div class="drill-section">
+      <h3>💡 How you can help close this</h3>
+      <ul class="help-list">
+        ${suggestions.map(s => `<li class="${s.tier || ''}">${escHTML(s.text)}</li>`).join('')}
+      </ul>
+    </div>` : '';
+
+  const intentsSection = intents.length ? `
+    <div class="drill-section">
+      <h3>Signing intents (${intents.length})</h3>
+      ${intents.slice(0,5).map(i => `
+        <div class="intent-card">
+          <div style="font-size:13px;"><strong>${escHTML(i.viewer_name || 'anonymous')}</strong> clicked sign — <em>${escHTML(i.status || '')}</em></div>
+          ${i.viewer_message ? `<div style="margin-top:4px;font-size:12px;color:var(--muted);">"${escHTML(i.viewer_message)}"</div>` : ''}
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">${fmtDate(i.clicked_at)}</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  const msgSection = msgs.length ? `
+    <div class="drill-section">
+      <h3>Recent messages</h3>
+      ${msgs.slice(0,5).map(m => `
+        <div class="msg-card ${m.sender_role === 'homeowner' ? 'homeowner' : ''}">
+          <div class="who">${escHTML(m.sender_role || 'unknown')} · ${fmtDate(m.created_at)}</div>
+          <div class="body">${escHTML(m.body || '')}</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  const eventsSection = `
+    <div class="drill-section">
+      <h3>Activity (latest ${events.length})</h3>
+      ${events.length === 0 ? '<div style="color:var(--muted);font-size:13px;">No events recorded yet.</div>' :
+        `<div class="events-list">${events.map(e => `
+          <div class="event-row">
+            <span class="type">${escHTML(e.event_type)}</span>
+            <span class="when">${fmtTime(e.occurred_at)}</span>
+          </div>`).join('')}</div>`}
+    </div>`;
+
+  const links = deal.proposal_slug ? `
+    <div class="drill-section">
+      <a href="/p/${escHTML(deal.proposal_slug)}" target="_blank" rel="noopener">↗ Open homeowner-facing proposal</a>
+    </div>` : '';
+
+  return summary + scoreSection + help + timeline + intentsSection + msgSection + eventsSection + links;
+}
+
+function scoreBar(label, val) {
+  const v = Number.isFinite(val) ? val : 0;
+  const pct = Math.max(0, Math.min(100, v));
+  return `
+    <div class="score-row">
+      <div class="score-row-label">${label}</div>
+      <div class="score-row-value">${v}</div>
+      <div class="score-row-bar"><span style="width:${pct}%"></span></div>
+    </div>`;
+}
+
+function computeSuggestions(deal, score, intents) {
+  const out = [];
+  if (intents && intents.length > 0) {
+    out.push({ tier:'hot', text:`They clicked Sign and didn't finish — call now to close (${intents.length} click${intents.length>1?'s':''}).` });
+  }
+  if (deal.stage === 'draft') {
+    const age = daysSince(deal.updated_at);
+    if (age != null && age > 1) out.push({ tier:'warn', text:`Draft is ${Math.round(age)} day${Math.round(age)===1?'':'s'} old — send it.` });
+    else out.push({ text:'Send the proposal when it\'s ready.' });
+  }
+  if (deal.stage === 'sent' && !deal.first_viewed_at) {
+    const sentDays = daysSince(deal.sent_at);
+    if (sentDays != null && sentDays >= 2) out.push({ tier:'warn', text:`Sent ${Math.round(sentDays)} days ago, never opened. Friendly nudge time.` });
+  }
+  if (deal.stage === 'viewed' && deal.last_viewed_at) {
+    const lastViewHours = hoursSince(deal.last_viewed_at);
+    if (lastViewHours != null && lastViewHours < 1) {
+      out.push({ tier:'hot', text:'Active in the proposal right now — perfect time to call.' });
+    } else if (lastViewHours != null && lastViewHours > 24*5) {
+      out.push({ tier:'warn', text:`No views in ${Math.round(lastViewHours/24)} days — re-engage with a loom or photo update.` });
+    }
+  }
+  if (deal.stage === 'viewed' && score?.engagement_score >= 50 && !deal.has_used_free_revision) {
+    out.push({ text:'Engagement is high and free revision unused — offer it to lower the close threshold.' });
+  }
+  if (deal.nurture_phase === 'cooling' && !deal.signed_at && !deal.archived_at) {
+    out.push({ tier:'warn', text:'In cooling phase — schedule a check-in call or send refreshed visuals.' });
+  }
+  if (deal.signed_at) {
+    out.push({ text:'🎉 Signed — kick off construction prep and send the welcome / next-steps package.' });
+  }
+  if (out.length === 0) {
+    out.push({ text:'No specific action needed. Keep an eye on the engagement score.' });
+  }
+  return out;
+}
+
+function closeDrill() {
+  $('drill').classList.remove('open');
+  $('drill-backdrop').classList.remove('show');
+  setTimeout(() => $('drill').classList.add('hidden'), 220);
+}
+$('drill-close').addEventListener('click', closeDrill);
+$('drill-backdrop').addEventListener('click', closeDrill);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrill(); });
+
+// ─── Team ───────────────────────────────────────────────────────────
+async function loadTeam() {
+  const { data } = await supabase.rpc('get_admin_team');
+  if (!data || data.error) return;
+  const members = data.members || [];
+  const invites = data.pending_invites || [];
+  $('team-grid').innerHTML = members.length === 0
+    ? '<div class="empty-state">No team members yet.</div>'
+    : members.map(renderMember).join('');
+  $('pending-block').innerHTML = invites.length === 0 ? '' : `
+    <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-top:20px;margin-bottom:10px;">Pending invites</h3>
+    ${invites.map(renderInvite).join('')}`;
+}
+
+function renderMember(m) {
+  return `
+    <div class="member-card ${m.is_active ? '' : 'inactive'}">
+      <span class="avatar">${initials(m.display_name)}</span>
+      <div class="who">
+        <div class="name">${escHTML(m.display_name)} <span class="role-pill ${m.role}">${escHTML(m.role)}</span></div>
+        <div class="meta">${escHTML(m.email || '')}${m.is_active ? '' : ' · inactive'}</div>
+      </div>
+      <div class="member-stats">
+        <div class="stat"><span class="v">${m.open_deals}</span><span class="l">Open</span></div>
+        <div class="stat"><span class="v">${m.signed_this_month}</span><span class="l">Signed (mo)</span></div>
+      </div>
+    </div>`;
+}
+
+function renderInvite(i) {
+  return `
+    <div class="member-card" style="background:var(--surface-alt);">
+      <span class="avatar" style="background:var(--muted-2);">${initials(i.display_name)}</span>
+      <div class="who">
+        <div class="name">${escHTML(i.display_name)} <span class="role-pill pending">Pending</span></div>
+        <div class="meta">${escHTML(i.email)} · invited ${fmtTime(i.invited_at)} · role <strong>${escHTML(i.role)}</strong></div>
+      </div>
+    </div>`;
+}
+
+$('add-btn').addEventListener('click', async () => {
+  const name  = $('add-name').value.trim();
+  const email = $('add-email').value.trim();
+  const role  = $('add-role').value;
+  const msg = $('add-msg');
+  msg.className = 'form-msg';
+  msg.textContent = '';
+  if (!name || !email) { msg.classList.add('err'); msg.textContent = 'Name and email required.'; return; }
+  $('add-btn').disabled = true;
+  const { data, error } = await supabase.rpc('admin_add_salesperson', { p_email: email, p_display_name: name, p_role: role });
+  $('add-btn').disabled = false;
+  if (error)            { msg.classList.add('err'); msg.textContent = error.message; return; }
+  if (data?.error) {
+    msg.classList.add('err');
+    msg.textContent = ({
+      forbidden:        'Only admins can add salespeople.',
+      invalid_role:     'Invalid role.',
+      missing_fields:   'Name and email required.',
+      already_on_team:  'That email is already on the team.',
+      duplicate_pending:'Already invited — pending.'
+    })[data.error] || data.error;
+    return;
+  }
+  msg.classList.add('ok');
+  msg.textContent = `Invited ${name}. They'll show as Pending until you finalize.`;
+  $('add-name').value = '';
+  $('add-email').value = '';
+  await loadTeam();
+});
+
+// ─── Tabs ───────────────────────────────────────────────────────────
+$$('#tabs button').forEach(b => {
+  b.addEventListener('click', () => {
+    const view = b.dataset.view;
+    $$('#tabs button').forEach(x => x.classList.toggle('active', x === b));
+    $('view-feed').classList.toggle('hidden', view !== 'feed');
+    $('view-team').classList.toggle('hidden', view !== 'team');
+    if (view === 'team') loadTeam();
+  });
+});
+
+$('toggle-archived').addEventListener('click', () => {
+  showArchived = !showArchived;
+  const btn = $('toggle-archived');
+  btn.textContent = showArchived ? 'Hide archived' : 'Show archived';
+  btn.classList.toggle('on', showArchived);
+  loadFeed();
+});
+
+// ─── Refresh ────────────────────────────────────────────────────────
+async function refreshAll() { await Promise.all([loadKpis(), loadFeed()]); }
+$('refresh-btn').addEventListener('click', refreshAll);
+
+// ─── Boot ───────────────────────────────────────────────────────────
+init();
+</script>
 </body>
 </html>
