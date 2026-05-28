@@ -17,8 +17,7 @@
     --radius:11px;
     --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
   a{color:var(--accent-ink)}
   .hidden{display:none!important}
@@ -61,7 +60,7 @@
   .kpi.leads .v{color:var(--accent-ink)}
 
   /* ── Tabs ── */
-  .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+  .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
   .tab-btn{background:none;border:none;padding:10px 14px;font-size:14px;font-weight:550;color:var(--muted);cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px}
   .tab-btn:hover{color:var(--ink)}
   .tab-btn.active{color:var(--ink);border-bottom-color:var(--accent)}
@@ -110,6 +109,21 @@
   .lead-pill.muted{background:#f9fafb;color:var(--faint)}
   .lead-foot{font-size:11px;color:var(--faint)}
   .lead-notes{margin-top:8px;font-size:12px;color:var(--warnink);background:var(--warnbg);border:1px solid var(--warnline);border-radius:6px;padding:8px 10px;white-space:pre-wrap}
+
+  /* ── Activity feed ── */
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:6px 13px;font-size:12.5px;font-weight:550;color:var(--muted);cursor:pointer;font-family:inherit}
+  .chip:hover{background:#faf9f6}
+  .chip.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .act-list{display:flex;flex-direction:column;gap:2px}
+  .act-row{display:flex;gap:12px;align-items:flex-start;padding:11px 12px;border-radius:9px;border:1px solid transparent}
+  .act-row.click{cursor:pointer}
+  .act-row.click:hover{background:var(--surface);border-color:var(--line)}
+  .act-ico{flex:none;width:30px;height:30px;border-radius:8px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .act-main{flex:1;min-width:0}
+  .act-line{font-size:13.5px}
+  .act-line b{font-weight:650}
+  .act-meta{font-size:11.5px;color:var(--faint);margin-top:2px}
 
   /* ── Team ── */
   .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:24px}
@@ -165,6 +179,27 @@
   .tl-dot.done{background:var(--accent);border-color:var(--accent)}
   .tl-txt{font-size:13px} .tl-txt .when{font-size:11.5px;color:var(--faint)}
   .drill-link{display:inline-block;margin-top:4px;font-size:13px;font-weight:600}
+  #full-thread{display:flex;flex-direction:column;gap:8px}
+  .bubble{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px}
+  .bubble.in{align-self:flex-start;background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:4px}
+  .bubble.out{align-self:flex-end;background:#eef3ef;border:1px solid #d9e4dc;border-bottom-right-radius:4px}
+  .bub-head{font-size:11px;color:var(--faint);margin-bottom:3px;font-weight:600}
+  .bub-body{white-space:pre-wrap}
+  .att{margin-top:5px;font-size:11.5px;color:var(--accent-ink)}
+
+  /* ── New-lead modal ── */
+  .leads-toolbar{display:flex;justify-content:flex-end;margin-bottom:12px}
+  .modal-scrim{position:fixed;inset:0;background:rgba(20,22,20,.5);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px;overflow-y:auto}
+  .modal{background:var(--surface);border-radius:14px;padding:30px 32px;max-width:560px;width:100%;box-shadow:var(--shadow);z-index:51;position:relative}
+  .modal h2{margin:0 0 6px;font-size:20px;font-weight:650;text-transform:none;letter-spacing:0;color:var(--ink)}
+  .modal .muted{color:var(--muted);font-size:13px;margin:0 0 22px}
+  .modal .field-row{display:flex;gap:12px}
+  .modal .field-row .field{flex:1}
+  .modal .field{margin-bottom:12px}
+  .modal .field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;font-weight:550}
+  .modal .field input,.modal .field select,.modal .field textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff}
+  .modal .field textarea{resize:vertical;min-height:88px}
+  .form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 
   @media (max-width:760px){
     .kpis{grid-template-columns:repeat(3,1fr)}
@@ -210,6 +245,7 @@
   <div class="tabs">
     <button class="tab-btn active" data-tab="deals">Deals</button>
     <button class="tab-btn" data-tab="leads">Leads <span class="tab-badge hidden" id="leads-badge"></span></button>
+    <button class="tab-btn" data-tab="activity">Activity</button>
     <button class="tab-btn" data-tab="team">Team</button>
   </div>
 
@@ -224,7 +260,23 @@
 
   <!-- Leads -->
   <div id="tab-leads" class="tab-panel hidden">
+    <div class="leads-toolbar">
+      <button class="btn primary small" id="new-lead-btn">+ New lead</button>
+    </div>
     <div id="leads-list" class="leads-list"></div>
+  </div>
+
+  <!-- Activity -->
+  <div id="tab-activity" class="tab-panel hidden">
+    <div class="chips" id="act-chips">
+      <button class="chip active" data-kinds="">All</button>
+      <button class="chip" data-kinds="view">Views</button>
+      <button class="chip" data-kinds="message_in,message_out">Messages</button>
+      <button class="chip" data-kinds="sign_intent,signed,redesign_request">Buying signals</button>
+      <button class="chip" data-kinds="email_open,email_click,email_bounce,email_complaint">Email</button>
+      <button class="chip" data-kinds="lead_added,follow_up_sent,pdf_download">Pipeline</button>
+    </div>
+    <div id="activity-list" class="act-list"></div>
   </div>
 
   <!-- Team -->
@@ -247,6 +299,7 @@
   </div>
 </div>
 
+<!-- ════════ DRILL-IN SLIDE-OVER ════════ -->
 <div id="scrim"></div>
 <aside id="drill">
   <div class="drill-top">
@@ -256,12 +309,52 @@
   <div class="drill-body" id="drill-body"></div>
 </aside>
 
+<!-- ════════ NEW-LEAD MODAL ════════ -->
+<div id="newlead-scrim" class="modal-scrim hidden">
+  <div id="newlead-modal" class="modal">
+    <h2>Add new lead</h2>
+    <p class="muted">After your discovery appointment, drop the details here. Bayside will send the welcome + portal invite, schedule the 3-day design-phase nurture, and ping the team — all automatically.</p>
+    <form id="newlead-form">
+      <div class="field-row">
+        <div class="field"><label>Full name *</label><input id="nl-name" required></div>
+        <div class="field"><label>Email *</label><input id="nl-email" type="email" required></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Phone</label><input id="nl-phone"></div>
+        <div class="field"><label>Project type</label>
+          <select id="nl-pt">
+            <option value="">— pick one —</option>
+            <option value="backyard_expansion">Backyard expansion</option>
+            <option value="patio">Patio</option>
+            <option value="driveway">Driveway</option>
+            <option value="pool_deck">Pool deck</option>
+            <option value="walkway">Walkway</option>
+            <option value="turf">Artificial turf</option>
+            <option value="retaining_wall">Retaining wall</option>
+            <option value="outdoor_kitchen">Outdoor kitchen</option>
+            <option value="pergola">Pergola</option>
+            <option value="custom">Custom / multi</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Project address</label><input id="nl-address"></div>
+      <div class="field"><label>Friendly phrasing for emails (optional)</label><input id="nl-ptf" placeholder="e.g. corner-lot backyard expansion"></div>
+      <div class="field"><label>Discovery notes</label><textarea id="nl-notes" rows="6" placeholder="Qualification, scope, budget, anything to help the designer pick up where you left off..."></textarea></div>
+      <div class="form-actions">
+        <button type="button" class="btn small" id="nl-cancel">Cancel</button>
+        <button type="submit" class="btn primary small" id="nl-submit">Add lead</button>
+      </div>
+      <div id="nl-msg" class="form-msg"></div>
+    </form>
+  </div>
+</div>
+
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // ════════ CONFIG — paste your anon public key (Dashboard → Settings → API → anon public) ════════
 const SUPABASE_URL      = 'https://gfgbypcnxkschnfsitfb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZ2J5cGNueGtzY2huZnNpdGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MTkzMTUsImV4cCI6MjA5MjI5NTMxNX0.EAwmiNR5OWcaI8Sr36MVn7FuMhYoZvfngse7y0ZOgvA';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_PUBLIC_KEY_HERE';
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -269,6 +362,23 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 let currentTab = 'deals';
 let pollTimer = null;
+let activityFilter = null;
+
+const KIND_META = {
+  view:            {icon:'👁', label:'Viewed'},
+  message_in:      {icon:'💬', label:'Message in'},
+  message_out:     {icon:'↩️', label:'Reply sent'},
+  sign_intent:     {icon:'✍️', label:'Sign intent'},
+  signed:          {icon:'✅', label:'Signed'},
+  redesign_request:{icon:'🎨', label:'Redesign'},
+  email_open:      {icon:'📩', label:'Email open'},
+  email_click:     {icon:'🔗', label:'Email click'},
+  email_bounce:    {icon:'⚠️', label:'Bounce'},
+  email_complaint: {icon:'🚫', label:'Spam'},
+  pdf_download:    {icon:'📄', label:'PDF download'},
+  lead_added:      {icon:'🆕', label:'New lead'},
+  follow_up_sent:  {icon:'📤', label:'Follow-up'},
+};
 
 // ── Helpers ──
 const escHTML = (s) => (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -333,7 +443,12 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
     refreshTab();
   };
 });
-function refreshTab(){ if(currentTab==='deals') renderDeals(); else if(currentTab==='leads') renderLeads(); else if(currentTab==='team') renderTeam(); }
+function refreshTab(){
+  if(currentTab==='deals') renderDeals();
+  else if(currentTab==='leads') renderLeads();
+  else if(currentTab==='activity') renderActivity();
+  else if(currentTab==='team') renderTeam();
+}
 async function refreshAll(){ await loadKpis(); refreshTab(); }
 
 // ════════ KPIs ════════
@@ -410,6 +525,35 @@ async function renderLeads(){
   }).join('');
 }
 
+// ════════ ACTIVITY FEED ════════
+document.querySelectorAll('#act-chips .chip').forEach(ch=>{
+  ch.onclick = ()=>{
+    document.querySelectorAll('#act-chips .chip').forEach(x=>x.classList.remove('active'));
+    ch.classList.add('active');
+    const k = ch.dataset.kinds;
+    activityFilter = k ? k.split(',') : null;
+    renderActivity();
+  };
+});
+async function renderActivity(){
+  const { data, error } = await supabase.rpc('get_admin_activity_feed', { p_limit:150, p_kinds:activityFilter, p_owner:null });
+  const el = $('activity-list');
+  if(error || !Array.isArray(data)){ el.innerHTML = `<div class="empty">Couldn't load activity.</div>`; return; }
+  if(!data.length){ el.innerHTML = `<div class="empty">No activity in this view.</div>`; return; }
+  el.innerHTML = data.map(a=>{
+    const m = KIND_META[a.kind] || {icon:'•',label:a.kind};
+    const who = a.client_name || 'Unknown';
+    return `<div class="act-row${a.proposal_id?' click':''}"${a.proposal_id?` data-pid="${a.proposal_id}"`:''}>
+        <div class="act-ico">${m.icon}</div>
+        <div class="act-main">
+          <div class="act-line"><b>${escHTML(who)}</b> · ${escHTML(a.summary)}</div>
+          <div class="act-meta">${escHTML(m.label)} · ${escHTML(a.designer_name||'—')} · ${fmtRel(a.occurred_at)}</div>
+        </div>
+      </div>`;
+  }).join('');
+  el.querySelectorAll('.act-row.click').forEach(r=> r.onclick = ()=> openDrill(r.dataset.pid));
+}
+
 // ════════ TEAM ════════
 async function renderTeam(){
   const { data, error } = await supabase.rpc('get_admin_team');
@@ -445,12 +589,33 @@ $('drill-x').onclick = closeDrill;
 $('scrim').onclick = closeDrill;
 
 async function openDrill(pid){
+  if(!pid) return;
   $('drill-body').innerHTML = `<div class="empty">Loading…</div>`;
   $('drill').classList.add('show'); $('scrim').classList.add('show');
   const { data, error } = await supabase.rpc('get_admin_deal_detail', { p_proposal_id: pid });
   if(error || !data || data.error){ $('drill-body').innerHTML = `<div class="empty">Couldn't load this deal.</div>`; return; }
   $('drill-title').textContent = data.deal?.client_name || 'Deal';
   $('drill-body').innerHTML = renderDrillBody(data);
+  const tb = $('thread-btn');
+  if(tb) tb.onclick = ()=> loadFullThread(tb.dataset.cid);
+}
+
+async function loadFullThread(cid){
+  const box = $('full-thread'); const btn = $('thread-btn');
+  if(!box) return;
+  box.innerHTML = `<div class="empty" style="padding:14px">Loading…</div>`;
+  const { data, error } = await supabase.rpc('get_admin_client_thread', { p_client_id: cid });
+  if(error || !Array.isArray(data)){ box.innerHTML = `<div class="empty" style="padding:14px">Couldn't load.</div>`; return; }
+  if(btn) btn.style.display='none';
+  if(!data.length){ box.innerHTML = `<div class="empty" style="padding:14px">No messages yet.</div>`; return; }
+  box.innerHTML = data.map(m=>{
+    const out = (m.sender_role!=='homeowner');
+    const atts = (m.attachments||[]).map(a=>`<div class="att">📎 ${escHTML(a.file_name||'attachment')}</div>`).join('');
+    return `<div class="bubble ${out?'out':'in'}">
+        <div class="bub-head">${escHTML(m.sender_name)} · ${fmtWhen(m.created_at)}</div>
+        <div class="bub-body">${escHTML(m.body||'')}</div>${atts}
+      </div>`;
+  }).join('');
 }
 
 function bar(lbl,val){ const v=Math.max(0,Math.min(100,val||0)); return `<div class="bar"><span class="lbl">${lbl}</span><span class="track"><span class="fill" style="width:${v}%"></span></span><span class="num">${v}</span></div>`; }
@@ -510,12 +675,75 @@ function renderDrillBody(d){
 
   const msgSection = msgs.length ? `<div class="drill-section"><h3>Recent messages</h3>${msgs.map(m=>`<div class="msg-row"><b>${escHTML(titleCase(m.sender_role))}</b> <span style="color:var(--faint);font-size:11.5px">${fmtWhen(m.created_at)}</span><div style="margin-top:3px">${escHTML((m.body||'').slice(0,200))}</div></div>`).join('')}</div>` : '';
 
+  const threadBlock = deal.client_id ? `<div class="drill-section"><h3>💬 Full conversation</h3><button class="btn small" id="thread-btn" data-cid="${deal.client_id}">Load full conversation</button><div id="full-thread" style="margin-top:10px"></div></div>` : '';
+
   const evtSection = events.length ? `<div class="drill-section"><h3>Activity feed</h3>${events.slice(0,12).map(e=>`<div class="evt-row"><div class="etrack-subj">${escHTML(titleCase(e.event_type))}</div><div class="evt-meta">${fmtWhen(e.occurred_at)}</div></div>`).join('')}</div>` : '';
 
   const link = deal.proposal_slug ? `<div class="drill-section"><a class="drill-link" href="https://portal-baysidepavers.com/p/${encodeURIComponent(deal.proposal_slug)}" target="_blank" rel="noopener">Open proposal page ↗</a></div>` : '';
 
-  return summary + notes + scoreSection + emailSection + sug + timeline + intentsSection + msgSection + evtSection + link;
+  return summary + notes + scoreSection + emailSection + sug + timeline + intentsSection + msgSection + threadBlock + evtSection + link;
 }
+
+// ════════ NEW LEAD MODAL ════════
+$('new-lead-btn').onclick = openNewLead;
+$('nl-cancel').onclick    = closeNewLead;
+$('newlead-scrim').onclick = (e) => { if (e.target.id === 'newlead-scrim') closeNewLead(); };
+
+function openNewLead(){
+  $('newlead-form').reset();
+  $('nl-msg').textContent = '';
+  $('nl-msg').className = 'form-msg';
+  $('newlead-scrim').classList.remove('hidden');
+  setTimeout(() => $('nl-name').focus(), 50);
+}
+function closeNewLead(){ $('newlead-scrim').classList.add('hidden'); }
+
+$('newlead-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const msg = $('nl-msg'); msg.textContent = ''; msg.className = 'form-msg';
+  const payload = {
+    name: $('nl-name').value.trim(),
+    email: $('nl-email').value.trim(),
+    phone: $('nl-phone').value.trim() || null,
+    address: $('nl-address').value.trim() || null,
+    notes: $('nl-notes').value.trim() || null,
+    project_type: $('nl-pt').value || null,
+    project_type_friendly: $('nl-ptf').value.trim() || null,
+  };
+  if (!payload.name || !payload.email) {
+    msg.className = 'form-msg err'; msg.textContent = 'Name and email are required.'; return;
+  }
+  const btn = $('nl-submit'); btn.disabled = true; btn.textContent = 'Adding…';
+  try {
+    const { data:{ session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not signed in.');
+    const r = await fetch('/api/create-lead', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok || data.error) {
+      const errMap = {
+        name_required: 'Name is required.',
+        email_required: 'Email is required.',
+        email_invalid: "That email doesn't look right.",
+        duplicate_email: 'A client with that email already exists.',
+        forbidden: "You don't have permission to add leads.",
+      };
+      throw new Error(errMap[data.error] || data.detail || 'Could not add lead.');
+    }
+    msg.className = 'form-msg ok';
+    msg.textContent = data.warning
+      ? `Lead added — but ${data.warning}. Check the queue.`
+      : 'Lead added. Welcome + portal invite on the way.';
+    setTimeout(() => { closeNewLead(); loadKpis(); renderLeads(); }, 1200);
+  } catch (err) {
+    msg.className = 'form-msg err'; msg.textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Add lead';
+  }
+};
 
 boot();
 </script>
