@@ -1,0 +1,64 @@
+RateLabel">35%</span> close rate)</span><span class="calc-result-value mono" id="liftedRevenue">$1.75M</span></div>
+        <div style="padding-top:8px;border-top:1px dashed rgba(255,255,255,0.18);margin-top:14px;">
+          <div style="display:flex;flex-direction:column;align-items:center;padding:18px 0 14px;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(250,248,243,0.6);margin-bottom:10px;">Incremental revenue / year</div>
+            <div class="mono" id="pricingIncRevenue" style="font-size:46px;font-weight:700;color:#b78b3a;line-height:1;letter-spacing:-0.02em;">$500K</div>
+          </div>
+          <div class="calc-result-line" style="opacity:0.8;"><span class="calc-result-label">Total Portal fees / year</span><span class="calc-result-value mono" id="totalPortalFees">$17,500</span></div>
+          <div class="calc-result-line headline final" style="margin-top:6px;"><span class="calc-result-label" style="color:#b78b3a;">Return on Portal cost</span><span class="calc-result-value mono" id="portalROI" style="color:#b78b3a;font-size:26px;">28.6×</span></div>
+        </div>
+        <div class="calc-vs"><strong>How the math works.</strong> Baseline closing rate is assumed at 25%. The lift slider models how much same-hour notifications and homeowner self-service move that needle. The 1% fee applies only to closed deals: if zero close, you pay $0.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="deal" class="deal-section">
+  <div class="container">
+    <span class="eyebrow reveal">The deal · plain language</span>
+    <h2 class="reveal">Aligned incentives. No fine print.</h2>
+    <div class="deal-grid">
+      <div class="deal-tile reveal"><div class="deal-tile-key">01 · The fee</div><h4>1% of contract value</h4><p>Applied only to deals that close after being published in The Paver Portal and engaged by the homeowner. Where they sign (in-portal, DocuSign, paper) doesn't matter.</p></div>
+      <div class="deal-tile reveal"><div class="deal-tile-key">02 · No fixed costs</div><h4>Zero minimum in year one</h4><p>No setup fees. No per-seat charges. No monthly minimums for the first six months. If you close zero deals via the Portal, you pay $0.</p></div>
+      <div class="deal-tile reveal"><div class="deal-tile-key">03 · The designer split</div><h4>Up to 50% to the designer</h4><p>Operators may pass up to half of the 1% directly to the designer of record. Creates real comp upside on every closed Portal deal. Split structure is the operator's call.</p></div>
+      <div class="deal-tile reveal"><div class="deal-tile-key">04 · Training</div><h4>30 minutes to certify</h4><p>Designers complete a short video course + quiz to earn the split. New hires after the start date certify before publishing their first proposal.</p></div>
+      <div class="deal-tile reveal"><div class="deal-tile-key">05 · The term</div><h4>12 months, auto-renewing</h4><p>60 days' notice to non-renew. Either side can exit clean at the end of any term. Operators have 90 days post-termination to export all data.</p></div>
+      <div class="deal-tile reveal"><div class="deal-tile-key">06 · The data</div><h4>You own it all</h4><p>All homeowner and deal data is the operator's property. Exportable any time. McMullen Properties retains only anonymized aggregate rights for product improvement.</p></div>
+      <div class="deal-tile reveal"><div class="deal-tile-key">07 · Continuity</div><h4>Code escrow available</h4><p>Optional escrow agreement so if McMullen Properties ever winds down, the licensee ends up owning the Portal source. Mitigates the fair concern about key-person risk.</p></div>
+      <div class="deal-tile reveal"><div class="deal-tile-key">08 · Support</div><h4>4-hour business-day SLA</h4><p>Direct line to Tim McMullen. Monthly designer office-hours call. Quarterly business review with operator leadership.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="onboarding-section">
+  <div class="container">
+    <span class="eyebrow reveal">What the first 60 days look like</span>
+    <h2 class="reveal">A phased rollout. No big-bang risk.</h2>
+    <div class="stepper">
+      <div class="step reveal"><div class="step-marker">W1</div><div class="step-period">Week 1</div><h5>Sign + Kickoff</h5><p>1-hour kickoff call. Your master admin activates as Cohort 0.</p></div>
+      <div class="step reveal"><div class="step-marker">W2-4</div><div class="step-period">Weeks 2 – 4</div><h5>Cohort 1</h5><p>2–3 designers certified. First Portal proposals published. Real engagement data starts flowing.</p></div>
+      <div class="step reveal"><div class="step-marker">M2</div><div class="step-period">Month 2</div><h5>Cohort 2</h5><p>Remaining designers certified. New-hire certification policy goes live.</p></div>
+      <div class="step reveal"><div class="step-marker">M3+</div><div class="step-period">Month 3+</div><h5>Steady state</h5><p>Monthly designer office-hours. Quarterly leadership business review. Roadmap requests in flight.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="cta" class="cta-section">
+  <div class="container">
+    <h2>Let's get on the <em>same page.</em></h2>
+    <p>30 minutes. Tim will walk through the live Portal, answer the hard questions, and leave you with the documents to take to legal.</p>
+    <a class="cta-button" href="mailto:tim@mcmullen.properties?subject=The%20Paver%20Portal%20Licensing%20-%20Walkthrough">Schedule the walkthrough →</a>
+    <div class="cta-contact"><strong>Tim McMullen</strong> · tim@mcmullen.properties · 415-691-9272</div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <span>McMullen Properties LLC · DRE #02016832</span>
+    <span>The Paver Portal v3.x · Updated June 2026</span>
+  </div>
+</footer>
+
+<script src="pitch-bayside.js"></script>
+</body>
+</html>
