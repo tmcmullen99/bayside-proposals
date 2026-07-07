@@ -13,9 +13,14 @@
 //      imports this module, no per-page wiring required).
 //   4. Validates the session async via supabase.auth.getSession() in the
 //      background; if invalidated, redirects to login.
-//   5. [Phase 2C] For master users, the pill also shows a "Team" button
-//      that lazy-imports team-modal.js on click — designers never load
-//      that module at all.
+//   5. [SPRINT 1 — Decouple] The master-only "Team" button was REMOVED
+//      from this shared pill. Team management lives at /admin/designers.html
+//      (master-only). Shared designer-app pages now render identically for
+//      every staff role — no role-conditional UI outside /admin/.
+//   6. [SPRINT 1 — Decouple] Auth-state hardening: on SIGNED_OUT the page
+//      immediately redirects to /login.html, so a sign-out in another tab
+//      (or mid-flow) can never leave stale chrome from the previous
+//      account on screen.
 //
 // Public proposal pages at /p/{slug} are static HTML snapshots rendered
 // by the CF Pages function and do NOT import this module — they remain
@@ -104,6 +109,17 @@ if (!isPublicAdminPath()) {
       injectAuthPill();
     }
   }
+
+  // SPRINT 1 hardening: if the session ends for ANY reason (sign-out in
+  // this tab, sign-out in another tab, token revocation), bounce to the
+  // login page immediately. This is what prevents the "previous account's
+  // chrome still on screen" state that made account switching feel like
+  // data was bleeding between roles.
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') {
+      window.location.replace('/login.html');
+    }
+  });
 }
 
 // ─── Auth pill (logged-in user indicator + Sign out button) ─────────────────
@@ -162,14 +178,6 @@ async function injectAuthPill() {
     '  font-size: 9px; letter-spacing: 0.18em;' +
     '  color: #5d7e69; text-transform: uppercase; font-weight: 600;' +
     '}' +
-    '#bpb-auth-pill .bpb-auth-team {' +
-    '  background: transparent; border: 1px solid #e5e5e5;' +
-    '  border-radius: 999px; padding: 5px 12px;' +
-    '  font: inherit; font-weight: 600; font-size: 11px;' +
-    '  color: #5d7e69; cursor: pointer;' +
-    '  transition: background 0.15s, color 0.15s, border-color 0.15s;' +
-    '}' +
-    '#bpb-auth-pill .bpb-auth-team:hover { background: #e8eee9; border-color: #5d7e69; }' +
     '#bpb-auth-pill .bpb-auth-logout {' +
     '  background: #f5f5f5; border: none;' +
     '  border-radius: 999px; padding: 5px 12px;' +
@@ -185,7 +193,6 @@ async function injectAuthPill() {
     '</style>' +
     '<span class="bpb-auth-name"></span>' +
     (role ? '<span class="bpb-auth-role"></span>' : '') +
-    (role === 'master' ? '<button type="button" class="bpb-auth-team">Team</button>' : '') +
     '<button type="button" class="bpb-auth-logout">Sign out</button>';
 
   // Set text content (safe vs HTML injection)
@@ -194,20 +201,9 @@ async function injectAuthPill() {
 
   document.body.appendChild(pill);
 
-  // Master-only: lazy-load and open the team management modal.
-  // Non-master users never load team-modal.js at all.
-  if (role === 'master') {
-    pill.querySelector('.bpb-auth-team').addEventListener('click', async () => {
-      try {
-        const mod = await import('./team-modal.js');
-        mod.openTeamModal();
-      } catch (err) {
-        // Network / build issue — fall back gracefully.
-        console.error('Failed to load team modal:', err);
-        alert('Could not load team manager. Refresh and try again.');
-      }
-    });
-  }
+  // NOTE (Sprint 1): the master-only Team button that used to render here
+  // was removed. Team management is at /admin/designers.html. Shared pages
+  // now have zero role-conditional interactive UI.
 
   pill.querySelector('.bpb-auth-logout').addEventListener('click', async () => {
     try { await supabase.auth.signOut(); } catch (_) {}
