@@ -8,18 +8,19 @@
 //   3. Insert into client_proposals link
 //   4. Redirect to /editor?id=...
 //
-// Role-aware data scope unchanged:
-//   - master   : sees ALL proposals
-//   - designer : sees only proposals where owner_user_id = current user
+// SPRINT 1 (Decouple): this page has ONE data scope for EVERYONE —
+// proposals where owner_user_id = current user. No role branches, no
+// master bypass, no "Switch account" button. Masters use this page the
+// same way designers do (their own pipeline + proposal creation); the
+// company-wide view lives exclusively in /admin/. The only role-aware
+// element left is a nav LINK to /admin/ shown to masters — a link, not
+// data, so nothing can leak.
 
 import { supabase } from './supabase-client.js';
 import { getProposalEngagementBulk, formatRelativeTime } from './engagement-utils.js';
 
 const banner = document.getElementById('ddBanner');
 const userName = document.getElementById('ddUserName');
-const rolePill = document.getElementById('ddRolePill');
-const switchBtn = document.getElementById('ddSwitchBtn');
-const switchLabel = document.getElementById('ddSwitchLabel');
 const signoutBtn = document.getElementById('ddSignoutBtn');
 const newBtn = document.getElementById('ddNewBtn');
 const navReports = document.getElementById('ddNavReports');
@@ -50,7 +51,10 @@ const STAGES = [
 (async function bootstrap() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    window.location.replace('/account/signin.html');
+    // Staff sign-in lives at /login.html (the /account/ signin page is
+    // the homeowner-client flow — sending staff there was part of the
+    // pre-Sprint-1 cross-pollination).
+    window.location.replace('/login.html?redirect=%2Fdashboard');
     return;
   }
 
@@ -79,33 +83,22 @@ const STAGES = [
 function renderUserChrome(profile) {
   const name = profile.display_name || profile.email || 'You';
   userName.textContent = name;
-  rolePill.textContent = profile.role === 'master' ? 'Master' : 'Designer';
+  document.title = 'Pipeline · Bayside Proposal Builder';
+
+  // Masters get a link to the admin console in the sidebar. This is the
+  // ONLY role-conditional element on the page, and it's pure navigation —
+  // it renders no data. The link is hidden in the HTML by default and
+  // revealed here, so a designer never sees it even for a frame.
   if (profile.role === 'master') {
-    rolePill.classList.add('master');
-    switchLabel.textContent = 'Switch to Designer';
-  } else {
-    switchLabel.textContent = 'Switch to Master';
+    const adminLink = document.getElementById('ddNavAdmin');
+    if (adminLink) adminLink.hidden = false;
   }
-  document.title = profile.role === 'master'
-    ? 'Pipeline (master view) · Bayside Proposal Builder'
-    : 'Pipeline · Bayside Proposal Builder';
 }
 
 function attachEventListeners() {
   signoutBtn.addEventListener('click', async () => {
     try { await supabase.auth.signOut(); } catch (_) {}
-    window.location.replace('/account/signin.html');
-  });
-
-  switchBtn.addEventListener('click', async () => {
-    const ok = confirm(
-      'Account-switching without re-signing-in is coming in the next sprint.\n\n' +
-      'For now, clicking OK will sign you out so you can sign in to your ' +
-      'other account. Continue?'
-    );
-    if (!ok) return;
-    try { await supabase.auth.signOut(); } catch (_) {}
-    window.location.replace('/account/signin.html');
+    window.location.replace('/login.html');
   });
 
   newBtn.addEventListener('click', openNewProposalModal);
@@ -125,14 +118,15 @@ function attachEventListeners() {
 async function loadAndRender() {
   banner.innerHTML = '';
 
-  let q = supabase
+  // SPRINT 1: unconditional owner scope. There is deliberately no role
+  // branch here — if a master wants the company-wide pipeline, that view
+  // lives at /admin/pipeline.html. Keeping this page single-scope is what
+  // makes designer-side data leaks structurally impossible.
+  const q = supabase
     .from('proposals')
     .select('id, client_name, project_address, project_city, project_label, status, bid_total_amount, owner_user_id, updated_at, created_at')
+    .eq('owner_user_id', currentProfile.id)
     .order('updated_at', { ascending: false });
-
-  if (currentProfile.role !== 'master') {
-    q = q.eq('owner_user_id', currentProfile.id);
-  }
 
   const { data: proposals, error } = await q;
   if (error) {
@@ -322,7 +316,8 @@ function setActiveStage(stage) {
 }
 
 function renderEmptyDashboard() {
-  const isDesigner = currentProfile.role !== 'master';
+  // Single-scope page: everyone gets the same welcome state.
+  const isDesigner = true;
 
   statRow.innerHTML = `
     <div class="dd-stat-card"><div class="dd-stat-label">Open value</div><div class="dd-stat-value">$0</div><div class="dd-stat-detail">0 active deals</div></div>
