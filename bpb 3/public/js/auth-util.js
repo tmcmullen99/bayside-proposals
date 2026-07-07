@@ -40,6 +40,54 @@
 
 import { supabase } from '/js/supabase-client.js';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SPRINT 1.5A — transparent auth for admin API calls.
+//
+// The new Cloudflare middleware (functions/api/_middleware.js) requires a
+// master JWT on every /api/admin-* request and on /api/send-chat-message.
+// The admin pages were written with bare fetch('/api/admin-…') calls, so
+// instead of editing a dozen pages, this wrapper — installed at module
+// import time, which every admin page reaches (directly or via
+// admin-shell.js) before making any API call — attaches the current
+// session's bearer token to exactly those requests.
+//
+// It never overwrites an Authorization header a caller set itself (jot,
+// notes-search, nurture, suggest-replies already send their own), and it
+// touches nothing outside the gated paths.
+// ═══════════════════════════════════════════════════════════════════════════
+const __origFetch = window.fetch.bind(window);
+window.fetch = async function patchedFetch(input, init) {
+  try {
+    const rawUrl = typeof input === 'string'
+      ? input
+      : (input instanceof URL ? input.href : (input && input.url) || '');
+    let path = '';
+    if (rawUrl.startsWith('/')) {
+      path = rawUrl;
+    } else if (rawUrl.startsWith(window.location.origin)) {
+      path = rawUrl.slice(window.location.origin.length);
+    }
+    const gated = path.startsWith('/api/admin-') || path.startsWith('/api/send-chat-message');
+    if (gated) {
+      const headers = new Headers(
+        (init && init.headers) ||
+        (typeof input === 'object' && input && input.headers) ||
+        undefined
+      );
+      if (!headers.has('Authorization')) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.access_token) {
+          headers.set('Authorization', 'Bearer ' + session.access_token);
+        }
+      }
+      init = Object.assign({}, init, { headers });
+    }
+  } catch (_) {
+    // Never let the wrapper break a request — fall through untouched.
+  }
+  return __origFetch(input, init);
+};
+
 // Kept for backward compat: legacy email check used by isAdminUser().
 const ADMIN_EMAIL = 'tim@mcmullen.properties';
 
