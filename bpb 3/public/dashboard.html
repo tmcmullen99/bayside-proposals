@@ -24,23 +24,6 @@
     .dd-topbar-right { display: flex; align-items: center; gap: 14px; }
     .dd-user-block { display: flex; align-items: center; gap: 8px; font-size: 13px; }
     .dd-user-name { font-weight: 600; color: var(--bp-charcoal); }
-    .dd-role-pill {
-      background: var(--bp-green-soft); color: var(--bp-green-dark);
-      font-size: 10px; font-weight: 700;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      padding: 3px 8px; border-radius: 999px;
-    }
-    .dd-role-pill.master { background: #1a1f2e; color: #fff; }
-    .dd-switch-btn {
-      background: var(--bp-cream-shade); border: 1px solid var(--rule);
-      border-radius: 6px; padding: 6px 12px;
-      font: inherit; font-size: 12px; font-weight: 600;
-      color: var(--text-muted); cursor: pointer;
-      display: flex; align-items: center; gap: 6px;
-      transition: all 0.15s;
-    }
-    .dd-switch-btn:hover { background: var(--bp-green-soft); border-color: var(--bp-green); color: var(--bp-green-dark); }
-    .dd-switch-btn .arrow { font-size: 14px; line-height: 1; }
     .dd-signout-btn {
       background: transparent; border: 1px solid var(--rule);
       border-radius: 999px; padding: 5px 12px;
@@ -249,12 +232,7 @@
   <div class="dd-topbar-right">
     <div class="dd-user-block">
       <span class="dd-user-name" id="ddUserName">…</span>
-      <span class="dd-role-pill" id="ddRolePill">…</span>
     </div>
-    <button class="dd-switch-btn" id="ddSwitchBtn" title="Coming in next sprint — for now this just signs you out so you can sign in to your other account.">
-      <span class="arrow">⇄</span>
-      <span id="ddSwitchLabel">Switch account</span>
-    </button>
     <button class="dd-signout-btn" id="ddSignoutBtn">Sign out</button>
   </div>
 </header>
@@ -262,24 +240,25 @@
 <div class="dd-layout">
 
   <nav class="dd-sidebar">
+    <!-- SPRINT 1 (Decouple): all /admin/* links removed from the designer
+         sidebar. The admin area is master-only; these links were the main
+         path by which designers wandered into company-wide data. Designer-
+         scoped versions of Clients / Substitutions / Redesigns ship in the
+         follow-up sprint. -->
     <div class="dd-sb-section-label">Sales</div>
     <button class="dd-sb-item active" id="ddNavPipeline"><span class="ico">◉</span><span>Pipeline</span></button>
-    <a class="dd-sb-item" href="/admin/pipeline.html"><span class="ico">◇</span><span>Proposals</span></a>
-    <a class="dd-sb-item" href="/admin/engagement.html"><span class="ico">◐</span><span>Engagement</span></a>
     <button class="dd-sb-item" id="ddNavReports"><span class="ico">◑</span><span>Reports</span></button>
 
-    <div class="dd-sb-section-label">Clients</div>
-    <a class="dd-sb-item" href="/admin/clients.html"><span class="ico">◈</span><span>My Clients</span></a>
-    <a class="dd-sb-item" href="/admin/substitutions.html"><span class="ico">◊</span><span>Substitutions</span></a>
-    <a class="dd-sb-item" href="/admin/client-redesigns.html"><span class="ico">◇</span><span>Redesigns</span></a>
-
     <div class="dd-sb-section-label">Library</div>
-    <a class="dd-sb-item" href="/admin/materials.html"><span class="ico">▥</span><span>Materials</span></a>
     <button class="dd-sb-item" id="ddNavDesigns"><span class="ico">▤</span><span>Designs</span></button>
+
+    <!-- Master-only navigation link. Hidden by default; dashboard.js
+         reveals it after the profile loads when role === 'master'.
+         Pure navigation — renders no data. -->
+    <a class="dd-sb-item" href="/admin/" id="ddNavAdmin" hidden><span class="ico">⚙</span><span>Admin console</span></a>
 
     <div class="dd-sb-spacer"></div>
     <button class="dd-new-btn" id="ddNewBtn">＋ New proposal</button>
-    <a class="dd-sb-item" href="/admin/notifications.html"><span class="ico">◌</span><span>Settings</span></a>
   </nav>
 
   <main class="dd-main">
