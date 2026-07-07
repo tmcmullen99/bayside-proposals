@@ -52,25 +52,35 @@ function serviceKey(env) {
 }
 
 /**
- * Does this request path require a master JWT?
+ * Does this request path require a staff JWT, and at what level?
+ * Returns: 'master' | 'staff' | null
+ *   'master' — active master profile required
+ *   'staff'  — active master OR designer required (the endpoint itself
+ *              enforces finer-grained ownership, e.g. send-chat-message
+ *              verifies the designer owns the target client)
  */
-function isGatedPath(pathname) {
+function gateLevelFor(pathname) {
   // Cron-secret-protected digest keeps its own auth — exempt so scheduled
   // sends don't break. (It never returns data to the caller beyond a
   // status blob, and it validates x-bayside-cron-secret itself.)
-  if (pathname === '/api/admin-daily-digest') return false;
+  if (pathname === '/api/admin-daily-digest') return null;
 
-  if (pathname.startsWith('/api/admin-')) return true;
-  if (pathname === '/api/send-chat-message') return true;
-  return false;
+  if (pathname.startsWith('/api/admin-')) return 'master';
+  // SPRINT 1.5B: designers send chat to their own clients through this
+  // endpoint too. Middleware admits active staff; the endpoint verifies
+  // the designer actually owns the client before inserting/emailing.
+  if (pathname === '/api/send-chat-message') return 'staff';
+  return null;
 }
 
 /**
  * Validates the caller: Bearer token must map to a real Supabase user
- * whose profiles row is role='master' AND is_active. Returns
- * { ok:true, userId } or { ok:false, status, error }.
+ * whose profiles row is active with an allowed role.
+ *   level 'master' → role must be 'master'
+ *   level 'staff'  → role must be 'master' or 'designer'
+ * Returns { ok:true, userId, role } or { ok:false, status, error }.
  */
-async function validateMaster(request, env) {
+async function validateStaff(request, env, level) {
   const key = serviceKey(env);
   if (!env.SUPABASE_URL || !key) {
     // Fail CLOSED — a misconfigured gate must never become an open gate.
@@ -118,15 +128,20 @@ async function validateMaster(request, env) {
     }
     const rows = await resp.json();
     const profile = Array.isArray(rows) ? rows[0] : null;
-    if (!profile || profile.is_active === false || profile.role !== 'master') {
-      return { ok: false, status: 403, error: 'Forbidden — master access required' };
+    const roleOk = profile && (
+      level === 'staff'
+        ? (profile.role === 'master' || profile.role === 'designer')
+        : profile.role === 'master'
+    );
+    if (!profile || profile.is_active === false || !roleOk) {
+      const need = level === 'staff' ? 'staff' : 'master';
+      return { ok: false, status: 403, error: `Forbidden — ${need} access required` };
     }
+    return { ok: true, userId, role: profile.role };
   } catch (e) {
     console.error('[api middleware] profile lookup error:', e);
     return { ok: false, status: 500, error: 'Profile lookup failed' };
   }
-
-  return { ok: true, userId };
 }
 
 export async function onRequest(context) {
@@ -138,9 +153,10 @@ export async function onRequest(context) {
   // gets validated.
   if (request.method === 'OPTIONS') return next();
 
-  if (!isGatedPath(pathname)) return next();
+  const level = gateLevelFor(pathname);
+  if (!level) return next();
 
-  const result = await validateMaster(request, env);
+  const result = await validateStaff(request, env, level);
   if (!result.ok) {
     return jsonResponse({ error: result.error }, result.status);
   }
