@@ -33,6 +33,11 @@
 //   SUPABASE_SERVICE_ROLE_KEY   (or legacy name SUPABASE_SERVICE_KEY)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// The founding company's UUID — the legacy /admin/ console + its APIs are
+// operator tooling and remain locked to it. New tenants (Stage 3+) live in
+// the designer app with owner powers enforced by company-scoped RLS.
+const FOUNDING_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -120,7 +125,7 @@ async function validateStaff(request, env, level) {
   //    surface — and therefore its APIs — is master-only.
   try {
     const resp = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role,is_active&limit=1`,
+      `${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role,is_active,company_id&limit=1`,
       { headers: { apikey: key, Authorization: `Bearer ${key}` } }
     );
     if (!resp.ok) {
@@ -139,7 +144,14 @@ async function validateStaff(request, env, level) {
       const need = level === 'staff' ? 'staff' : 'master';
       return { ok: false, status: 403, error: `Forbidden — ${need} access required` };
     }
-    return { ok: true, userId, role: profile.role };
+    // STAGE 3 (multi-tenancy): the legacy admin APIs query with the service
+    // role and are company-blind, so they stay locked to the founding
+    // company until each is made tenant-aware. Other tenants' owners use
+    // the designer app, where company-scoped RLS does the isolation.
+    if (level === 'master' && profile.company_id !== FOUNDING_COMPANY_ID) {
+      return { ok: false, status: 403, error: 'The admin console is not available for your workspace' };
+    }
+    return { ok: true, userId, role: profile.role, companyId: profile.company_id };
   } catch (e) {
     console.error('[api middleware] profile lookup error:', e);
     return { ok: false, status: 500, error: 'Profile lookup failed' };
