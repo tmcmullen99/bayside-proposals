@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>My Clients</title>
+<title>My Clients · Bayside Proposal Builder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -18,9 +18,9 @@
      the scope difference lives entirely in the database.
      ═════════════════════════════════════════════════════════════════════ */
   :root {
-    --bp-green: #5d7e69; --bp-green-dark: #4a6654; --bp-green-soft: #e8eee9;
+    --bp-green: #9c7440; --bp-green-dark: #7d5c31; --bp-green-soft: #f1e7d3;
     --bp-charcoal: #353535; --bp-cream: #faf8f3; --bp-cream-shade: #f1eee6;
-    --bp-navy: #1a1f2e; --rule: #e5e5e5;
+    --bp-navy: #33281c; --rule: #e5e5e5;
     --text: #23282f; --text-muted: #666; --text-faint: #9aa0a6;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -223,8 +223,6 @@
 // fetch wrapper (Sprint 1.5A) that /api/send-chat-message requires.
 import { supabase } from '/js/supabase-client.js';
 import { getCurrentUser, getProfile } from '/js/auth-util.js';
-import { applyBranding } from '/js/branding.js';
-applyBranding({ pageTitle: 'My Clients' });
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => (s == null ? '' : String(s))
@@ -485,7 +483,7 @@ async function sendMessage() {
 }
 
 function showBanner(msg, isError = true) {
-  $('detailBanner').innerHTML = `<div class="banner-err" style="${isError ? '' : 'background:#eef4ee;border-color:#bcd6bf;color:#2f5c38;'}">${esc(msg)}</div>`;
+  $('detailBanner').innerHTML = `<div class="banner-err" style="${isError ? '' : 'background:#f6efe0;border-color:#dcc9a4;color:#6b4f24;'}">${esc(msg)}</div>`;
   setTimeout(() => { $('detailBanner').innerHTML = ''; }, 6000);
 }
 </script>
