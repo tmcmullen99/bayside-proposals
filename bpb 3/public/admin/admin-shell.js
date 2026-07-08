@@ -129,7 +129,7 @@ const TABS = [
     role: 'designer',
     group: 'operations',
     icon: '🔓',
-    description: 'Send a fresh Bayside Portal magic-link invite to any client by email or UUID. Lifeline for clients who never set up their account — kills Yorktown-style silent failures.',
+    description: 'Send a fresh Paver Portal magic-link invite to any client by email or UUID. Lifeline for clients who never set up their account — kills Yorktown-style silent failures.',
     notifKey: 'clients_pending_activation',
   },
   {
