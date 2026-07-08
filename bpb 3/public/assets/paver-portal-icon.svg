@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Paver Portal">
+  <!-- Paver Portal — square icon mark -->
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="#33281c"/>
+  <g>
+    <rect x="22" y="24" width="50" height="24" rx="6" fill="#9c7440"/>
+    <rect x="78" y="24" width="28" height="24" rx="6" fill="#d9a441"/>
+    <rect x="22" y="52" width="28" height="24" rx="6" fill="#d9a441"/>
+    <rect x="56" y="52" width="50" height="24" rx="6" fill="#f1e7d3"/>
+    <rect x="22" y="80" width="50" height="24" rx="6" fill="#f1e7d3"/>
+    <rect x="78" y="80" width="28" height="24" rx="6" fill="#9c7440"/>
+  </g>
+</svg>

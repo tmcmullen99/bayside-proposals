@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 128" role="img" aria-label="Paver Portal">
+  <!-- ═════════════════════════════════════════════════════════════════
+       Paver Portal — primary horizontal lockup
+       Icon: running-bond paver pattern in a rounded tile
+       Palette: navy #33281c · sage #9c7440 · light sage #d9a441 · cream #f1e7d3
+       ═════════════════════════════════════════════════════════════════ -->
+  <!-- Icon tile -->
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="#33281c"/>
+  <!-- Running-bond pavers -->
+  <g>
+    <!-- Row 1 -->
+    <rect x="22" y="24" width="50" height="24" rx="6" fill="#9c7440"/>
+    <rect x="78" y="24" width="28" height="24" rx="6" fill="#d9a441"/>
+    <!-- Row 2 (offset) -->
+    <rect x="22" y="52" width="28" height="24" rx="6" fill="#d9a441"/>
+    <rect x="56" y="52" width="50" height="24" rx="6" fill="#f1e7d3"/>
+    <!-- Row 3 -->
+    <rect x="22" y="80" width="50" height="24" rx="6" fill="#f1e7d3"/>
+    <rect x="78" y="80" width="28" height="24" rx="6" fill="#9c7440"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="152" y="82" font-family="'Onest','Avenir Next','Segoe UI',system-ui,sans-serif" font-size="58" font-weight="700" letter-spacing="-1" fill="#33281c">Paver <tspan fill="#9c7440">Portal</tspan></text>
+</svg>
