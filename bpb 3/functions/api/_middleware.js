@@ -70,6 +70,8 @@ function gateLevelFor(pathname) {
   // endpoint too. Middleware admits active staff; the endpoint verifies
   // the designer actually owns the client before inserting/emailing.
   if (pathname === '/api/send-chat-message') return 'staff';
+  // SPRINT 4: the knowledge-base chat burns Anthropic tokens — staff only.
+  if (pathname === '/api/help-chat') return 'staff';
   return null;
 }
 
