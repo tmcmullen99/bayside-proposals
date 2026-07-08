@@ -472,7 +472,7 @@ function renderWarranty(baysideStandards, manufacturers, materials) {
   if (!bayside && !mfrWarranties.length) return '';
   const baysideHtml = bayside ? `
       <div class="bpb-library-warranty-item bpb-library-warranty-primary">
-        <div class="bpb-library-warranty-name">Bayside Pavers — workmanship</div>
+        <div class="bpb-library-warranty-name">Workmanship warranty</div>
         <p>${escapeHtml(bayside.warranty_summary)}</p>
         ${bayside.warranty_url ? `<a href="${escapeAttr(bayside.warranty_url)}" target="_blank" rel="noopener">View warranty</a>` : ''}
       </div>` : '';
@@ -682,7 +682,7 @@ function openMaterialModal(state, material) {
           </div>
         ` : ''}
         <div class="bpb-library-warranty-card">
-          <h3>Bayside installation warranty</h3>
+          <h3>Installation warranty</h3>
           <p>${escapeHtml(baysideWarranty || '25-year installation warranty on all Bayside-installed work.')}</p>
         </div>
       </div>
@@ -822,25 +822,25 @@ function injectBaseStyles() {
     .bpb-library-tab-strip{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid #e2dfd2;margin-bottom:20px;padding-bottom:0}
     .bpb-library-tab{display:flex;align-items:center;gap:6px;padding:10px 14px;font-size:13px;color:#666;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;font-family:inherit}
     .bpb-library-tab:hover{color:#2a2a26}
-    .bpb-library-tab.is-active{color:#2a2a26;border-bottom-color:#5d7e69;font-weight:500}
+    .bpb-library-tab.is-active{color:#2a2a26;border-bottom-color:#9c7440;font-weight:500}
     .bpb-library-tab.is-greyed{color:#aaa;opacity:.6}
     .bpb-library-tab .ti{font-size:15px}
     .bpb-library-hero{display:flex;align-items:center;gap:14px;padding:20px;background:#fff;border:1px solid #e2dfd2;border-radius:12px;margin-bottom:16px}
-    .bpb-library-hero-icon{font-size:32px;color:#5d7e69}
+    .bpb-library-hero-icon{font-size:32px;color:#9c7440}
     .bpb-library-hero-text h2{margin:0;font-size:18px;font-weight:500;color:#2a2a26}
     .bpb-library-hero-text p{margin:2px 0 0;font-size:13px;color:#666}
     .bpb-library-hero-stats{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
     .bpb-library-stat{font-size:11px;padding:3px 10px;background:#f7f6f0;border-radius:999px;color:#666}
     .bpb-library-section{margin:20px 0}
     .bpb-library-section h3{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;margin:0 0 10px;color:#2a2a26}
-    .bpb-library-section h3 .ti{font-size:16px;color:#5d7e69}
+    .bpb-library-section h3 .ti{font-size:16px;color:#9c7440}
     .bpb-library-diagram{margin:0;border:1px solid #e2dfd2;border-radius:12px;overflow:hidden;background:#faf8f3}
     .bpb-library-diagram img{display:block;width:100%;height:auto}
     .bpb-library-phases{display:flex;flex-direction:column;gap:6px}
     .bpb-library-phase{border:1px solid #e2dfd2;border-radius:8px;overflow:hidden}
     .bpb-library-phase-header{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;background:#fff;border:none;text-align:left;cursor:pointer;font-family:inherit}
     .bpb-library-phase-header:hover{background:#fafaf6}
-    .bpb-library-phase-num{font-size:12px;color:#5d7e69;font-weight:500;font-family:monospace}
+    .bpb-library-phase-num{font-size:12px;color:#9c7440;font-weight:500;font-family:monospace}
     .bpb-library-phase-title{font-size:14px;font-weight:500;color:#2a2a26}
     .bpb-library-phase-detail{font-size:13px;color:#666;flex:1}
     .bpb-library-phase-chevron{margin-left:auto;color:#888}
@@ -850,19 +850,19 @@ function injectBaseStyles() {
     .bpb-library-step-bullets{margin:0;padding-left:18px}
     .bpb-library-step-bullets li{font-size:13px;color:#444;line-height:1.55;margin-bottom:3px}
     .bpb-library-step-source{font-size:12px;color:#777;margin:10px 0 0}
-    .bpb-library-step-source a{color:#5d7e69;text-decoration:none;border-bottom:1px solid rgba(93,126,105,.35)}
+    .bpb-library-step-source a{color:#9c7440;text-decoration:none;border-bottom:1px solid rgba(93,126,105,.35)}
     .bpb-library-warranty{display:flex;flex-direction:column;gap:10px}
     .bpb-library-warranty-item{border:1px solid #e2dfd2;border-radius:10px;padding:12px 14px;background:#fff}
-    .bpb-library-warranty-primary{border-color:#5d7e69;background:#f3f7f4}
+    .bpb-library-warranty-primary{border-color:#9c7440;background:#f3f7f4}
     .bpb-library-warranty-name{font-weight:600;font-size:13px;color:#353535;margin-bottom:4px}
     .bpb-library-warranty-item p{margin:0 0 6px;font-size:13px;color:#555;line-height:1.55}
-    .bpb-library-warranty-item a{font-size:12px;color:#5d7e69;text-decoration:none;border-bottom:1px solid rgba(93,126,105,.35)}
-    .bpb-library-tab-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#5d7e69;margin-left:6px;vertical-align:middle}
-    .bpb-library-tab:focus-visible,.bpb-library-phase-header:focus-visible,.bpb-library-section a:focus-visible{outline:2px solid #5d7e69;outline-offset:2px;border-radius:4px}
+    .bpb-library-warranty-item a{font-size:12px;color:#9c7440;text-decoration:none;border-bottom:1px solid rgba(93,126,105,.35)}
+    .bpb-library-tab-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#9c7440;margin-left:6px;vertical-align:middle}
+    .bpb-library-tab:focus-visible,.bpb-library-phase-header:focus-visible,.bpb-library-section a:focus-visible{outline:2px solid #9c7440;outline-offset:2px;border-radius:4px}
     @media (prefers-reduced-motion: reduce){.bpb-library-tab,.bpb-library-phase-chevron{transition:none !important}}
     .bpb-library-video-grid,.bpb-library-material-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
     .bpb-library-video-card,.bpb-library-material-card,.bpb-library-article-card,.bpb-library-guide-card{background:#fff;border:1px solid #e2dfd2;border-radius:8px;padding:10px;text-decoration:none;color:#2a2a26;display:block}
-    .bpb-library-video-card:hover,.bpb-library-material-card:hover,.bpb-library-article-card:hover,.bpb-library-guide-card:hover{border-color:#5d7e69}
+    .bpb-library-video-card:hover,.bpb-library-material-card:hover,.bpb-library-article-card:hover,.bpb-library-guide-card:hover{border-color:#9c7440}
     .bpb-library-video-thumb,.bpb-library-material-thumb{background:#f7f6f0;aspect-ratio:16/9;border-radius:4px;margin-bottom:8px;overflow:hidden;display:flex;align-items:center;justify-content:center}
     .bpb-library-material-thumb{aspect-ratio:1/1}
     .bpb-library-video-thumb img,.bpb-library-material-thumb img{width:100%;height:100%;object-fit:cover}
@@ -870,7 +870,7 @@ function injectBaseStyles() {
     .bpb-library-material-color{font-size:11px;color:#777;margin-top:2px}
     .bpb-library-guide-list,.bpb-library-article-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
     .bpb-library-guide-card{display:flex;align-items:center;gap:10px}
-    .bpb-library-guide-card .ti:first-child{font-size:20px;color:#5d7e69}
+    .bpb-library-guide-card .ti:first-child{font-size:20px;color:#9c7440}
     .bpb-library-guide-card .ti-external-link{font-size:14px;color:#888;margin-left:auto}
     .bpb-library-guide-meta{flex:1;min-width:0}
     .bpb-library-guide-title{font-size:13px;font-weight:500}
@@ -890,7 +890,7 @@ function injectBaseStyles() {
     .bpb-library-warranty-card{padding:12px;background:#f7f6f0;border-radius:8px}
     .bpb-library-warranty-card h3{font-size:13px;font-weight:500;margin:0 0 6px;color:#2a2a26}
     .bpb-library-warranty-card p{font-size:12px;color:#555;margin:0 0 6px;line-height:1.5}
-    .bpb-library-warranty-card a{font-size:12px;color:#5d7e69;text-decoration:none}
+    .bpb-library-warranty-card a{font-size:12px;color:#9c7440;text-decoration:none}
     @media (max-width:520px){.bpb-library-modal-warranties{grid-template-columns:1fr}.bpb-library-hero{flex-direction:column;align-items:flex-start}.bpb-library-hero-stats{margin-left:0}}
   `;
   document.head.appendChild(style);

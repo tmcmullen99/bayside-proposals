@@ -355,7 +355,7 @@ function openModal(mid) {
         `}
         ${bayside ? `
           <div class="vm-warranty">
-            <div class="vm-warranty-label">Bayside installation</div>
+            <div class="vm-warranty-label">Installation</div>
             <div class="vm-warranty-text">${escapeHtml(bayside.warranty_summary || '25-year installation warranty on all Bayside-installed work.')}</div>
             ${bayside.warranty_url ? `<a class="vm-warranty-link" href="${escapeAttr(bayside.warranty_url)}" target="_blank" rel="noopener">View full warranty PDF →</a>` : ''}
           </div>
