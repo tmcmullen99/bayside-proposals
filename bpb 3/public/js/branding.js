@@ -31,11 +31,11 @@ import { supabase } from '/js/supabase-client.js';
 const CACHE_KEY = 'bpb-branding-v1';
 
 const DEFAULTS = {
-  company_name: 'Bayside Pavers',
+  company_name: 'Paver Portal',
   product_name: 'Proposal Builder',
   tagline: null,
   logo_url: null,
-  primary_color: '#5d7e69',
+  primary_color: '#9c7440',
   support_email: null,
   reply_to_email: null,
   from_email_name: null,
@@ -107,7 +107,10 @@ export async function applyBranding(opts = {}) {
       }
     });
     if (opts.pageTitle) {
-      document.title = `${opts.pageTitle} · ${b.company_name} ${b.product_name}`;
+      const brandName = (b.company_name === b.product_name)
+        ? b.company_name
+        : `${b.company_name} ${b.product_name}`;
+      document.title = `${opts.pageTitle} · ${brandName}`;
     }
   };
 

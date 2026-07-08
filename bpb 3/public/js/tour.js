@@ -115,7 +115,7 @@ function ensureStyles() {
     }
     #bpbTourRing {
       position: absolute; border-radius: 10px;
-      box-shadow: 0 0 0 9999px rgba(16, 20, 28, 0.62), 0 0 0 3px #5d7e69;
+      box-shadow: 0 0 0 9999px rgba(16, 20, 28, 0.62), 0 0 0 3px #9c7440;
       transition: all 0.25s ease; pointer-events: none;
     }
     #bpbTourRing.center { box-shadow: 0 0 0 9999px rgba(16, 20, 28, 0.62); }
@@ -128,7 +128,7 @@ function ensureStyles() {
     }
     #bpbTourCard .t-count {
       font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.16em;
-      text-transform: uppercase; color: #5d7e69; font-weight: 600; margin-bottom: 6px;
+      text-transform: uppercase; color: #9c7440; font-weight: 600; margin-bottom: 6px;
     }
     #bpbTourCard .t-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.01em; }
     #bpbTourCard .t-body { font-size: 13.5px; line-height: 1.55; color: #444; }
@@ -139,21 +139,21 @@ function ensureStyles() {
       font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
       border-radius: 8px; padding: 8px 14px; border: 1px solid #e5e5e5; background: #fff; color: #555;
     }
-    #bpbTourCard button:hover { border-color: #5d7e69; color: #4a6654; }
-    #bpbTourCard button.t-next { background: #5d7e69; border-color: #5d7e69; color: #fff; }
-    #bpbTourCard button.t-next:hover { background: #4a6654; }
+    #bpbTourCard button:hover { border-color: #9c7440; color: #7d5c31; }
+    #bpbTourCard button.t-next { background: #9c7440; border-color: #9c7440; color: #fff; }
+    #bpbTourCard button.t-next:hover { background: #7d5c31; }
     #bpbTourCard button.t-skip { border: 0; background: transparent; color: #999; padding: 8px 6px; }
     #bpbTourCard button.t-skip:hover { color: #555; }
 
     #bpbHelpBtn {
       position: fixed; right: 18px; bottom: 18px; z-index: 9990;
       width: 44px; height: 44px; border-radius: 999px; border: 0;
-      background: #1a1f2e; color: #fff; font: 700 18px/1 'Onest', sans-serif;
+      background: #33281c; color: #fff; font: 700 18px/1 'Onest', sans-serif;
       cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,0.22);
       display: flex; align-items: center; justify-content: center;
       transition: transform 0.12s, background 0.15s;
     }
-    #bpbHelpBtn:hover { background: #5d7e69; transform: scale(1.06); }
+    #bpbHelpBtn:hover { background: #9c7440; transform: scale(1.06); }
     #bpbHelpMenu {
       position: fixed; right: 18px; bottom: 70px; z-index: 9991;
       background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
@@ -166,7 +166,7 @@ function ensureStyles() {
       padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f1eee6;
     }
     #bpbHelpMenu button:last-child { border-bottom: 0; }
-    #bpbHelpMenu button:hover { background: #e8eee9; color: #4a6654; }
+    #bpbHelpMenu button:hover { background: #f1e7d3; color: #7d5c31; }
     #bpbHelpMenu .soon { color: #9aa0a6; font-size: 11px; margin-left: 6px; }
   `;
   document.head.appendChild(css);

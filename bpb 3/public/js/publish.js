@@ -226,7 +226,7 @@ import { supabase } from './supabase-client.js';
 
 // Bayside-branded installation guide PDF — remains the bottom footer CTA.
 // This is the client-facing "Here's how we install" document.
-const INSTALL_GUIDE_URL = 'https://cdn.prod.website-files.com/67c10dbe66a9f7b9cf3c6e47/68d2db027d1d1b4ad1543f05_Bayside%20Pavers%20Presentation%20(1)_compressed%20(1).pdf';
+const INSTALL_GUIDE_URL = '/account/';
 
 // Belgard master Product Installation Guide — the 110+ page PDF we parsed
 // in Sprint 2 Part B.1. Used for page-anchored deep links per section since
@@ -240,10 +240,10 @@ const BELGARD_MASTER_INSTALL_GUIDE_URL = 'https://www.belgard.com/wp-content/upl
 const EVERGRASS_INSTALL_GUIDE_URL = 'https://cdn.msisurfaces.com/files/flyers/evergrass-artificial-turf-pavers.pdf';
 const TRU_SCAPES_PRODUCT_GUIDE_URL = 'https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69e99762031d43f432f14cde_Tru%20Scapes-compressed.pdf';
 
-const BAYSIDE_LOGO_URL = 'https://cdn.prod.website-files.com/65a1ca4354f63bd7376b5027/69a04f4369bc9cc20b8d2155_BaysidePavers_original%20(2)%20(1).png';
+const BAYSIDE_LOGO_URL = '/assets/paver-portal-logo.svg';
 const TIM_PHONE = '415-691-9272';
 const TIM_PHONE_HREF = '+14156919272';
-const TIM_EMAIL = 'Tim@BaysidePavers.com';
+const TIM_EMAIL = 'tim@mcmullen.properties';
 const BUCKET = 'proposal-photos';
 
 let proposalId = null;
@@ -535,7 +535,7 @@ function renderShell() {
         transform: translateY(-1px);
       }
       .bp-hero-picker-item.is-selected {
-        border-color: #5d7e69;
+        border-color: #9c7440;
         box-shadow: 0 0 0 3px rgba(93, 126, 105, 0.15);
       }
       .bp-hero-picker-item img {
@@ -552,7 +552,7 @@ function renderShell() {
         letter-spacing: 0.08em;
         text-transform: uppercase;
         border-radius: 3px;
-        background: #5d7e69;
+        background: #9c7440;
         color: #fff;
       }
       .bp-hero-picker-source {
@@ -1081,7 +1081,7 @@ export async function handlePublish() {
     const changeNote = (document.getElementById('bpPublishChangeNote').value || '').trim() || null;
     const title = proposal.project_address
       || proposal.client_name
-      || 'Bayside Pavers proposal';
+      || 'Paver Portal proposal';
     const totalAmount = proposal.bid_total_amount || null;
 
     // Look up the existing canonical row, if any.
@@ -1297,17 +1297,17 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(address || 'Bayside Pavers Proposal')} · Bayside Pavers</title>
+<title>${escapeHtml(address || 'Paver Portal Proposal')} · Paver Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --green: #5d7e69;
-    --green-dark: #4a6654;
-    --green-soft: #e8eee9;
+    --green: #9c7440;
+    --green-dark: #7d5c31;
+    --green-soft: #f1e7d3;
     --charcoal: #353535;
     --tan: #dad7c5;
     --cream: #faf8f3;
-    --navy: #1a1f2e;
+    --navy: #33281c;
     --border: #e5e5e5;
     --muted: #666;
   }
@@ -2759,7 +2759,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
 </head>
 <body>
   <header class="pub-header">
-    <img src="${escapeAttr(BAYSIDE_LOGO_URL)}" alt="Bayside Pavers" class="pub-header-logo">
+    <img src="${escapeAttr(BAYSIDE_LOGO_URL)}" alt="Paver Portal" class="pub-header-logo">
     <span class="pub-header-date">${escapeHtml(dateStr)}</span>
   </header>
 
@@ -2769,7 +2769,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
     ${heroBanner}
     <div class="pub-hero-body">
       <div class="pub-hero-eyebrow">Design Proposal</div>
-      <h1 class="pub-hero-address">${escapeHtml(address || 'Bayside Pavers')}</h1>
+      <h1 class="pub-hero-address">${escapeHtml(address || 'Paver Portal')}</h1>
       ${cityLine ? `<div class="pub-hero-city">${escapeHtml(cityLine)}</div>` : ''}
       ${clientName ? `<div class="pub-hero-client">Prepared for ${escapeHtml(clientName)}</div>` : ''}
       ${total ? `
@@ -2838,7 +2838,7 @@ function buildHtmlSnapshot({ proposal, sections, materials, photos, installSecti
   </section>
 
   <div class="pub-bottom">
-    Proposal prepared by Tim McMullen · Bayside Pavers
+    Proposal prepared by Tim McMullen · Paver Portal
   </div>
 
   <!-- Phase 1B.7 Sign modal -->
@@ -3219,7 +3219,7 @@ function buildChangeNoteBanner(changeNote, proposal) {
         width: 38px;
         height: 38px;
         border-radius: 50%;
-        background: #5d7e69;
+        background: #9c7440;
         color: #fff;
         display: flex;
         align-items: center;
@@ -3233,7 +3233,7 @@ function buildChangeNoteBanner(changeNote, proposal) {
         font-weight: 700;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: #5d7e69;
+        color: #9c7440;
         margin-bottom: 4px;
       }
       .pub-changed-banner-meta {
@@ -3403,7 +3403,7 @@ function buildDrawingSection(proposal, regions, materials, categoryToSection) {
 // stays the green from .pub-drawing-region; these colors only appear in
 // the legend strip and material badges to identify each region).
 const REGION_LEGEND_COLORS = [
-  '#5d7e69', '#3b82f6', '#f59e0b', '#a855f7', '#ec4899',
+  '#9c7440', '#3b82f6', '#f59e0b', '#a855f7', '#ec4899',
   '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#ef4444',
 ];
 
@@ -3758,7 +3758,7 @@ function renderMaterialCard(m, categoryToSection, materialRegions, regionColors)
     : `<div class="pub-material-card-placeholder">${escapeHtml((info.name || 'Material').slice(0, 3).toUpperCase())}</div>`;
 
   const regionBadges = usedInRegions.map(r => {
-    const color = regionColors ? (regionColors.get(r.id) || '#5d7e69') : '#5d7e69';
+    const color = regionColors ? (regionColors.get(r.id) || '#9c7440') : '#9c7440';
     return `<span class="pub-region-badge"><span class="pub-region-badge-dot" style="background:${color};"></span>${escapeHtml(r.name || 'Region')}</span>`;
   }).join('');
 
