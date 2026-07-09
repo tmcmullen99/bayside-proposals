@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start your trial · Paver Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pp-tan: #9c7440; --pp-walnut: #7d5c31; --pp-gold: #d9a441;
+    --pp-sand: #f1e7d3; --pp-cream: #faf6ee; --pp-espresso: #33281c;
+    --rule: #e5e0d6; --text: #23282f; --muted: #6f6a60; --err: #b91c1c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--pp-cream); color: var(--text); min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+  }
+  .card {
+    background: #fff; border: 1px solid var(--rule); border-radius: 18px;
+    padding: 34px 36px 30px; width: 100%; max-width: 440px;
+    box-shadow: 0 18px 50px rgba(51,40,28,0.10);
+  }
+  .logo { height: 34px; display: block; margin-bottom: 22px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.014em; margin-bottom: 6px; }
+  .lede { font-size: 13.5px; color: var(--muted); line-height: 1.55; margin-bottom: 22px; }
+  .plan {
+    background: var(--pp-sand); border-radius: 12px; padding: 14px 16px; margin-bottom: 22px;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  }
+  .plan-name { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-walnut); }
+  .plan-price { font-size: 20px; font-weight: 700; color: var(--pp-espresso); }
+  .plan-price span { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .plan-trial { font-size: 11.5px; color: var(--pp-walnut); font-weight: 600; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--text); margin: 0 0 5px; }
+  input {
+    width: 100%; padding: 11px 13px; border: 1px solid var(--rule); border-radius: 10px;
+    font: inherit; font-size: 14px; margin-bottom: 14px; background: #fff;
+  }
+  input:focus { outline: 2px solid var(--pp-sand); border-color: var(--pp-tan); }
+  button {
+    width: 100%; background: var(--pp-tan); color: #fff; border: 0; border-radius: 10px;
+    padding: 13px; font: 600 14.5px 'Onest', sans-serif; cursor: pointer; margin-top: 4px;
+    transition: background .15s;
+  }
+  button:hover { background: var(--pp-walnut); }
+  button:disabled { opacity: 0.6; cursor: wait; }
+  .fine { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 12px; text-align: center; }
+  .fine a { color: var(--pp-walnut); }
+  .error {
+    display: none; background: #fbeeee; border: 1px solid #e6b8b8; color: var(--err);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px;
+  }
+  .canceled {
+    background: var(--pp-sand); border-radius: 10px; padding: 10px 14px;
+    font-size: 12.5px; color: var(--pp-walnut); margin-bottom: 14px; display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <img class="logo" src="/assets/paver-portal-logo.svg" alt="Paver Portal">
+  <h1>Start your 14-day trial</h1>
+  <p class="lede">Proposals your clients actually read, sign, and share — built for hardscaping companies.</p>
+
+  <div class="plan">
+    <div>
+      <div class="plan-name">Pro plan</div>
+      <div class="plan-trial">14 days free · cancel anytime</div>
+    </div>
+    <div class="plan-price">$249<span>/mo</span></div>
+  </div>
+
+  <div class="canceled" id="canceledMsg">Checkout canceled — your card wasn't charged. Pick up where you left off below.</div>
+  <div class="error" id="errBox"></div>
+
+  <label for="fCompany">Company name</label>
+  <input id="fCompany" type="text" placeholder="Summit Hardscapes" autocomplete="organization">
+
+  <label for="fName">Your name</label>
+  <input id="fName" type="text" placeholder="Alex Rivera" autocomplete="name">
+
+  <label for="fEmail">Work email</label>
+  <input id="fEmail" type="email" placeholder="alex@summithardscapes.com" autocomplete="email">
+
+  <label for="fPassword">Password</label>
+  <input id="fPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password">
+
+  <button id="goBtn" type="button">Continue to secure checkout →</button>
+  <p class="fine">Card handled by Stripe. Your workspace is created the moment checkout completes.<br>By continuing you agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy.html">Privacy Policy</a>.<br>Already have an account? <a href="/login.html">Sign in</a></p>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  if (new URLSearchParams(location.search).get('canceled')) {
+    $('canceledMsg').style.display = 'block';
+  }
+  const showErr = (m) => { const e = $('errBox'); e.textContent = m; e.style.display = 'block'; };
+
+  $('goBtn').addEventListener('click', async () => {
+    const company_name = $('fCompany').value.trim();
+    const owner_name = $('fName').value.trim();
+    const email = $('fEmail').value.trim();
+    const password = $('fPassword').value;
+    $('errBox').style.display = 'none';
+
+    if (company_name.length < 2) return showErr('Please enter your company name.');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showErr('Please enter a valid email.');
+    if (password.length < 8) return showErr('Password must be at least 8 characters.');
+
+    const btn = $('goBtn');
+    btn.disabled = true; btn.textContent = 'Setting things up…';
+    try {
+      const resp = await fetch('/api/signup-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_name, owner_name, email, password }),
+      });
+      const out = await resp.json().catch(() => ({}));
+      if (!resp.ok || !out.url) throw new Error(out.error || 'Could not start checkout.');
+      window.location.href = out.url;
+    } catch (e) {
+      showErr(e.message || 'Something went wrong — please try again.');
+      btn.disabled = false; btn.textContent = 'Continue to secure checkout →';
+    }
+  });
+})();
+</script>
+</body>
+</html>

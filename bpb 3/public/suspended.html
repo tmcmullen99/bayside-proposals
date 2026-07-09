@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workspace paused</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --tan:#9c7440; --walnut:#7d5c31; --sand:#f1e7d3; --cream:#faf6ee; --muted:#6f6a60; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Onest',sans-serif; background:var(--cream); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; color:#23282f; }
+  .card { background:#fff; border:1px solid #e5e0d6; border-radius:18px; padding:38px 40px; max-width:440px; width:100%; text-align:center; box-shadow:0 18px 50px rgba(51,40,28,.10); }
+  .logo { height:32px; margin:0 auto 18px; display:block; }
+  .badge { width:56px; height:56px; border-radius:999px; background:var(--sand); color:var(--walnut); font-size:24px; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+  h1 { font-size:21px; font-weight:700; letter-spacing:-.014em; margin-bottom:8px; }
+  p { font-size:13.5px; color:var(--muted); line-height:1.6; margin-bottom:10px; }
+  a.btn { display:inline-block; background:var(--tan); color:#fff; text-decoration:none; border-radius:10px; padding:12px 22px; font-weight:600; font-size:14px; margin-top:8px; }
+  a.btn:hover { background:var(--walnut); }
+  .signout { margin-top:14px; font-size:12px; }
+  .signout a { color:var(--walnut); }
+</style>
+</head>
+<body>
+<div class="card">
+  <img class="logo" src="/assets/paver-portal-logo.svg" alt="Paver Portal">
+  <div class="badge">⏸</div>
+  <h1>Your workspace is paused</h1>
+  <p>Your subscription needs attention before your team can get back to building proposals. Your data — every client, proposal, and message — is safe and waiting.</p>
+  <p id="supportLine">Reach out and we'll get you reactivated in minutes.</p>
+  <a class="btn" id="supportBtn" href="mailto:tim@mcmullen.properties">Contact support</a>
+  <div class="signout"><a href="#" id="signoutLink">Sign out</a></div>
+</div>
+<script type="module">
+import { supabase } from '/js/supabase-client.js';
+import { getBranding } from '/js/branding.js';
+try {
+  const b = await getBranding();
+  if (b && b.support_email) {
+    document.getElementById('supportBtn').href = 'mailto:' + b.support_email;
+  }
+} catch (_) {}
+document.getElementById('signoutLink').addEventListener('click', async (e) => {
+  e.preventDefault();
+  try { await supabase.auth.signOut(); } catch (_) {}
+  window.location.replace('/login.html');
+});
+</script>
+</body>
+</html>
