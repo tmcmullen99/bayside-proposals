@@ -153,6 +153,49 @@
   .send-btn:disabled { opacity: 0.6; cursor: wait; }
   .chat-hint { font-size: 11.5px; color: var(--text-faint); margin-top: 8px; line-height: 1.5; }
 
+  .askpro-btn {
+    background: #33281c; color: #fff; border: 0; border-radius: 999px;
+    padding: 9px 16px; font: 600 13px 'Onest', sans-serif; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    transition: background .15s, transform .12s;
+  }
+  .askpro-btn:hover { background: #9c7440; transform: scale(1.03); }
+
+  /* Field kit */
+  .fk-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .fk-tool {
+    font: 600 12px 'Onest', sans-serif; cursor: pointer;
+    border: 1px solid var(--rule); background: #fff; color: var(--text);
+    border-radius: 999px; padding: 8px 14px; display: inline-flex; gap: 6px; align-items: center;
+  }
+  .fk-tool:hover { border-color: var(--bp-green); color: var(--bp-green-dark); background: var(--bp-green-soft); }
+  .fk-note-box { display: flex; gap: 8px; margin-bottom: 12px; }
+  .fk-note-box textarea {
+    flex: 1; min-height: 40px; font: inherit; font-size: 13px;
+    border: 1px solid var(--rule); border-radius: 10px; padding: 9px 12px; resize: vertical;
+  }
+  .fk-measure { display: none; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .fk-measure.open { display: flex; }
+  .fk-measure input {
+    font: inherit; font-size: 13px; border: 1px solid var(--rule);
+    border-radius: 10px; padding: 9px 12px; flex: 1; min-width: 130px;
+  }
+  .fk-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--bp-cream-shade); align-items: flex-start; }
+  .fk-item:last-child { border-bottom: 0; }
+  .fk-thumb { width: 74px; height: 74px; object-fit: cover; border-radius: 10px; border: 1px solid var(--rule); flex-shrink: 0; cursor: pointer; }
+  .fk-kind {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--bp-green-dark); font-weight: 600;
+  }
+  .fk-body { font-size: 13.5px; line-height: 1.5; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+  .fk-when { font-size: 11px; color: var(--text-faint); margin-top: 3px; }
+  .fk-measure-val { font-size: 15px; font-weight: 700; color: var(--bp-green-dark); }
+  @media (max-width: 860px) {
+    .detail { padding: 16px 14px 90px; }
+    .chat-compose textarea, .fk-note-box textarea { font-size: 16px; } /* prevent iOS zoom */
+    .askpro-btn { padding: 9px 13px; }
+  }
+
   .banner-err {
     background: #fbeaea; border: 1px solid #e6b8b8; color: #8a2b2b;
     border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px;
@@ -172,9 +215,10 @@
     <a href="/dashboard" class="back-link">← Pipeline</a>
     <div>
       <div class="page-title">My Clients</div>
-      <span class="page-sub">clients · requests · messages</span>
+      <span class="page-sub">clients · field kit · messages</span>
     </div>
   </div>
+  <button class="askpro-btn" id="askProBtn" type="button">🛠 Ask a Pro</button>
 </header>
 
 <div class="layout">
@@ -194,6 +238,25 @@
       <div id="detailBanner"></div>
       <div class="d-header"><div class="d-name" id="dName">…</div></div>
       <div class="d-contact" id="dContact"></div>
+
+      <section class="d-section">
+        <div class="d-section-title">Field kit — photos, notes &amp; measurements</div>
+        <div class="fk-toolbar">
+          <button class="fk-tool" id="fkPhotoBtn" type="button">📷 Add photo</button>
+          <button class="fk-tool" id="fkMeasureBtn" type="button">📐 Add measurement</button>
+          <input type="file" id="fkPhotoInput" accept="image/*" capture="environment" hidden>
+        </div>
+        <div class="fk-measure" id="fkMeasureRow">
+          <input type="text" id="fkMeasureLabel" placeholder="What (e.g. Back patio width)">
+          <input type="text" id="fkMeasureValue" placeholder="Measurement (e.g. 14 ft 6 in)">
+          <button class="fk-tool" id="fkMeasureSave" type="button">Save</button>
+        </div>
+        <div class="fk-note-box">
+          <textarea id="fkNoteInput" placeholder="Field note — soil conditions, access, client preferences…"></textarea>
+          <button class="mini-btn" id="fkNoteSave" type="button">Save note</button>
+        </div>
+        <div id="fkList"><div class="d-empty-line">Loading…</div></div>
+      </section>
 
       <section class="d-section">
         <div class="d-section-title">Proposals</div>
@@ -310,7 +373,7 @@ async function selectClient(id) {
   $('dRequests').innerHTML = '<div class="d-empty-line">Loading…</div>';
   $('dThread').innerHTML = '<div class="d-empty-line">Loading…</div>';
 
-  await Promise.all([loadProposals(id), loadRequests(id), loadThread(id, true)]);
+  await Promise.all([loadProposals(id), loadRequests(id), loadThread(id, true), loadFieldNotes(id)]);
 
   if (chatPollTimer) clearInterval(chatPollTimer);
   chatPollTimer = setInterval(() => { if (activeClientId === id) loadThread(id, false); }, 20000);
@@ -480,6 +543,115 @@ async function sendMessage() {
   } finally {
     btn.disabled = false; btn.textContent = 'Send';
   }
+}
+
+// ── Ask a Pro (field expert chat) ──────────────────────────────────────────
+document.getElementById('askProBtn').addEventListener('click', () => {
+  import('/js/help-chat.js')
+    .then(m => m.openHelpChat('pro'))
+    .catch(err => console.error('Ask a Pro failed to load:', err));
+});
+
+// ── Field kit: photos, notes, measurements ─────────────────────────────────
+const fkPhotoBtn = $('fkPhotoBtn'), fkPhotoInput = $('fkPhotoInput');
+const fkMeasureBtn = $('fkMeasureBtn'), fkMeasureRow = $('fkMeasureRow');
+
+fkPhotoBtn.addEventListener('click', () => { if (activeClientId) fkPhotoInput.click(); });
+fkMeasureBtn.addEventListener('click', () => fkMeasureRow.classList.toggle('open'));
+
+fkPhotoInput.addEventListener('change', async () => {
+  const file = fkPhotoInput.files && fkPhotoInput.files[0];
+  fkPhotoInput.value = '';
+  if (!file || !activeClientId) return;
+  fkPhotoBtn.disabled = true; fkPhotoBtn.textContent = 'Uploading…';
+  try {
+    const path = await uploadClientPhoto(activeClientId, file);
+    await insertFieldNote({ kind: 'photo', photo_path: path });
+  } catch (e) {
+    showBanner('Photo upload failed: ' + (e.message || e));
+  } finally {
+    fkPhotoBtn.disabled = false; fkPhotoBtn.textContent = '📷 Add photo';
+  }
+});
+
+$('fkMeasureSave').addEventListener('click', async () => {
+  const label = $('fkMeasureLabel').value.trim();
+  const value = $('fkMeasureValue').value.trim();
+  if (!label || !value || !activeClientId) return;
+  try {
+    await insertFieldNote({ kind: 'measurement', measure_label: label, measure_value: value });
+    $('fkMeasureLabel').value = ''; $('fkMeasureValue').value = '';
+    fkMeasureRow.classList.remove('open');
+  } catch (e) { showBanner('Could not save measurement: ' + (e.message || e)); }
+});
+
+$('fkNoteSave').addEventListener('click', async () => {
+  const body = $('fkNoteInput').value.trim();
+  if (!body || !activeClientId) return;
+  try {
+    await insertFieldNote({ kind: 'note', body });
+    $('fkNoteInput').value = '';
+  } catch (e) { showBanner('Could not save note: ' + (e.message || e)); }
+});
+
+async function uploadClientPhoto(clientId, file) {
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const path = `${clientId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from('client-media')
+    .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+async function insertFieldNote(fields) {
+  const user = await getCurrentUser();
+  const { error } = await supabase.from('client_field_notes').insert({
+    client_id: activeClientId,
+    author_user_id: user.id,
+    ...fields,
+  });
+  if (error) throw error;
+  await loadFieldNotes(activeClientId);
+}
+
+async function loadFieldNotes(clientId) {
+  const box = $('fkList');
+  const { data, error } = await supabase
+    .from('client_field_notes')
+    .select('id, kind, body, photo_path, measure_label, measure_value, created_at')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) { box.innerHTML = '<div class="d-empty-line">Could not load field notes: ' + esc(error.message) + '</div>'; return; }
+  if (!data || !data.length) { box.innerHTML = '<div class="d-empty-line">No field notes yet — snap a photo or jot a note from the yard.</div>'; return; }
+
+  // Signed URLs for photos (private bucket)
+  const photoPaths = data.filter(n => n.photo_path).map(n => n.photo_path);
+  const urlMap = {};
+  if (photoPaths.length) {
+    const { data: signed } = await supabase.storage.from('client-media').createSignedUrls(photoPaths, 3600);
+    (signed || []).forEach(s => { if (s.signedUrl) urlMap[s.path] = s.signedUrl; });
+  }
+
+  box.innerHTML = data.map(n => {
+    const thumb = n.photo_path && urlMap[n.photo_path]
+      ? `<a href="${esc(urlMap[n.photo_path])}" target="_blank" rel="noopener"><img class="fk-thumb" src="${esc(urlMap[n.photo_path])}" alt=""></a>` : '';
+    let content = '';
+    if (n.kind === 'measurement') {
+      content = `<div class="fk-body">${esc(n.measure_label || '')}: <span class="fk-measure-val">${esc(n.measure_value || '')}</span></div>`;
+    } else if (n.body) {
+      content = `<div class="fk-body">${esc(n.body)}</div>`;
+    }
+    return `
+      <div class="fk-item">
+        ${thumb}
+        <div style="min-width:0;flex:1;">
+          <div class="fk-kind">${esc(n.kind)}</div>
+          ${content}
+          <div class="fk-when">${esc(fmtWhen(n.created_at))}</div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function showBanner(msg, isError = true) {
