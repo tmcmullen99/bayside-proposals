@@ -262,29 +262,135 @@
       <ul class="checks">
         <li>One-time scale calibration per property</li>
         <li>Draw regions, get instant sqft &amp; linear ft</li>
-        <li>Pricing flows from measurement, not eyeballing</li>
+        <li>Priced at <strong>your rates</strong> — demo, base, pavers, hauling, each its own $/unit</li>
       </ul>
     </div>
     <div class="mock">
       <div class="mock-bar"><i></i><i></i><i></i><span class="url">/editor · site map · try it yourself</span><span class="try-tag"><i></i>Try it</span></div>
       <svg id="smSvg" viewBox="0 0 600 340" xmlns="http://www.w3.org/2000/svg">
-        <!-- stylized aerial: lawn, house, driveway -->
-        <rect x="0" y="0" width="600" height="340" fill="#9fae7e"/>
-        <rect x="0" y="0" width="600" height="340" fill="url(#g)" opacity="0"/>
-        <rect x="60" y="30" width="230" height="140" rx="6" fill="#d8d2c2" stroke="#b9b2a0" stroke-width="2"/>
-        <rect x="80" y="30" width="90" height="60" fill="#c9c2b0"/>
-        <text x="175" y="105" font-family="monospace" font-size="13" fill="#7c7666" text-anchor="middle">HOUSE</text>
-        <rect x="330" y="0" width="90" height="180" fill="#cfc9ba"/>
-        <text x="375" y="95" font-family="monospace" font-size="11" fill="#8a8474" text-anchor="middle">DRIVEWAY</text>
-        <ellipse cx="500" cy="80" rx="42" ry="30" fill="#7e9464"/>
-        <ellipse cx="90" cy="270" rx="34" ry="24" fill="#7e9464"/>
+        <defs>
+          <linearGradient id="lawnG" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#a8c084"/><stop offset="1" stop-color="#8fae6b"/>
+          </linearGradient>
+          <linearGradient id="poolG" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#7fd4e8"/><stop offset="1" stop-color="#3fa8c9"/>
+          </linearGradient>
+          <linearGradient id="roofG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#8d8578"/><stop offset="1" stop-color="#6e675c"/>
+          </linearGradient>
+          <radialGradient id="treeG" cx=".35" cy=".35" r=".8">
+            <stop offset="0" stop-color="#6f9648"/><stop offset="1" stop-color="#4c7233"/>
+          </radialGradient>
+          <radialGradient id="treeG2" cx=".35" cy=".35" r=".8">
+            <stop offset="0" stop-color="#86a95c"/><stop offset="1" stop-color="#5d8340"/>
+          </radialGradient>
+        </defs>
+
+        <!-- lawn + mowing stripes -->
+        <rect width="600" height="340" fill="url(#lawnG)"/>
+        <g opacity="0.08" fill="#ffffff">
+          <rect x="0" y="0" width="600" height="24"/><rect x="0" y="48" width="600" height="24"/>
+          <rect x="0" y="96" width="600" height="24"/><rect x="0" y="144" width="600" height="24"/>
+          <rect x="0" y="192" width="600" height="24"/><rect x="0" y="240" width="600" height="24"/>
+          <rect x="0" y="288" width="600" height="24"/>
+        </g>
+
+        <!-- street + sidewalk -->
+        <rect x="0" y="0" width="26" height="340" fill="#9b958a"/>
+        <rect x="26" y="0" width="10" height="340" fill="#cfc9bc"/>
+
+        <!-- driveway with joints -->
+        <rect x="330" y="0" width="92" height="176" rx="3" fill="#d6d0c2"/>
+        <g stroke="#bcb5a5" stroke-width="1.5">
+          <line x1="330" y1="44" x2="422" y2="44"/><line x1="330" y1="88" x2="422" y2="88"/>
+          <line x1="330" y1="132" x2="422" y2="132"/><line x1="376" y1="0" x2="376" y2="176"/>
+        </g>
+
+        <!-- house with roof ridges + shadow -->
+        <ellipse cx="185" cy="172" rx="132" ry="20" fill="#000" opacity="0.10"/>
+        <rect x="62" y="34" width="234" height="132" rx="4" fill="url(#roofG)"/>
+        <polygon points="62,100 296,100 296,96 62,96" fill="#5c564c"/>
+        <line x1="179" y1="34" x2="179" y2="166" stroke="#5c564c" stroke-width="3"/>
+        <rect x="90" y="52" width="26" height="18" rx="2" fill="#bfd8e6" stroke="#8fb3c6" stroke-width="1.5"/>
+        <rect x="226" y="120" width="26" height="18" rx="2" fill="#bfd8e6" stroke="#8fb3c6" stroke-width="1.5"/>
+
+        <!-- wood deck off the house -->
+        <rect x="296" y="196" width="88" height="66" rx="4" fill="#c99e6a"/>
+        <g stroke="#b0854f" stroke-width="1.4">
+          <line x1="296" y1="207" x2="384" y2="207"/><line x1="296" y1="218" x2="384" y2="218"/>
+          <line x1="296" y1="229" x2="384" y2="229"/><line x1="296" y1="240" x2="384" y2="240"/>
+          <line x1="296" y1="251" x2="384" y2="251"/>
+        </g>
+        <rect x="306" y="214" width="18" height="12" rx="2" fill="#8a5a3b"/>
+        <rect x="330" y="214" width="18" height="12" rx="2" fill="#8a5a3b"/>
+        <circle cx="358" cy="242" r="9" fill="#e8dcc0" stroke="#c9a86a" stroke-width="2"/>
+
+        <!-- kidney pool + coping -->
+        <ellipse cx="497" cy="248" rx="72" ry="52" fill="#e9e2d1"/>
+        <path d="M450 240 q10 -32 46 -30 q42 2 46 34 q3 30 -30 36 q-16 3 -30 -6 q-14 -8 -24 -4 q-12 4 -8 -30 z" fill="url(#poolG)"/>
+        <path d="M462 244 q8 -20 34 -19" stroke="#ffffff" stroke-width="3" fill="none" opacity="0.55" stroke-linecap="round"/>
+        <rect x="452" y="292" width="34" height="7" rx="3" fill="#d9a441"/>
+
+        <!-- curving stone path -->
+        <g fill="#cfc5ae" stroke="#b3a98f" stroke-width="1">
+          <ellipse cx="312" cy="292" rx="11" ry="7"/><ellipse cx="336" cy="300" rx="11" ry="7"/>
+          <ellipse cx="362" cy="304" rx="11" ry="7"/><ellipse cx="388" cy="302" rx="11" ry="7"/>
+          <ellipse cx="412" cy="295" rx="11" ry="7"/><ellipse cx="432" cy="284" rx="11" ry="7"/>
+        </g>
+
+        <!-- trees (layered) -->
+        <g>
+          <ellipse cx="86" cy="244" rx="40" ry="12" fill="#000" opacity="0.10"/>
+          <circle cx="72" cy="222" r="26" fill="url(#treeG)"/>
+          <circle cx="98" cy="230" r="20" fill="url(#treeG2)"/>
+          <circle cx="84" cy="206" r="16" fill="url(#treeG2)"/>
+        </g>
+        <g>
+          <ellipse cx="540" cy="82" rx="42" ry="12" fill="#000" opacity="0.10"/>
+          <circle cx="526" cy="58" r="28" fill="url(#treeG)"/>
+          <circle cx="556" cy="70" r="20" fill="url(#treeG2)"/>
+          <circle cx="540" cy="40" r="15" fill="url(#treeG2)"/>
+        </g>
+        <circle cx="452" cy="26" r="16" fill="url(#treeG2)"/>
+        <circle cx="150" cy="306" r="17" fill="url(#treeG)"/>
+
+        <!-- flower beds -->
+        <g>
+          <ellipse cx="230" cy="200" rx="52" ry="13" fill="#7e9464"/>
+          <circle cx="208" cy="197" r="4" fill="#e26d6d"/><circle cx="222" cy="202" r="4" fill="#e8b84f"/>
+          <circle cx="238" cy="196" r="4" fill="#d97fb0"/><circle cx="252" cy="201" r="4" fill="#e26d6d"/>
+        </g>
+        <g>
+          <ellipse cx="120" cy="288" rx="40" ry="11" fill="#7e9464"/>
+          <circle cx="104" cy="286" r="3.5" fill="#e8b84f"/><circle cx="120" cy="290" r="3.5" fill="#d97fb0"/>
+          <circle cx="136" cy="285" r="3.5" fill="#e26d6d"/>
+        </g>
+
+        <!-- hedge border top -->
+        <g fill="#5d8340">
+          <circle cx="70" cy="12" r="9"/><circle cx="94" cy="12" r="9"/><circle cx="118" cy="12" r="9"/>
+          <circle cx="142" cy="12" r="9"/><circle cx="166" cy="12" r="9"/><circle cx="190" cy="12" r="9"/>
+          <circle cx="214" cy="12" r="9"/><circle cx="238" cy="12" r="9"/><circle cx="262" cy="12" r="9"/>
+        </g>
+
         <!-- scale reference -->
-        <line x1="330" y1="196" x2="420" y2="196" stroke="#33281c" stroke-width="2" stroke-dasharray="5 4"/>
-        <circle cx="330" cy="196" r="4" fill="#33281c"/><circle cx="420" cy="196" r="4" fill="#33281c"/>
-        <text x="375" y="214" font-family="monospace" font-size="10" fill="#33281c" text-anchor="middle">A→B = 24 ft · scale locked ✓</text>
+        <g>
+          <rect x="318" y="184" width="128" height="34" rx="6" fill="#33281c" opacity="0.85"/>
+          <line x1="332" y1="196" x2="422" y2="196" stroke="#f1e7d3" stroke-width="2" stroke-dasharray="5 4"/>
+          <circle cx="332" cy="196" r="3.5" fill="#d9a441"/><circle cx="422" cy="196" r="3.5" fill="#d9a441"/>
+          <text x="382" y="212" font-family="monospace" font-size="9.5" fill="#f1e7d3" text-anchor="middle">A→B = 24 ft · scale locked ✓</text>
+        </g>
+
         <g id="smDrawing"></g>
       </svg>
-      <div class="sm-hint"><span id="smHint">👆 Click around the yard to outline a patio — tap your first point again to close it</span><button class="demo-btn ghost" id="smReset" type="button">Reset</button></div>
+      <div class="sm-hint">
+        <span id="smHint">👆 Click around the yard to outline a patio — tap your first point again to close it</span>
+        <span style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
+          <label for="smRate" style="font-weight:600;">Your rate $</label>
+          <input id="smRate" type="number" value="24" min="1" max="500" style="width:58px; font:600 12px 'Onest',sans-serif; border:1px solid var(--rule); border-radius:8px; padding:5px 7px;">/sqft
+          <button class="demo-btn ghost" id="smReset" type="button">Reset</button>
+        </span>
+      </div>
       <div class="sm-rows" id="smRows">
         <div class="m-row"><span>Main paver area <span class="m-dim">(pre-measured)</span></span><b>872 sqft</b></div>
         <div class="m-row"><span class="m-strong">Total measured scope</span><b class="m-strong" id="smTotal">872 sqft</b></div>
@@ -295,11 +401,11 @@
   <div class="feat">
     <div class="feat-copy">
       <div class="feat-num">02 · PROPOSE</div>
-      <h3>From contractor bid to polished proposal in minutes.</h3>
-      <p>Drop in the bid PDF and it's parsed into line items automatically. Pick materials from a centralized catalog — photos, specs, and current pricing included — so every draft reflects today's number, not last quarter's.</p>
+      <h3>Fits the workflow you already have. Replaces it when you're ready.</h3>
+      <p>Keep building bids in the software you know — then <strong>drag &amp; drop the PDF</strong> into Paver Portal and it becomes an interactive proposal automatically. No retraining, no migration. And when you're ready to go end-to-end, build the bid right here: every service you sell — demo, grading, tree removal, hauling, pavers, outdoor kitchens — with <strong>your line items at your rates</strong>.</p>
       <ul class="checks">
-        <li>AI bid parsing — no retyping line items</li>
-        <li>Centralized material catalog with photos &amp; specs</li>
+        <li>Drag &amp; drop the PDF from your current bidding software</li>
+        <li>Or build bids start-to-finish — custom line items, your $/unit rates</li>
         <li>Publish to a private link — no client login required</li>
       </ul>
     </div>
@@ -414,7 +520,7 @@
       <p>Your logo, your colors, your company name — on the proposal, the client portal, and every email that goes out. Your clients see <em>your</em> brand delivering a big-company experience. Paver Portal stays behind the curtain.</p>
       <ul class="checks">
         <li>Custom branding on both plans</li>
-        <li>Branded emails with your reply-to address</li>
+        <li>Your catalog too — add your own products, photos &amp; pricing beside the major manufacturers</li>
         <li>Clients experience your company, not our software</li>
       </ul>
     </div>
@@ -549,7 +655,8 @@
     const svg = $('smSvg'); if (!svg) return;
     const layer = $('smDrawing'), hint = $('smHint'), rows = $('smRows'), totalEl = $('smTotal');
     const PX_PER_FT = 90 / 24;             // scale line: 90px = 24ft
-    const RATE = 24;                        // $/sqft demo install rate
+    const rateInput = document.getElementById('smRate');
+    const RATE = () => Math.max(1, parseFloat(rateInput && rateInput.value) || 24);
     let pts = [], poly = null, line = null, regionN = 1, total = 872;
 
     function svgPoint(evt) {
@@ -601,7 +708,7 @@
       total += sqft;
       const row = document.createElement('div');
       row.className = 'm-row fade-in';
-      row.innerHTML = '<span>Your region ' + regionN++ + ' <span class="m-dim">≈ ' + money(sqft*RATE) + ' installed</span></span><b>' + sqft.toLocaleString() + ' sqft</b>';
+      row.innerHTML = '<span>Your region ' + regionN++ + ' <span class="m-dim">≈ ' + money(sqft*RATE()) + ' at your rate</span></span><b>' + sqft.toLocaleString() + ' sqft</b>';
       rows.insertBefore(row, rows.lastElementChild);
       totalEl.textContent = total.toLocaleString() + ' sqft';
       hint.textContent = '✓ ' + sqft.toLocaleString() + ' sqft measured — geometry did the math. Draw another, or imagine this on a real aerial.';
