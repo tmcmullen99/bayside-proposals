@@ -2,11 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Paver Portal — The smarter way to sell hardscapes</title>
 <meta name="description" content="Scaled site-map measuring, branded proposals, live client engagement, and built-in expert answers — the sales platform for hardscaping designers. 10-day free trial.">
 <meta property="og:title" content="Paver Portal — The smarter way to sell hardscapes">
 <meta property="og:description" content="Proposals your clients actually read, sign, and share. Know which deals are alive. 10-day free trial, 3 proposals included.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://paverportal.com/">
+<meta property="og:image" content="https://paverportal.com/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Paver Portal — The smarter way to sell hardscapes">
+<meta name="twitter:description" content="Scaled site-map measuring, branded proposals, live engagement, expert answers in the field. 10-day free trial.">
+<meta name="twitter:image" content="https://paverportal.com/assets/og-image.png">
+<meta name="theme-color" content="#33281c">
 <link rel="icon" href="/assets/paver-portal-icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +27,7 @@
     --cream:#faf6ee; --espresso:#33281c; --rule:#e7e0d2;
     --text:#23282f; --muted:#6f6a60; --ok:#2f7a43;
   }
-  * { box-sizing:border-box; margin:0; padding:0; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   html { scroll-behavior:smooth; }
   body { font-family:'Onest',-apple-system,sans-serif; background:var(--cream); color:var(--text); line-height:1.6; }
   a { color:var(--walnut); text-decoration:none; }
@@ -54,7 +64,7 @@
   .mock { background:#fff; border:1px solid var(--rule); border-radius:16px; box-shadow:0 24px 60px rgba(51,40,28,.12); overflow:hidden; }
   .mock-bar { display:flex; align-items:center; gap:8px; background:var(--espresso); padding:9px 14px; }
   .mock-bar i { width:9px; height:9px; border-radius:99px; background:#5a4a37; display:inline-block; }
-  .mock-bar .url { font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#cbb894; margin-left:6px; }
+  .mock-bar .url { font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#cbb894; margin-left:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1; }
   .mock-body { padding:16px 18px 18px; }
   .mock h4 { font-size:13.5px; font-weight:700; margin-bottom:2px; }
   .mock .sub { font-size:11px; color:var(--muted); margin-bottom:12px; }
@@ -164,6 +174,70 @@
   .brand-form input { flex:1; min-width:150px; font:500 12.5px 'Onest',sans-serif; border:1px solid var(--rule); border-radius:9px; padding:8px 11px; }
   .swatch { width:24px; height:24px; border-radius:99px; border:2px solid #fff; box-shadow:0 0 0 1px var(--rule); cursor:pointer; }
   .swatch.sel { box-shadow:0 0 0 2px var(--espresso); }
+
+  /* ═══ MOBILE ═══ */
+  @media (max-width: 720px) {
+    .wrap { padding:0 16px; }
+
+    /* Nav: compact, no wrapping */
+    .nav-in { height:56px; gap:8px; }
+    .nav-logo img { height:24px; }
+    .nav-links { gap:12px; }
+    .nav-links a { font-size:12.5px; white-space:nowrap; }
+    .btn { padding:9px 15px; font-size:12.5px; white-space:nowrap; }
+    .btn.big { padding:14px 22px; font-size:15px; }
+
+    /* Hero: tighter, full-width CTAs */
+    .hero { padding:34px 0 8px; gap:22px; }
+    h1 { font-size:31px; margin-bottom:12px; }
+    .hero p { font-size:14.5px; margin-bottom:18px; }
+    .hero-ctas { flex-direction:column; align-items:stretch; gap:10px; margin-bottom:14px; }
+    .hero-ctas .btn { text-align:center; }
+    .badges { gap:6px 14px; }
+    .badges span { font-size:11px; }
+
+    /* Proof strip: 2-up, tighter */
+    .strip { margin-top:26px; }
+    .strip-in { grid-template-columns:1fr 1fr; gap:14px 10px; padding:18px 0; }
+    .strip b { font-size:19px; }
+    .strip span { font-size:10.5px; }
+    .strip-note { font-size:10.5px; padding-bottom:12px; }
+
+    /* Feature sections: kill the dead air */
+    .features { padding:34px 0 6px; }
+    .sec-head { margin-bottom:8px; }
+    .sec-head p { font-size:14px; }
+    h2 { font-size:23px; }
+    h3 { font-size:19.5px; }
+    .feat { gap:16px; padding:26px 0; }
+    .feat-copy p { font-size:13.5px; }
+    .checks li { font-size:12.5px; }
+
+    /* Demo cards: edge-to-edge, touch-friendly */
+    .mock { margin:0 -4px; border-radius:14px; }
+    .mock-bar { padding:8px 12px; }
+    .try-tag { font-size:8px; padding:3px 8px; }
+    .demo-btn { padding:10px 16px; font-size:13px; }
+    .d-chips button { padding:9px 12px; font-size:12px; }
+    .d-thread { max-height:200px; }
+    .d-compose input, .brand-form input, #smRate {
+      font-size:16px !important;  /* prevents iOS focus-zoom */
+    }
+    .sm-hint { flex-direction:column; align-items:stretch; gap:8px; }
+    .sm-hint > span:last-child { justify-content:space-between; }
+    .fun-label { width:62px; font-size:11.5px; }
+
+    /* Why + pricing + final */
+    .why { padding:40px 0; margin-top:34px; }
+    .why-card { padding:18px 18px; }
+    .pricing { padding:44px 0 16px; }
+    .price-card { padding:22px 20px 22px; }
+    .amount { font-size:32px; }
+    .final { padding:40px 0 54px; }
+    .final h2 { font-size:24px; }
+    footer { padding:20px 0; }
+    .foot-in { justify-content:center; text-align:center; }
+  }
 
   /* Final CTA + footer */
   .final { text-align:center; padding:70px 0 80px; }
