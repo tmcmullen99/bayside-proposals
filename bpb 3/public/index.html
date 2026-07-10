@@ -119,6 +119,52 @@
   .price-card .checks { margin-bottom:20px; }
   .price-card .btn { width:100%; text-align:center; }
 
+  /* Interactive demos */
+  .try-tag { display:inline-flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; color:#fff; background:var(--tan); border-radius:999px; padding:4px 10px; margin-left:auto; }
+  .try-tag i { width:6px; height:6px; border-radius:99px; background:#fff; display:inline-block; animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .demo-btn { font:600 12px 'Onest',sans-serif; background:var(--tan); color:#fff; border:0; border-radius:999px; padding:8px 14px; cursor:pointer; transition:background .15s; }
+  .demo-btn:hover { background:var(--walnut); }
+  .demo-btn.ghost { background:#fff; color:var(--text); border:1px solid var(--rule); }
+  .demo-btn.ghost:hover { border-color:var(--tan); color:var(--walnut); background:var(--sand); }
+  .demo-btn:disabled { opacity:.55; cursor:default; }
+  .fade-in { animation:fadeUp .4s ease both; }
+  @keyframes fadeUp { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+
+  /* 01 site-map demo */
+  #smSvg { display:block; width:100%; height:auto; touch-action:none; cursor:crosshair; background:#e8e3d4; }
+  #smSvg .vertex { fill:#fff; stroke:var(--tan); stroke-width:2; }
+  .sm-hint { font-size:11.5px; color:var(--walnut); font-weight:600; padding:8px 14px; background:var(--sand); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .sm-rows { padding:4px 16px 12px; }
+
+  /* chat demos */
+  .d-thread { display:flex; flex-direction:column; gap:8px; padding:12px 14px; min-height:150px; max-height:240px; overflow-y:auto; background:#faf7f0; }
+  .d-msg { max-width:86%; padding:8px 11px; border-radius:11px; font-size:12.5px; line-height:1.5; }
+  .d-msg.me { align-self:flex-end; background:var(--tan); color:#fff; border-bottom-right-radius:4px; }
+  .d-msg.bot { align-self:flex-start; background:#fff; border:1px solid #eee5d2; border-bottom-left-radius:4px; }
+  .d-typing { align-self:flex-start; color:#a89c88; letter-spacing:3px; font-size:14px; padding:2px 10px; }
+  .d-chips { display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 10px; background:#faf7f0; }
+  .d-chips button { font:500 11px 'Onest',sans-serif; color:var(--walnut); background:var(--sand); border:0; border-radius:999px; padding:6px 10px; cursor:pointer; }
+  .d-chips button:hover { background:#e9dcc0; }
+  .d-compose { display:flex; gap:8px; padding:10px 12px; border-top:1px solid #efe8d7; background:#fff; }
+  .d-compose input { flex:1; font:400 12.5px 'Onest',sans-serif; border:1px solid var(--rule); border-radius:9px; padding:8px 11px; }
+
+  /* funnel demo */
+  .fun-bar { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #f4eee1; font-size:12.5px; }
+  .fun-bar:last-child { border-bottom:0; }
+  .fun-label { width:74px; font-weight:600; }
+  .fun-track { flex:1; height:10px; background:#f4eee1; border-radius:99px; overflow:hidden; }
+  .fun-fill { height:100%; background:var(--tan); border-radius:99px; width:0%; transition:width .6s ease; }
+  .fun-fill.gold { background:var(--gold); }
+  .fun-n { width:20px; text-align:right; font-weight:700; }
+  .fun-toast { font-size:11px; color:var(--walnut); font-weight:600; min-height:16px; padding:8px 2px 0; }
+
+  /* brand demo */
+  .brand-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:12px 14px; border-bottom:1px solid #efe8d7; background:#fff; }
+  .brand-form input { flex:1; min-width:150px; font:500 12.5px 'Onest',sans-serif; border:1px solid var(--rule); border-radius:9px; padding:8px 11px; }
+  .swatch { width:24px; height:24px; border-radius:99px; border:2px solid #fff; box-shadow:0 0 0 1px var(--rule); cursor:pointer; }
+  .swatch.sel { box-shadow:0 0 0 2px var(--espresso); }
+
   /* Final CTA + footer */
   .final { text-align:center; padding:70px 0 80px; }
   .final h2 { max-width:640px; margin:0 auto 12px; }
@@ -152,7 +198,7 @@
     <p>Scaled site-map measuring, branded proposals your clients actually read, live engagement on every deal, and expert answers in the field — one platform, from first measurement to signature.</p>
     <div class="hero-ctas">
       <a class="btn big" href="/signup.html">Start your free trial</a>
-      <a class="btn ghost" href="#features">See how it works ↓</a>
+      <a class="btn ghost" href="#features">Play with the product ↓</a>
     </div>
     <div class="badges">
       <span>10-day free trial</span>
@@ -161,28 +207,30 @@
     </div>
   </div>
 
-  <div class="mock" aria-hidden="true">
-    <div class="mock-bar"><i></i><i></i><i></i><span class="url">paverportal.com/dashboard · live pipeline</span></div>
+  <div class="mock">
+    <div class="mock-bar"><i></i><i></i><i></i><span class="url">paverportal.com/dashboard · live pipeline</span><span class="try-tag"><i></i>Live</span></div>
     <div class="mock-body">
       <h4>Your pipeline</h4>
       <div class="sub">Every open, return visit, and request — captured automatically</div>
-      <div class="m-row">
-        <div><div class="m-strong">1719 Yorktown Rd</div><div class="m-dim">Viewed 4× today · shared with spouse</div></div>
-        <span class="m-pill hot">Engaged</span>
-        <div class="m-stat"><b>$86,400</b><span class="m-dim">backyard + pool deck</span></div>
+      <div id="heroRows">
+        <div class="m-row">
+          <div><div class="m-strong">1719 Yorktown Rd</div><div class="m-dim" id="heroYorkSub">Viewed 3× today</div></div>
+          <span class="m-pill warm" id="heroYorkPill">Viewed</span>
+          <div class="m-stat"><b>$86,400</b><span class="m-dim">backyard + pool deck</span></div>
+        </div>
+        <div class="m-row">
+          <div><div class="m-strong">40 Sierra Ct</div><div class="m-dim">Substitution requested · 1h ago</div></div>
+          <span class="m-pill gold">Action</span>
+          <div class="m-stat"><b>$42,750</b><span class="m-dim">driveway</span></div>
+        </div>
+        <div class="m-row">
+          <div><div class="m-strong">228 Alder Ln</div><div class="m-dim">Opened 20 min after publish</div></div>
+          <span class="m-pill warm">Viewed</span>
+          <div class="m-stat"><b>$31,200</b><span class="m-dim">patio + walls</span></div>
+        </div>
       </div>
-      <div class="m-row">
-        <div><div class="m-strong">40 Sierra Ct</div><div class="m-dim">Substitution requested · 1h ago</div></div>
-        <span class="m-pill gold">Action</span>
-        <div class="m-stat"><b>$42,750</b><span class="m-dim">driveway</span></div>
-      </div>
-      <div class="m-row">
-        <div><div class="m-strong">228 Alder Ln</div><div class="m-dim">Opened 20 min after publish</div></div>
-        <span class="m-pill warm">Viewed</span>
-        <div class="m-stat"><b>$31,200</b><span class="m-dim">patio + walls</span></div>
-      </div>
-      <div class="m-bars"><i style="height:30%"></i><i style="height:44%" class="t"></i><i style="height:38%"></i><i style="height:62%" class="t"></i><i style="height:52%"></i><i style="height:78%" class="g"></i><i style="height:70%" class="t"></i><i style="height:92%" class="g"></i></div>
-      <div class="m-dim">Engagement events · trailing 8 days</div>
+      <div class="m-bars" id="heroBars"><i style="height:30%"></i><i style="height:44%" class="t"></i><i style="height:38%"></i><i style="height:62%" class="t"></i><i style="height:52%"></i><i style="height:78%" class="g"></i><i style="height:70%" class="t"></i><i style="height:42%" class="g"></i></div>
+      <div class="m-dim" id="heroFeed">Engagement events · streaming live…</div>
     </div>
   </div>
 </header>
@@ -203,7 +251,7 @@
   <div class="sec-head">
     <span class="mono">How it works</span>
     <h2>Most design teams go dark the moment a proposal goes out.<br>Yours won't.</h2>
-    <p>Deals rarely die in a price war. They die because the homeowner went quiet — or the number was off — and nobody knew. Paver Portal makes the invisible visible.</p>
+    <p>Deals rarely die in a price war. They die because the homeowner went quiet — or the number was off — and nobody knew. Paver Portal makes the invisible visible. <strong>Every card below is live — click, draw, and type.</strong></p>
   </div>
 
   <div class="feat">
@@ -217,16 +265,29 @@
         <li>Pricing flows from measurement, not eyeballing</li>
       </ul>
     </div>
-    <div class="mock" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i><span class="url">/editor · site map · 1719 Yorktown Rd</span></div>
-      <div class="mock-body">
-        <h4>Regions measured</h4>
-        <div class="sub">A → B reference = 80 ft · scale locked ✓</div>
-        <div class="m-row"><span>Main paver area</span><b>872 sqft</b></div>
-        <div class="m-row"><span>Off-bedroom patio</span><b>318 sqft</b></div>
-        <div class="m-row"><span>Seating wall</span><b>12.98 lnft</b></div>
-        <div class="m-row"><span>Decorative rock</span><b>114 sqft</b></div>
-        <div class="m-row"><span class="m-strong">Total measured scope</span><b class="m-strong">1,304 sqft</b></div>
+    <div class="mock">
+      <div class="mock-bar"><i></i><i></i><i></i><span class="url">/editor · site map · try it yourself</span><span class="try-tag"><i></i>Try it</span></div>
+      <svg id="smSvg" viewBox="0 0 600 340" xmlns="http://www.w3.org/2000/svg">
+        <!-- stylized aerial: lawn, house, driveway -->
+        <rect x="0" y="0" width="600" height="340" fill="#9fae7e"/>
+        <rect x="0" y="0" width="600" height="340" fill="url(#g)" opacity="0"/>
+        <rect x="60" y="30" width="230" height="140" rx="6" fill="#d8d2c2" stroke="#b9b2a0" stroke-width="2"/>
+        <rect x="80" y="30" width="90" height="60" fill="#c9c2b0"/>
+        <text x="175" y="105" font-family="monospace" font-size="13" fill="#7c7666" text-anchor="middle">HOUSE</text>
+        <rect x="330" y="0" width="90" height="180" fill="#cfc9ba"/>
+        <text x="375" y="95" font-family="monospace" font-size="11" fill="#8a8474" text-anchor="middle">DRIVEWAY</text>
+        <ellipse cx="500" cy="80" rx="42" ry="30" fill="#7e9464"/>
+        <ellipse cx="90" cy="270" rx="34" ry="24" fill="#7e9464"/>
+        <!-- scale reference -->
+        <line x1="330" y1="196" x2="420" y2="196" stroke="#33281c" stroke-width="2" stroke-dasharray="5 4"/>
+        <circle cx="330" cy="196" r="4" fill="#33281c"/><circle cx="420" cy="196" r="4" fill="#33281c"/>
+        <text x="375" y="214" font-family="monospace" font-size="10" fill="#33281c" text-anchor="middle">A→B = 24 ft · scale locked ✓</text>
+        <g id="smDrawing"></g>
+      </svg>
+      <div class="sm-hint"><span id="smHint">👆 Click around the yard to outline a patio — tap your first point again to close it</span><button class="demo-btn ghost" id="smReset" type="button">Reset</button></div>
+      <div class="sm-rows" id="smRows">
+        <div class="m-row"><span>Main paver area <span class="m-dim">(pre-measured)</span></span><b>872 sqft</b></div>
+        <div class="m-row"><span class="m-strong">Total measured scope</span><b class="m-strong" id="smTotal">872 sqft</b></div>
       </div>
     </div>
   </div>
@@ -242,16 +303,22 @@
         <li>Publish to a private link — no client login required</li>
       </ul>
     </div>
-    <div class="mock" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i><span class="url">/editor · bid parsed ✓</span></div>
+    <div class="mock">
+      <div class="mock-bar"><i></i><i></i><i></i><span class="url">/editor · bid parsing</span><span class="try-tag"><i></i>Try it</span></div>
       <div class="mock-body">
-        <h4>Parsed from GreenScape_Bid_Final.pdf</h4>
-        <div class="sub">6 line items extracted · review &amp; publish</div>
-        <div class="m-row"><span>Demo &amp; excavation</span><b>$6,850</b></div>
-        <div class="m-row"><span>Base prep · Class II, 6" compacted</span><b>$9,120</b></div>
-        <div class="m-row"><span>Belgard Catalina Slate · 872 sqft</span><b>$21,780</b></div>
-        <div class="m-row"><span>Seating wall · Weston Stone</span><b>$4,940</b></div>
-        <div class="m-row"><span class="m-strong">Project total</span><b class="m-strong">$42,690</b></div>
+        <h4 id="bidTitle">GreenScape_Bid_Final.pdf</h4>
+        <div class="sub" id="bidSub">Contractor bid, 2 pages · ready to parse</div>
+        <div id="bidRows" style="min-height:170px;">
+          <div style="text-align:center; padding:34px 10px;">
+            <button class="demo-btn" id="bidParseBtn" type="button">⚡ Parse this bid</button>
+            <div class="m-dim" style="margin-top:8px;">Watch 4 line items extract themselves — no retyping</div>
+          </div>
+        </div>
+        <div class="m-row" id="bidTotalRow" style="display:none;"><span class="m-strong">Project total</span><b class="m-strong" id="bidTotal">$0</b></div>
+        <div id="bidSwap" style="display:none; padding-top:10px;">
+          <span class="m-dim">Client wants a different paver? Swap it — pricing follows:</span><br>
+          <button class="demo-btn ghost" id="bidSwapBtn" type="button" style="margin-top:6px;">Swap Catalina Slate → Walnut Blend (+$1.40/sqft)</button>
+        </div>
       </div>
     </div>
   </div>
@@ -267,14 +334,23 @@
         <li>Print-to-mark-up plans and a referral program built in</li>
       </ul>
     </div>
-    <div class="mock" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i><span class="url">client portal · chat with designer</span></div>
-      <div class="mock-body">
+    <div class="mock">
+      <div class="mock-bar"><i></i><i></i><i></i><span class="url">client portal · chat with designer</span><span class="try-tag"><i></i>Try it</span></div>
+      <div class="mock-body" style="padding-bottom:0;">
         <h4>Sarah &amp; Mike Torres</h4>
-        <div class="sub">1719 Yorktown Rd · proposal viewed 4×</div>
-        <div class="m-row"><div><div class="m-strong">"Could we see the Catalina in the walnut blend instead?"</div><div class="m-dim">Substitution request · 1h ago</div></div><span class="m-pill gold">Respond</span></div>
-        <div class="m-row"><div><div class="m-strong">"Love the seating wall placement 👏"</div><div class="m-dim">Chat · yesterday</div></div><span class="m-pill hot">Read</span></div>
-        <div class="m-row"><div><div class="m-strong">Printed plan to mark up</div><div class="m-dim">Activity · 2 days ago</div></div><span class="m-pill warm">Signal</span></div>
+        <div class="sub">1719 Yorktown Rd · you're the homeowner — say something</div>
+      </div>
+      <div class="d-thread" id="portalThread">
+        <div class="d-msg bot">Hi Sarah! The updated proposal is live — the seating wall now wraps the fire pit like we talked about. 🔥</div>
+      </div>
+      <div class="d-chips" id="portalChips">
+        <button type="button">Could we see the walnut blend instead?</button>
+        <button type="button">Love the seating wall placement 👏</button>
+        <button type="button">What's the timeline once we sign?</button>
+      </div>
+      <div class="d-compose">
+        <input id="portalInput" type="text" placeholder="Message your designer…">
+        <button class="demo-btn" id="portalSend" type="button">Send</button>
       </div>
     </div>
   </div>
@@ -290,16 +366,19 @@
         <li>Follow up on signal, not gut feel</li>
       </ul>
     </div>
-    <div class="mock" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i><span class="url">/dashboard · funnel</span></div>
+    <div class="mock">
+      <div class="mock-bar"><i></i><i></i><i></i><span class="url">/dashboard · funnel</span><span class="try-tag"><i></i>Try it</span></div>
       <div class="mock-body">
-        <h4>This month</h4>
-        <div class="sub">Open value $214,300 · win rate 38%</div>
-        <div class="m-row"><span>Draft</span><span class="m-dim">████░░░░░░</span><b>4</b></div>
-        <div class="m-row"><span>Sent</span><span class="m-dim">██████░░░░</span><b>6</b></div>
-        <div class="m-row"><span>Viewed</span><span class="m-dim">█████░░░░░</span><b>5</b></div>
-        <div class="m-row"><span class="m-strong">Engaged</span><span class="m-dim">███░░░░░░░</span><b class="m-strong">3</b></div>
-        <div class="m-row"><span>Signed</span><span class="m-dim">██░░░░░░░░</span><b>2</b></div>
+        <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px;">
+          <div><h4>This month</h4><div class="sub">Open value <b id="funValue">$214,300</b> · win rate <b id="funRate">38%</b></div></div>
+          <button class="demo-btn" id="funRun" type="button">▶ Publish a proposal</button>
+        </div>
+        <div class="fun-bar"><span class="fun-label">Draft</span><div class="fun-track"><div class="fun-fill" id="fb0" style="width:40%"></div></div><b class="fun-n" id="fn0">4</b></div>
+        <div class="fun-bar"><span class="fun-label">Sent</span><div class="fun-track"><div class="fun-fill" id="fb1" style="width:60%"></div></div><b class="fun-n" id="fn1">6</b></div>
+        <div class="fun-bar"><span class="fun-label">Viewed</span><div class="fun-track"><div class="fun-fill" id="fb2" style="width:50%"></div></div><b class="fun-n" id="fn2">5</b></div>
+        <div class="fun-bar"><span class="fun-label">Engaged</span><div class="fun-track"><div class="fun-fill gold" id="fb3" style="width:30%"></div></div><b class="fun-n" id="fn3">3</b></div>
+        <div class="fun-bar"><span class="fun-label">Signed</span><div class="fun-track"><div class="fun-fill gold" id="fb4" style="width:20%"></div></div><b class="fun-n" id="fn4">2</b></div>
+        <div class="fun-toast" id="funToast">Watch a deal move through the pipeline on real behavior →</div>
       </div>
     </div>
   </div>
@@ -315,12 +394,15 @@
         <li>Everything lands on the client record instantly</li>
       </ul>
     </div>
-    <div class="mock" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i><span class="url">🛠 Ask a Pro</span></div>
-      <div class="mock-body">
-        <div class="m-row"><div><div class="m-dim">You</div><div class="m-strong">Do I need a permit for a 4-ft retaining wall in Contra Costa County?</div></div></div>
-        <div class="m-row"><div><div class="m-dim">Ask a Pro</div><div>Yes — walls over 4 ft measured from the bottom of the footing require a permit and engineered plans there. Under 4 ft with no surcharge is typically exempt. Confirm with the county building department; parcels vary.</div></div></div>
-        <div class="m-row"><div><div class="m-dim">Field kit</div><div class="m-strong">📐 Back patio width — 14 ft 6 in &nbsp;·&nbsp; 📷 3 photos added</div></div></div>
+    <div class="mock">
+      <div class="mock-bar"><i></i><i></i><i></i><span class="url">🛠 Ask a Pro</span><span class="try-tag"><i></i>Try it</span></div>
+      <div class="d-thread" id="proThread">
+        <div class="d-msg bot">Standing in a yard with a question? Pick one — watch how fast you'd get an answer on-site.</div>
+      </div>
+      <div class="d-chips" id="proChips">
+        <button type="button">Permit for a 4-ft retaining wall in Contra Costa County?</button>
+        <button type="button">Base depth for a driveway in clay soil?</button>
+        <button type="button">Best jointing sand for a pool deck?</button>
       </div>
     </div>
   </div>
@@ -336,12 +418,19 @@
         <li>Clients experience your company, not our software</li>
       </ul>
     </div>
-    <div class="mock" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i><span class="url">summit-hardscapes · client email</span></div>
+    <div class="mock">
+      <div class="mock-bar"><i></i><i></i><i></i><span class="url" id="brandUrl">your-company · client email</span><span class="try-tag"><i></i>Try it</span></div>
+      <div class="brand-form">
+        <input id="brandName" type="text" maxlength="28" placeholder="Type YOUR company name…">
+        <span class="swatch sel" data-c="#9c7440" style="background:#9c7440" title="Tan"></span>
+        <span class="swatch" data-c="#5d7e69" style="background:#5d7e69" title="Sage"></span>
+        <span class="swatch" data-c="#7a5c9e" style="background:#7a5c9e" title="Plum"></span>
+        <span class="swatch" data-c="#3f6fa8" style="background:#3f6fa8" title="Slate blue"></span>
+      </div>
       <div class="mock-body">
-        <h4>💬 New message from Alex · Summit Hardscapes</h4>
-        <div class="sub">from Summit Hardscapes Portal · reply goes to alex@…</div>
-        <div class="m-row"><div><div class="m-strong">"Updated the pool deck with the travertine you liked —"</div><div class="m-dim">View &amp; reply in Summit Portal →</div></div><span class="m-pill warm">Branded</span></div>
+        <h4 id="brandH">💬 New message from Alex · <span id="brandCo1" style="color:#9c7440">Summit Hardscapes</span></h4>
+        <div class="sub">from <span id="brandCo2">Summit Hardscapes</span> Portal · reply goes to alex@…</div>
+        <div class="m-row"><div><div class="m-strong">"Updated the pool deck with the travertine you liked —"</div><div class="m-dim">View &amp; reply in <span id="brandCo3">Summit</span> Portal →</div></div><span class="m-pill warm" id="brandPill" style="background:#f1e7d3;color:#7d5c31;">Your brand</span></div>
       </div>
     </div>
   </div>
@@ -418,6 +507,290 @@
     <div class="foot-copy">© 2026 Paver Portal</div>
   </div>
 </footer>
+
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
+
+  /* ═══ HERO: live engagement stream ═══ */
+  (function heroLive() {
+    const feed = $('heroFeed'); if (!feed) return;
+    const events = [
+      ['Sarah opened the Yorktown proposal', 'york'],
+      ['Yorktown proposal shared with spouse', 'york'],
+      ['228 Alder Ln — materials tab, 3 min', null],
+      ['Yorktown re-read · 4th view today', 'york'],
+      ['40 Sierra Ct — substitution note added', null],
+      ['Yorktown → moved to Engaged', 'promote'],
+    ];
+    let i = 0, views = 3;
+    setInterval(() => {
+      const [text, kind] = events[i % events.length];
+      feed.textContent = '● ' + text + ' · just now';
+      feed.classList.remove('fade-in'); void feed.offsetWidth; feed.classList.add('fade-in');
+      if (kind === 'york') { views++; const el = $('heroYorkSub'); if (el) el.textContent = 'Viewed ' + views + '× today'; }
+      if (kind === 'promote') {
+        const p = $('heroYorkPill'); if (p) { p.textContent = 'Engaged'; p.className = 'm-pill hot'; }
+        views = 3; setTimeout(() => { const p2=$('heroYorkPill'); if(p2){p2.textContent='Viewed'; p2.className='m-pill warm';} }, 5200);
+      }
+      const bars = $('heroBars'); if (bars) {
+        const b = bars.children[Math.floor(Math.random() * bars.children.length)];
+        b.style.height = (35 + Math.random() * 60) + '%';
+      }
+      i++;
+    }, 2600);
+  })();
+
+  /* ═══ 01 MEASURE: draw-a-region ═══ */
+  (function siteMap() {
+    const svg = $('smSvg'); if (!svg) return;
+    const layer = $('smDrawing'), hint = $('smHint'), rows = $('smRows'), totalEl = $('smTotal');
+    const PX_PER_FT = 90 / 24;             // scale line: 90px = 24ft
+    const RATE = 24;                        // $/sqft demo install rate
+    let pts = [], poly = null, line = null, regionN = 1, total = 872;
+
+    function svgPoint(evt) {
+      const pt = svg.createSVGPoint();
+      const t = evt.touches ? evt.touches[0] : evt;
+      pt.x = t.clientX; pt.y = t.clientY;
+      return pt.matrixTransform(svg.getScreenCTM().inverse());
+    }
+    function redraw(previewPt) {
+      layer.innerHTML = '';
+      if (!pts.length) return;
+      const d = pts.map((p,i)=> (i?'L':'M') + p.x + ' ' + p.y).join(' ');
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', d + (previewPt ? ' L' + previewPt.x + ' ' + previewPt.y : ''));
+      path.setAttribute('fill','rgba(217,164,65,.28)');
+      path.setAttribute('stroke','#9c7440'); path.setAttribute('stroke-width','2.5');
+      layer.appendChild(path);
+      pts.forEach((p,i) => {
+        const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); c.setAttribute('r', i===0?7:5);
+        c.setAttribute('class','vertex');
+        layer.appendChild(c);
+      });
+    }
+    function area(ptsArr) {  // shoelace, px² → sqft
+      let a = 0;
+      for (let i = 0; i < ptsArr.length; i++) {
+        const j = (i + 1) % ptsArr.length;
+        a += ptsArr[i].x * ptsArr[j].y - ptsArr[j].x * ptsArr[i].y;
+      }
+      return Math.abs(a / 2) / (PX_PER_FT * PX_PER_FT);
+    }
+    function finish() {
+      if (pts.length < 3) return;
+      const sqft = Math.round(area(pts));
+      const closed = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+      closed.setAttribute('points', pts.map(p => p.x + ',' + p.y).join(' '));
+      closed.setAttribute('fill','rgba(217,164,65,.34)');
+      closed.setAttribute('stroke','#7d5c31'); closed.setAttribute('stroke-width','2.5');
+      layer.innerHTML=''; layer.appendChild(closed);
+      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+      const cx = pts.reduce((s,p)=>s+p.x,0)/pts.length, cy = pts.reduce((s,p)=>s+p.y,0)/pts.length;
+      label.setAttribute('x',cx); label.setAttribute('y',cy);
+      label.setAttribute('text-anchor','middle'); label.setAttribute('font-family','monospace');
+      label.setAttribute('font-size','13'); label.setAttribute('font-weight','700'); label.setAttribute('fill','#33281c');
+      label.textContent = sqft.toLocaleString() + ' sqft';
+      layer.appendChild(label);
+
+      total += sqft;
+      const row = document.createElement('div');
+      row.className = 'm-row fade-in';
+      row.innerHTML = '<span>Your region ' + regionN++ + ' <span class="m-dim">≈ ' + money(sqft*RATE) + ' installed</span></span><b>' + sqft.toLocaleString() + ' sqft</b>';
+      rows.insertBefore(row, rows.lastElementChild);
+      totalEl.textContent = total.toLocaleString() + ' sqft';
+      hint.textContent = '✓ ' + sqft.toLocaleString() + ' sqft measured — geometry did the math. Draw another, or imagine this on a real aerial.';
+      pts = [];
+    }
+    svg.addEventListener('click', (e) => {
+      const p = svgPoint(e);
+      if (pts.length >= 3) {
+        const d0 = Math.hypot(p.x - pts[0].x, p.y - pts[0].y);
+        if (d0 < 14) { finish(); return; }
+      }
+      pts.push({ x: p.x, y: p.y });
+      if (pts.length === 1) hint.textContent = 'Keep clicking to outline the shape…';
+      if (pts.length === 3) hint.textContent = 'Nice — tap your FIRST point to close the region and get square footage.';
+      redraw();
+    });
+    svg.addEventListener('dblclick', (e) => { e.preventDefault(); finish(); });
+    $('smReset').addEventListener('click', () => {
+      pts = []; regionN = 1; total = 872; layer.innerHTML = '';
+      rows.querySelectorAll('.m-row').forEach((r,i,all) => { if (i>0 && i<all.length-1) r.remove(); });
+      totalEl.textContent = '872 sqft';
+      hint.textContent = '👆 Click around the yard to outline a patio — tap your first point again to close it';
+    });
+  })();
+
+  /* ═══ 02 PROPOSE: parse the bid ═══ */
+  (function bid() {
+    const btn = $('bidParseBtn'); if (!btn) return;
+    const items = [
+      ['Demo & excavation', 6850],
+      ['Base prep · Class II, 6" compacted', 9120],
+      ['Belgard Catalina Slate · 872 sqft', 21780, true],
+      ['Seating wall · Weston Stone', 4940],
+    ];
+    let swapped = false;
+    btn.addEventListener('click', () => {
+      btn.disabled = true; btn.textContent = 'Parsing…';
+      $('bidSub').textContent = 'Reading pages · extracting line items…';
+      setTimeout(() => {
+        const box = $('bidRows'); box.innerHTML = ''; box.style.minHeight = '0';
+        let total = 0;
+        items.forEach((it, i) => {
+          setTimeout(() => {
+            total += it[1];
+            const row = document.createElement('div');
+            row.className = 'm-row fade-in';
+            row.innerHTML = '<span' + (it[2] ? ' id="bidPaverName"' : '') + '>✓ ' + it[0] + '</span><b' + (it[2] ? ' id="bidPaverPrice"' : '') + '>' + money(it[1]) + '</b>';
+            box.appendChild(row);
+            $('bidTotalRow').style.display = 'flex';
+            $('bidTotal').textContent = money(total);
+            if (i === items.length - 1) {
+              $('bidSub').textContent = '4 line items extracted in seconds · review & publish';
+              $('bidSwap').style.display = 'block';
+            }
+          }, 420 * (i + 1));
+        });
+      }, 700);
+    });
+    $('bidSwapBtn').addEventListener('click', () => {
+      const name = $('bidPaverName'), price = $('bidPaverPrice');
+      if (!name) return;
+      swapped = !swapped;
+      const newPrice = swapped ? 21780 + Math.round(872 * 1.4) : 21780;
+      name.textContent = swapped ? '✓ Belgard Walnut Blend · 872 sqft' : '✓ Belgard Catalina Slate · 872 sqft';
+      price.textContent = money(newPrice);
+      price.classList.remove('fade-in'); void price.offsetWidth; price.classList.add('fade-in');
+      $('bidTotal').textContent = money(6850 + 9120 + newPrice + 4940);
+      $('bidSwapBtn').textContent = swapped ? 'Swap back → Catalina Slate' : 'Swap Catalina Slate → Walnut Blend (+$1.40/sqft)';
+    });
+  })();
+
+  /* ═══ shared chat helper ═══ */
+  function chatDemo(threadId, replyFor) {
+    const thread = $(threadId); if (!thread) return null;
+    let busy = false;
+    return function send(text) {
+      if (busy || !text) return;
+      busy = true;
+      const me = document.createElement('div');
+      me.className = 'd-msg me fade-in'; me.textContent = text;
+      thread.appendChild(me); thread.scrollTop = thread.scrollHeight;
+      const typing = document.createElement('div');
+      typing.className = 'd-typing'; typing.textContent = '•••';
+      setTimeout(() => { thread.appendChild(typing); thread.scrollTop = thread.scrollHeight; }, 350);
+      const reply = replyFor(text);
+      setTimeout(() => {
+        typing.remove();
+        const bot = document.createElement('div');
+        bot.className = 'd-msg bot'; thread.appendChild(bot);
+        let i = 0;
+        const t = setInterval(() => {
+          bot.textContent = reply.slice(0, i += 3);
+          thread.scrollTop = thread.scrollHeight;
+          if (i >= reply.length) { clearInterval(t); busy = false; }
+        }, 18);
+      }, 1300);
+    };
+  }
+
+  /* ═══ 03 ENGAGE: client portal chat ═══ */
+  (function portal() {
+    const send = chatDemo('portalThread', (q) => {
+      const s = q.toLowerCase();
+      if (s.includes('walnut') || s.includes('blend')) return "Absolutely — I've added the Walnut Blend as an option. It runs about $1.40/sqft more; your updated total is on the proposal now. Want me to order a sample board for the site visit?";
+      if (s.includes('timeline') || s.includes('sign')) return "Once you sign, we pull permits within a week, materials land in ~10 days, and this scope is a 6–8 day install. I'll pin the full schedule to your portal.";
+      if (s.includes('love') || s.includes('👏')) return "That one's my favorite too — wrapping the fire pit makes the whole space. I'll lock that placement into the final plan. 🙌";
+      return "Great question — I've noted it on your project and updated the proposal. You'll see the change reflected in your portal, and it's saved to our thread so nothing gets lost.";
+    });
+    if (!send) return;
+    document.querySelectorAll('#portalChips button').forEach(b =>
+      b.addEventListener('click', () => send(b.textContent)));
+    $('portalSend').addEventListener('click', () => { const v = $('portalInput').value.trim(); $('portalInput').value=''; send(v); });
+    $('portalInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { const v = e.target.value.trim(); e.target.value=''; send(v); } });
+  })();
+
+  /* ═══ 04 CLOSE: publish-a-proposal funnel run ═══ */
+  (function funnel() {
+    const run = $('funRun'); if (!run) return;
+    const base = [4, 6, 5, 3, 2];
+    const widths = [40, 60, 50, 30, 20];
+    let value = 214300, rate = 38;
+    const beats = [
+      [0,   'Draft published → Sent · private link delivered', [-1, +1, 0, 0, 0]],
+      [1600,'Opened 20 minutes after publish → Viewed', [0, -1, +1, 0, 0]],
+      [3200,'Re-read 3× + shared with spouse → Engaged', [0, 0, -1, +1, 0]],
+      [4800,'✍️ Signed — $38,400 · win rate ticks up', [0, 0, 0, -1, +1]],
+    ];
+    run.addEventListener('click', () => {
+      run.disabled = true;
+      const counts = base.slice();
+      beats.forEach(([delay, msg, delta], bi) => {
+        setTimeout(() => {
+          $('funToast').textContent = '● ' + msg;
+          $('funToast').classList.remove('fade-in'); void $('funToast').offsetWidth; $('funToast').classList.add('fade-in');
+          delta.forEach((d, i) => {
+            counts[i] += d;
+            $('fn' + i).textContent = counts[i];
+            $('fb' + i).style.width = Math.max(8, widths[i] + d * 10 + (counts[i]-base[i])*10) + '%';
+          });
+          if (bi === beats.length - 1) {
+            rate += 3; value -= 38400;
+            $('funRate').textContent = rate + '%';
+            $('funValue').textContent = money(value);
+            setTimeout(() => { run.disabled = false; run.textContent = '▶ Publish another'; }, 900);
+          }
+        }, delay);
+      });
+    });
+  })();
+
+  /* ═══ 05 ASK A PRO ═══ */
+  (function pro() {
+    const answers = {
+      'permit': "Yes — in Contra Costa County, walls over 4 ft measured from the bottom of the footing require a permit and engineered plans. Under 4 ft with no surcharge (slope or driveway above) is typically exempt. Always confirm with the county building department — parcels vary. (In the real product, I check current county code live.)",
+      'base': "For a driveway over expansive clay: excavate 10–12\", lay woven geotextile, then 8–10\" of Class II base in 3–4\" compacted lifts at 95%+, 1\" bedding sand, then pavers. Clay moves — the fabric and deep base are what keep it flat in year five.",
+      'sand': "Polymeric sand rated for wide joints — G2-class holds up best around pools. Sweep in bone-dry, compact, sweep again, then a controlled soak. Avoid cheap poly blends; chlorinated splash breaks them down and you'll be redoing joints in two seasons.",
+    };
+    const send = chatDemo('proThread', (q) => {
+      const s = q.toLowerCase();
+      if (s.includes('permit') || s.includes('wall')) return answers.permit;
+      if (s.includes('base') || s.includes('clay') || s.includes('driveway')) return answers.base;
+      return answers.sand;
+    });
+    if (!send) return;
+    document.querySelectorAll('#proChips button').forEach(b =>
+      b.addEventListener('click', () => send(b.textContent)));
+  })();
+
+  /* ═══ 06 BRAND switcher ═══ */
+  (function brand() {
+    const input = $('brandName'); if (!input) return;
+    let color = '#9c7440';
+    function apply() {
+      const name = input.value.trim() || 'Summit Hardscapes';
+      const short = name.split(/\s+/)[0];
+      $('brandCo1').textContent = name; $('brandCo1').style.color = color;
+      $('brandCo2').textContent = name;
+      $('brandCo3').textContent = short;
+      $('brandUrl').textContent = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + ' · client email';
+      $('brandPill').style.color = color;
+    }
+    input.addEventListener('input', apply);
+    document.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', () => {
+      document.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel'));
+      sw.classList.add('sel'); color = sw.dataset.c; apply();
+    }));
+  })();
+})();
+</script>
 
 </body>
 </html>
