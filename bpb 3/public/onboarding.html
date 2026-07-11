@@ -53,6 +53,27 @@
   .mfg b { font-size:15px; }
   .mfg .count { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--muted); white-space:nowrap; }
 
+  /* Catalog request panel */
+  .req-toggle { display:flex; align-items:center; gap:10px; border:2px dashed var(--rule); border-radius:14px; padding:14px 16px; cursor:pointer; margin-top:4px; }
+  .req-toggle:hover { border-color:var(--tan); background:var(--cream); }
+  .req-toggle b { font-size:14px; }
+  .req-toggle .small { font-size:11.5px; color:var(--muted); }
+  .req-form { display:none; margin-top:10px; }
+  .req-form.open { display:block; animation:rise .3s ease; }
+  .req-form input[type=text], .req-form input[type=url], .req-form textarea {
+    width:100%; font:500 14px 'Onest',sans-serif; border:1.5px solid var(--rule); border-radius:10px;
+    padding:11px 12px; margin-bottom:10px;
+  }
+  .req-form textarea { min-height:76px; resize:vertical; }
+  .req-file { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); margin-bottom:10px; cursor:pointer; }
+  .req-file .chip { border:1.5px solid var(--rule); border-radius:999px; padding:7px 12px; font-weight:600; color:var(--text); }
+  .req-file .chip:hover { border-color:var(--tan); color:var(--walnut); }
+  .req-list { margin-top:12px; }
+  .req-item { display:flex; align-items:center; gap:8px; font-size:12.5px; padding:7px 0; border-top:1px solid #f2ecdf; }
+  .req-pill { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; padding:3px 9px; border-radius:999px; font-weight:600; background:var(--sand); color:var(--walnut); white-space:nowrap; }
+  .req-pill.added { background:#eaf3ea; color:var(--ok); }
+  .req-pill.declined { background:#f4f0e7; color:var(--muted); }
+
   /* Step 3: pricing */
   .rate { display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #f2ecdf; }
   .rate:last-child { border-bottom:0; }
@@ -129,6 +150,26 @@
     <h1>Which catalogs do you sell from?</h1>
     <p class="lede">Tap to include a manufacturer's <b>full catalog</b> — photos, specs, colors, the lot. You can always add your own products later.</p>
     <div class="card" id="mfgList"><div style="text-align:center;color:var(--muted);font-size:13px;padding:14px;">Loading catalogs…</div></div>
+
+    <div class="card">
+      <div class="req-toggle" id="reqToggle">
+        <span style="font-size:20px;">➕</span>
+        <div><b>Don't see your manufacturer?</b><div class="small">Request it — we'll add the full catalog for every Paver Portal user.</div></div>
+      </div>
+      <div class="req-form" id="reqForm">
+        <input type="text" id="reqName" placeholder="Manufacturer (e.g. Techo-Bloc, Unilock)">
+        <input type="url" id="reqUrl" placeholder="Their website or product-catalog link (optional)">
+        <textarea id="reqNotes" placeholder="Which lines/products do you use most? (e.g. Blu 60, Borealis slabs, Raffinato walls)"></textarea>
+        <label class="req-file" for="reqFile">
+          <span class="chip">📎 Attach a product list</span>
+          <span id="reqFileName">PDF, CSV or spreadsheet · optional</span>
+          <input type="file" id="reqFile" accept=".pdf,.csv,.xls,.xlsx,.doc,.docx,image/*" hidden>
+        </label>
+        <button class="btn primary" id="reqSend" type="button" style="width:100%;">Send request →</button>
+      </div>
+      <div class="req-list" id="reqList"></div>
+    </div>
+
     <div class="nav"><button class="btn ghost" data-back type="button">←</button><button class="btn primary" id="next1" type="button">Include selected →</button></div>
     <a class="skip" href="#" data-skip="1">Skip — include everything</a>
   </section>
@@ -272,6 +313,55 @@ async function loadMfgs() {
     el.querySelector('.check').textContent = selected.has(m) ? '✓' : '';
   }));
 }
+// ── Catalog request panel ──
+$('reqToggle').addEventListener('click', () => $('reqForm').classList.toggle('open'));
+$('reqFile').addEventListener('change', () => {
+  const f = $('reqFile').files && $('reqFile').files[0];
+  $('reqFileName').textContent = f ? f.name : 'PDF, CSV or spreadsheet · optional';
+});
+async function loadRequests() {
+  const { data } = await supabase.from('catalog_requests')
+    .select('manufacturer_name, status, created_at')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false }).limit(10);
+  const box = $('reqList');
+  if (!data || !data.length) { box.innerHTML = ''; return; }
+  box.innerHTML = data.map(r => `
+    <div class="req-item">
+      <span>🏷 ${esc(r.manufacturer_name)}</span>
+      <span class="req-pill ${esc(r.status)}">${r.status === 'new' ? 'requested' : esc(r.status)}</span>
+    </div>`).join('');
+}
+loadRequests();
+$('reqSend').addEventListener('click', async () => {
+  const name = $('reqName').value.trim();
+  if (!name) { showMsg('Give us the manufacturer name.', true); return; }
+  const btn = $('reqSend'); btn.disabled = true; btn.textContent = 'Sending…';
+  let file_path = null;
+  const f = $('reqFile').files && $('reqFile').files[0];
+  if (f) {
+    const ext = (f.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g,'') || 'pdf';
+    const path = `${companyId}/requests/${Date.now()}-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,30)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from('catalog-media').upload(path, f);
+    if (!upErr) file_path = path;
+  }
+  const { error } = await supabase.from('catalog_requests').insert({
+    requested_by: user.id,
+    requester_name: prof.display_name || user.email,
+    manufacturer_name: name,
+    website_url: $('reqUrl').value.trim() || null,
+    notes: $('reqNotes').value.trim() || null,
+    file_path,
+  });
+  btn.disabled = false; btn.textContent = 'Send request →';
+  if (error) { showMsg('Could not send: ' + error.message, true); return; }
+  $('reqName').value = ''; $('reqUrl').value = ''; $('reqNotes').value = '';
+  $('reqFile').value = ''; $('reqFileName').textContent = 'PDF, CSV or spreadsheet · optional';
+  $('reqForm').classList.remove('open');
+  showMsg("Request sent — we'll load the catalog and let you know. 🏗");
+  loadRequests();
+});
+
 $('next1').addEventListener('click', async () => {
   if (isOwner) {
     const all = document.querySelectorAll('.mfg').length;
