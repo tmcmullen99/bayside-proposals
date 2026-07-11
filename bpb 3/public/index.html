@@ -28,6 +28,7 @@
     --text:#23282f; --muted:#6f6a60; --ok:#2f7a43;
   }
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  .m-only { display:none; }
   html { scroll-behavior:smooth; }
   body { font-family:'Onest',-apple-system,sans-serif; background:var(--cream); color:var(--text); line-height:1.6; }
   a { color:var(--walnut); text-decoration:none; }
@@ -177,6 +178,8 @@
 
   /* ═══ MOBILE (dense) ═══ */
   @media (max-width: 720px) {
+    .d-only { display:none; }
+    .m-only { display:inline; }
     .wrap { padding:0 14px; }
     body { line-height:1.5; }
 
@@ -189,10 +192,10 @@
     .btn.big { padding:13px 20px; font-size:14.5px; }
 
     /* Hero */
-    .hero { padding:22px 0 4px; gap:16px; }
+    .hero { padding:16px 0 2px; gap:14px; }
     .hero .mono { margin-bottom:8px; font-size:9px; }
-    h1 { font-size:28px; margin-bottom:10px; line-height:1.12; }
-    .hero p { font-size:14px; margin-bottom:14px; line-height:1.5; }
+    h1 { font-size:25px; margin-bottom:8px; line-height:1.14; }
+    .hero p { font-size:13.5px; margin-bottom:12px; line-height:1.45; }
     .hero-ctas { flex-direction:column; align-items:stretch; gap:8px; margin-bottom:10px; }
     .hero-ctas .btn { text-align:center; }
     .badges { gap:4px 12px; }
@@ -206,15 +209,15 @@
     .strip-note { font-size:10px; padding-bottom:10px; }
 
     /* Features: dense rhythm */
-    .features { padding:22px 0 2px; }
+    .features { padding:16px 0 2px; }
     .sec-head { margin-bottom:2px; }
     .sec-head .mono { margin-bottom:6px; }
     .sec-head p { font-size:13.5px; margin-top:8px; }
-    h2 { font-size:21px; }
+    h2 { font-size:19px; }
     h3 { font-size:18px; margin-bottom:8px; }
-    .feat { gap:12px; padding:18px 0; }
+    .feat { gap:10px; padding:14px 0; }
     .feat-num { margin-bottom:6px; font-size:10px; }
-    .feat-copy p { font-size:13px; margin-bottom:8px; line-height:1.5; }
+    .feat-copy p { font-size:12.5px; margin-bottom:7px; line-height:1.45; }
     .checks li { font-size:12.5px; padding:2.5px 0 2.5px 21px; }
 
     /* Demo cards */
@@ -291,7 +294,7 @@
   <div>
     <span class="mono">Built for hardscaping pros</span>
     <h1>The smarter way to <em>sell hardscapes.</em></h1>
-    <p>Scaled site-map measuring, branded proposals your clients actually read, live engagement on every deal, and expert answers in the field — one platform, from first measurement to signature.</p>
+    <p><span class="d-only">Scaled site-map measuring, branded proposals your clients actually read, live engagement on every deal, and expert answers in the field — one platform, from first measurement to signature.</span><span class="m-only">Measure it, propose it, watch it get read, close it — one platform for hardscaping pros.</span></p>
     <div class="hero-ctas">
       <a class="btn big" href="/signup.html">Start your free trial</a>
       <a class="btn ghost" href="#features">Play with the product ↓</a>
@@ -346,15 +349,15 @@
 <section class="features wrap" id="features">
   <div class="sec-head">
     <span class="mono">How it works</span>
-    <h2>Most design teams go dark the moment a proposal goes out.<br>Yours won't.</h2>
-    <p>Deals rarely die in a price war. They die because the homeowner went quiet — or the number was off — and nobody knew. Paver Portal makes the invisible visible. <strong>Every card below is live — click, draw, and type.</strong></p>
+    <h2><span class="d-only">Most design teams go dark the moment a proposal goes out.<br>Yours won't.</span><span class="m-only">Deals die quiet.<br>Yours won't.</span></h2>
+    <p><span class="d-only">Deals rarely die in a price war. They die because the homeowner went quiet — or the number was off — and nobody knew. Paver Portal makes the invisible visible. <strong>Every card below is live — click, draw, and type.</strong></span><span class="m-only"><strong>Every card below is live — tap, draw, and type.</strong></span></p>
   </div>
 
   <div class="feat">
     <div class="feat-copy">
       <div class="feat-num">01 · MEASURE</div>
       <h3>Accurate pricing starts at the measurement.</h3>
-      <p>Upload any aerial — Google Earth works — click two points on a known distance, and the whole map locks to scale. Every region you draw returns real square footage. You never type a number; pricing follows the geometry.</p>
+      <p><span class="d-only">Upload any aerial — Google Earth works — click two points on a known distance, and the whole map locks to scale. Every region you draw returns real square footage. You never type a number; pricing follows the geometry.</span><span class="m-only">Two taps lock the scale. Every region you draw returns real square footage — priced at your rates.</span></p>
       <ul class="checks">
         <li>One-time scale calibration per property</li>
         <li>Draw regions, get instant sqft &amp; linear ft</li>
@@ -498,7 +501,7 @@
     <div class="feat-copy">
       <div class="feat-num">02 · PROPOSE</div>
       <h3>Fits the workflow you already have. Replaces it when you're ready.</h3>
-      <p>Keep building bids in the software you know — then <strong>drag &amp; drop the PDF</strong> into Paver Portal and it becomes an interactive proposal automatically. No retraining, no migration. And when you're ready to go end-to-end, build the bid right here: every service you sell — demo, grading, tree removal, hauling, pavers, outdoor kitchens — with <strong>your line items at your rates</strong>.</p>
+      <p><span class="d-only">Keep building bids in the software you know — then <strong>drag &amp; drop the PDF</strong> into Paver Portal and it becomes an interactive proposal automatically. No retraining, no migration. And when you're ready to go end-to-end, build the bid right here: every service you sell — demo, grading, tree removal, hauling, pavers, outdoor kitchens — with <strong>your line items at your rates</strong>.</span><span class="m-only">Drag the PDF from your current bidding software — it becomes an interactive proposal. Ready to switch? Build bids end-to-end here, <strong>your line items at your rates</strong>.</span></p>
       <ul class="checks">
         <li>Drag &amp; drop the PDF from your current bidding software</li>
         <li>Or build bids start-to-finish — custom line items, your $/unit rates</li>
@@ -529,7 +532,7 @@
     <div class="feat-copy">
       <div class="feat-num">03 · ENGAGE</div>
       <h3>Give every client a portal worth coming back to.</h3>
-      <p>Your client gets a branded space with their proposal, materials, a step-by-step look at how their project gets built, direct chat with you, and one-tap requests for material swaps or redesigns. Every conversation in one place — no lost texts, no buried emails.</p>
+      <p><span class="d-only">Your client gets a branded space with their proposal, materials, a step-by-step look at how their project gets built, direct chat with you, and one-tap requests for material swaps or redesigns. Every conversation in one place — no lost texts, no buried emails.</span><span class="m-only">Every client gets a branded portal: proposal, materials, chat, one-tap change requests. No lost texts.</span></p>
       <ul class="checks">
         <li>Chat with automatic email fallback</li>
         <li>Substitution &amp; redesign requests, tracked</li>
@@ -561,7 +564,7 @@
     <div class="feat-copy">
       <div class="feat-num">04 · CLOSE</div>
       <h3>Know which deals are alive — and call at the right moment.</h3>
-      <p>Every page open, return visit, share, and request moves the deal through your pipeline automatically: Draft → Sent → Viewed → Engaged → Signed. When a homeowner re-reads the proposal three times on a Tuesday night, you'll know Wednesday morning.</p>
+      <p><span class="d-only">Every page open, return visit, share, and request moves the deal through your pipeline automatically: Draft → Sent → Viewed → Engaged → Signed. When a homeowner re-reads the proposal three times on a Tuesday night, you'll know Wednesday morning.</span><span class="m-only">Opens, re-reads, and shares move deals through your pipeline automatically. Re-read 3× Tuesday night? You'll know Wednesday morning.</span></p>
       <ul class="checks">
         <li>Automatic stage progression from real behavior</li>
         <li>Open value, win rate, and closed totals at a glance</li>
@@ -589,7 +592,7 @@
     <div class="feat-copy">
       <div class="feat-num">05 · IN THE FIELD</div>
       <h3>An expert in your pocket, standing in the yard.</h3>
-      <p><strong>Ask a Pro</strong> answers the questions that come up on-site — base depths, drainage, ICPI standards, even county permit rules with live code lookups. The mobile field kit captures photos, notes, and measurements straight onto the client record, two taps from your phone.</p>
+      <p><span class="d-only"><strong>Ask a Pro</strong> answers the questions that come up on-site — base depths, drainage, ICPI standards, even county permit rules with live code lookups. The mobile field kit captures photos, notes, and measurements straight onto the client record, two taps from your phone.</span><span class="m-only"><strong>Ask a Pro</strong> answers install &amp; county-code questions on-site. The field kit captures photos, notes &amp; measurements from your phone.</span></p>
       <ul class="checks">
         <li>Expert answers on materials, installs &amp; local codes</li>
         <li>Camera-first photos, notes &amp; labeled measurements</li>
@@ -613,7 +616,7 @@
     <div class="feat-copy">
       <div class="feat-num">06 · YOUR BRAND</div>
       <h3>Your name on the door. Everywhere.</h3>
-      <p>Your logo, your colors, your company name — on the proposal, the client portal, and every email that goes out. Your clients see <em>your</em> brand delivering a big-company experience. Paver Portal stays behind the curtain.</p>
+      <p><span class="d-only">Your logo, your colors, your company name — on the proposal, the client portal, and every email that goes out. Your clients see <em>your</em> brand delivering a big-company experience. Paver Portal stays behind the curtain.</span><span class="m-only">Your logo, colors, and name on everything clients see. We stay behind the curtain.</span></p>
       <ul class="checks">
         <li>Custom branding on both plans</li>
         <li>Your catalog too — add your own products, photos &amp; pricing beside the major manufacturers</li>
