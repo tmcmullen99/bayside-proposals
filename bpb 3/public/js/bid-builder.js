@@ -23,6 +23,7 @@ export async function initBidBuilder({ proposalId, container, onSave }) {
     container,
     onSave: onSave || (() => {}),
     services: [],
+    regions: [],
     rows: [],
     sectionName: 'Scope of work',
     existingSections: 0,
@@ -31,7 +32,7 @@ export async function initBidBuilder({ proposalId, container, onSave }) {
   container.innerHTML = `<div class="bb-wrap"><div class="bb-loading">Loading your rate card…</div></div>`;
 
   try {
-    const [{ data: services, error: sErr }, { count }] = await Promise.all([
+    const [{ data: services, error: sErr }, { count }, regionsRes] = await Promise.all([
       supabase.from('service_items')
         .select('id, name, category, unit, rate')
         .eq('is_active', true)
@@ -40,10 +41,16 @@ export async function initBidBuilder({ proposalId, container, onSave }) {
         .select('id', { count: 'exact', head: true })
         .eq('proposal_id', proposalId)
         .eq('section_type', 'bid_section'),
+      // Site-plan measurements — progressive enhancement, never fatal
+      supabase.from('proposal_regions')
+        .select('name, area_sqft, area_lnft')
+        .eq('proposal_id', proposalId)
+        .order('display_order'),
     ]);
     if (sErr) throw sErr;
     ctx.services = services || [];
     ctx.existingSections = count || 0;
+    ctx.regions = (regionsRes && regionsRes.data) || [];
   } catch (err) {
     container.innerHTML = `<div class="bb-wrap"><div class="error-box">Could not load your rate card: ${esc(err.message)}</div></div>`;
     return;
@@ -69,6 +76,7 @@ function render() {
       <div class="section-header">
         <h2>Bid builder</h2>
         <p class="hint">Build the scope straight from <strong>your rate card</strong> — no PDF needed. Pick a service, enter the quantity, and pricing follows your rates. Manage the rate card itself in <a href="/onboarding.html">workspace setup</a>.</p>
+        ${regionChipsAvailable() ? `<p class="hint bb-geo">📐 This proposal has <strong>${ctx.regions.filter(r => r.area_sqft > 0 || r.area_lnft > 0).length} measured region${ctx.regions.filter(r => r.area_sqft > 0 || r.area_lnft > 0).length === 1 ? '' : 's'}</strong> from the site plan — tap one on any line to drop its measurement into the quantity. Pricing follows the geometry.</p>` : ''}
       </div>
 
       ${existingSections > 0 ? `
@@ -114,6 +122,10 @@ function rowHtml(r, i, services) {
       </div>
       ${r.serviceId === '__custom' ? `
         <input type="text" class="bb-desc" data-i="${i}" placeholder="Describe the work (e.g. Outdoor kitchen rough-in)" value="${esc(r.description)}">` : ''}
+      ${regionChipsFor(r).length ? `
+      <div class="bb-regions" data-i="${i}">
+        ${regionChipsFor(r).map((g, gi) => `<button type="button" class="bb-region" data-i="${i}" data-g="${gi}">📐 ${esc(g.label)} · ${g.value.toLocaleString()}</button>`).join('')}
+      </div>` : ''}
       <div class="bb-row-nums">
         <label>Qty <input type="number" class="bb-qty" data-i="${i}" min="0" step="0.5" value="${esc(r.qty)}" placeholder="0"></label>
         <label>Unit
@@ -161,6 +173,17 @@ function attach() {
   }));
   c.querySelectorAll('.bb-unit').forEach(sel => sel.addEventListener('change', () => {
     ctx.rows[Number(sel.dataset.i)].unit = sel.value;
+    render(); // refresh region chips for the new unit
+  }));
+  c.querySelectorAll('.bb-region').forEach(btn => btn.addEventListener('click', () => {
+    const i = Number(btn.dataset.i);
+    const chips = regionChipsFor(ctx.rows[i]);
+    const g = chips[Number(btn.dataset.g)];
+    if (!g) return;
+    ctx.rows[i].qty = g.value;
+    const inp = c.querySelector(`.bb-qty[data-i="${i}"]`);
+    if (inp) inp.value = g.value;
+    softTotals();
   }));
   c.querySelectorAll('.bb-del').forEach(btn => btn.addEventListener('click', () => {
     ctx.rows.splice(Number(btn.dataset.i), 1);
@@ -186,6 +209,25 @@ function softTotals() {
 // ───────────────────────────────────────────────────────────────────────────
 // Math + persistence
 // ───────────────────────────────────────────────────────────────────────────
+function regionChipsAvailable() {
+  return ctx.regions.some(r => (r.area_sqft > 0) || (r.area_lnft > 0));
+}
+
+// chips relevant to a row's unit: sqft rows offer area_sqft, lnft rows offer
+// area_lnft; a summed "All regions" chip when 2+ exist.
+function regionChipsFor(row) {
+  const key = row.unit === 'sqft' ? 'area_sqft' : row.unit === 'lnft' ? 'area_lnft' : null;
+  if (!key) return [];
+  const chips = ctx.regions
+    .filter(g => Number(g[key]) > 0)
+    .map(g => ({ label: g.name || 'Region', value: Math.round(Number(g[key]) * 100) / 100 }));
+  if (chips.length >= 2) {
+    const sum = Math.round(chips.reduce((s, c) => s + c.value, 0) * 100) / 100;
+    chips.push({ label: 'All regions', value: sum });
+  }
+  return chips;
+}
+
 function rowAmount(r) {
   const q = parseFloat(r.qty), rt = parseFloat(r.rate);
   if (r.unit === 'flat') return isFinite(rt) ? rt : 0;
@@ -282,6 +324,10 @@ function injectStylesOnce() {
     .bb-del { border:1px solid #e5e0d6; background:#fff; color:#6f6a60; border-radius:9px; width:38px; cursor:pointer; font-size:13px; flex-shrink:0; }
     .bb-del:hover { color:#b91c1c; border-color:#e6b8b8; }
     .bb-desc { width:100%; font:500 13.5px 'Onest',sans-serif; border:1.5px solid #e5e0d6; border-radius:9px; padding:9px 10px; margin-bottom:8px; }
+    .bb-geo { background:#f1e7d3; border-radius:9px; padding:8px 12px; color:#7d5c31 !important; }
+    .bb-regions { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+    .bb-region { font:600 11.5px 'Onest',sans-serif; color:#7d5c31; background:#f1e7d3; border:1px solid #e6d7b8; border-radius:999px; padding:6px 11px; cursor:pointer; }
+    .bb-region:hover { background:#e9dcc0; }
     .bb-row-nums { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
     .bb-row-nums label { font-size:10.5px; font-weight:600; color:#6f6a60; display:flex; flex-direction:column; gap:3px; }
     .bb-row-nums input, .bb-row-nums select { font:600 14px 'Onest',sans-serif; border:1.5px solid #e5e0d6; border-radius:9px; padding:8px 9px; width:96px; background:#fff; }
