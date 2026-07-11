@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tenants · Operator Console</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --tan:#9c7440; --walnut:#7d5c31; --gold:#d9a441; --sand:#f1e7d3; --cream:#faf6ee; --espresso:#33281c; --rule:#e5e0d6; --text:#23282f; --muted:#6f6a60; --err:#b91c1c; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Onest',sans-serif; background:var(--cream); color:var(--text); min-height:100vh; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; background:#fff; border-bottom:1px solid var(--rule); padding:0 22px; height:58px; position:sticky; top:0; }
+  .topbar a { color:var(--muted); text-decoration:none; font-size:13px; font-weight:600; }
+  .topbar a:hover { color:var(--walnut); }
+  .title { font-size:15px; font-weight:700; }
+  .sub { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--tan); }
+  main { padding:26px 24px 80px; max-width:1180px; margin:0 auto; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:22px; }
+  .kpi { background:#fff; border:1px solid var(--rule); border-radius:12px; padding:14px 16px; }
+  .kpi-label { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .kpi-val { font-size:24px; font-weight:700; color:var(--espresso); margin-top:4px; }
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--rule); border-radius:12px; overflow:hidden; }
+  th { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); text-align:left; padding:12px 14px; border-bottom:1px solid var(--rule); background:#fff; }
+  td { padding:12px 14px; border-bottom:1px solid #f2ecdf; font-size:13px; vertical-align:middle; }
+  tr:last-child td { border-bottom:0; }
+  .t-name { font-weight:700; }
+  .t-meta { font-size:11px; color:var(--muted); margin-top:1px; }
+  .pill { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.1em; text-transform:uppercase; padding:3px 9px; border-radius:999px; font-weight:600; }
+  .pill.active { background:#eaf3ea; color:#2f5c38; }
+  .pill.trial { background:var(--sand); color:var(--walnut); }
+  .pill.past_due { background:#fdf3e3; color:#a06a12; }
+  .pill.suspended { background:#fbeeee; color:var(--err); }
+  .counts { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); white-space:nowrap; }
+  .act { font:600 11.5px 'Onest',sans-serif; border:1px solid var(--rule); background:#fff; color:var(--text); border-radius:999px; padding:6px 12px; cursor:pointer; }
+  .act:hover { border-color:var(--tan); color:var(--walnut); background:var(--sand); }
+  .act.danger:hover { border-color:var(--err); color:var(--err); background:#fbeeee; }
+  .loading, .err { padding:30px; text-align:center; color:var(--muted); font-size:13px; }
+  .err { color:var(--err); }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <div class="title">Tenants</div>
+    <span class="sub">Paver Portal · operator console</span>
+  </div>
+  <a href="/admin/">← Admin home</a>
+</header>
+<main>
+  <div class="kpis" id="kpis"></div>
+  <div id="tableWrap"><div class="loading">Loading tenants…</div></div>
+
+  <h2 style="font-size:16px;font-weight:700;margin:28px 0 10px;">Catalog requests</h2>
+  <div id="reqWrap" style="background:#fff;border:1px solid var(--rule);border-radius:12px;overflow:hidden;">
+    <div class="loading">Loading requests…</div>
+  </div>
+</main>
+
+<script type="module">
+import { supabase } from '/js/supabase-client.js';
+import { requireMaster } from '/js/auth-util.js';
+
+const FOUNDING = '00000000-0000-0000-0000-000000000001';
+const esc = (s) => (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmtDate = (ts) => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+
+const auth = await requireMaster();
+if (auth) { load(); loadRequests(); }
+
+// ── Catalog requests triage ──
+async function loadRequests() {
+  const { data, error } = await supabase
+    .from('catalog_requests')
+    .select('id, manufacturer_name, website_url, notes, file_path, status, requester_name, created_at, company_id')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  const wrap = document.getElementById('reqWrap');
+  if (error) { wrap.innerHTML = `<div class="err">Could not load requests: ${esc(error.message)}</div>`; return; }
+  if (!data || !data.length) { wrap.innerHTML = '<div class="loading">No catalog requests yet — they arrive from the onboarding wizard.</div>'; return; }
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Manufacturer</th><th>Details</th><th>From</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        ${data.map(r => `
+          <tr data-id="${esc(r.id)}">
+            <td><div class="t-name">${esc(r.manufacturer_name)}</div>
+                ${r.website_url ? `<div class="t-meta"><a href="${esc(r.website_url)}" target="_blank" rel="noopener" style="color:var(--walnut);">${esc(r.website_url.replace(/^https?:\/\//,''))}</a></div>` : ''}</td>
+            <td style="font-size:12px;max-width:320px;">${esc(r.notes || '—')}${r.file_path ? ' <span class="pill trial" data-file="${esc(r.file_path)}" style="cursor:default;">📎 list attached</span>' : ''}</td>
+            <td style="font-size:12px;">${esc(r.requester_name || '—')}</td>
+            <td><span class="pill ${r.status === 'added' ? 'active' : r.status === 'declined' ? 'suspended' : r.status === 'reviewing' ? 'past_due' : 'trial'}">${esc(r.status)}</span></td>
+            <td style="white-space:nowrap;">
+              ${r.status === 'new' ? '<button class="act" data-set="reviewing">Reviewing</button> ' : ''}
+              ${r.status !== 'added' ? '<button class="act" data-set="added">Added ✓</button> ' : ''}
+              ${r.status !== 'declined' && r.status !== 'added' ? '<button class="act danger" data-set="declined">Decline</button>' : ''}
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  wrap.querySelectorAll('button[data-set]').forEach(btn => btn.addEventListener('click', async () => {
+    const id = btn.closest('tr').dataset.id;
+    btn.disabled = true;
+    const { error: uErr } = await supabase.from('catalog_requests').update({ status: btn.dataset.set }).eq('id', id);
+    if (uErr) { alert('Update failed: ' + uErr.message); btn.disabled = false; return; }
+    loadRequests();
+  }));
+}
+
+async function load() {
+  const { data, error } = await supabase.rpc('operator_list_tenants');
+  const wrap = document.getElementById('tableWrap');
+  if (error) { wrap.innerHTML = `<div class="err">Could not load tenants: ${esc(error.message)}</div>`; return; }
+  const tenants = data || [];
+
+  // KPIs
+  const paying = tenants.filter(t => t.status === 'active').length;
+  const trials = tenants.filter(t => t.status === 'trial').length;
+  const mrr = paying * 249;
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Tenants</div><div class="kpi-val">${tenants.length}</div></div>
+    <div class="kpi"><div class="kpi-label">Active (paying)</div><div class="kpi-val">${paying}</div></div>
+    <div class="kpi"><div class="kpi-label">In trial</div><div class="kpi-val">${trials}</div></div>
+    <div class="kpi"><div class="kpi-label">MRR (est.)</div><div class="kpi-val">$${mrr.toLocaleString()}</div></div>`;
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Company</th><th>Status</th><th>Usage</th><th>Owner</th><th>Created</th><th>Renews</th><th></th></tr></thead>
+      <tbody>
+        ${tenants.map(t => `
+          <tr data-id="${esc(t.id)}">
+            <td><div class="t-name">${esc(t.name)}</div><div class="t-meta">${esc(t.slug)}${t.stripe_customer_id ? ' · ' + esc(t.stripe_customer_id) : ''}</div></td>
+            <td><span class="pill ${esc(t.status)}">${esc(t.status)}</span></td>
+            <td class="counts">${t.staff_count} staff · ${t.client_count} clients · ${t.proposal_count} proposals</td>
+            <td style="font-size:12px;">${esc(t.owner_email || '—')}</td>
+            <td style="font-size:12px;">${fmtDate(t.created_at)}</td>
+            <td style="font-size:12px;">${fmtDate(t.current_period_end)}</td>
+            <td>${t.id === FOUNDING ? '' : (t.status === 'suspended'
+                ? `<button class="act" data-set="active">Reactivate</button>`
+                : `<button class="act danger" data-set="suspended">Suspend</button>`)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  wrap.querySelectorAll('button[data-set]').forEach(btn => btn.addEventListener('click', async () => {
+    const row = btn.closest('tr');
+    const id = row.dataset.id;
+    const next = btn.dataset.set;
+    const name = row.querySelector('.t-name').textContent;
+    if (!confirm(`${next === 'suspended' ? 'Suspend' : 'Reactivate'} "${name}"? ${next === 'suspended' ? 'Their staff lose access immediately.' : 'Their staff regain access immediately.'}`)) return;
+    btn.disabled = true;
+    const { error: uErr } = await supabase.from('companies').update({ status: next }).eq('id', id);
+    if (uErr) { alert('Update failed: ' + uErr.message); btn.disabled = false; return; }
+    load();
+  }));
+}
+</script>
+</body>
+</html>
