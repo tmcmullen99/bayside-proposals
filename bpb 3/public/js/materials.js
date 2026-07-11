@@ -101,6 +101,31 @@ export async function initMaterials({ proposalId, container, onSave }) {
 // ───────────────────────────────────────────────────────────────────────────
 // Data loading
 // ───────────────────────────────────────────────────────────────────────────
+// SPRINT 8B — Onboarding wizard step 2 stores which manufacturer catalogs
+// this company sells from (company_settings.enabled_manufacturers;
+// null = everything). The editor honors it here. A company's own custom
+// products (company_id set) are ALWAYS shown regardless of the list.
+let _mfgPrefs; // undefined = not loaded, null = all enabled
+async function loadManufacturerPrefs() {
+  if (_mfgPrefs !== undefined) return _mfgPrefs;
+  try {
+    const { data } = await supabase
+      .from('company_settings')
+      .select('enabled_manufacturers')
+      .not('company_id', 'is', null)
+      .limit(1)
+      .maybeSingle();
+    _mfgPrefs = (data && Array.isArray(data.enabled_manufacturers) && data.enabled_manufacturers.length)
+      ? data.enabled_manufacturers
+      : null;
+  } catch (_) { _mfgPrefs = null; }
+  return _mfgPrefs;
+}
+function applyMfgPrefs(rows, prefs) {
+  if (!prefs) return rows;
+  return rows.filter(r => r.company_id != null || prefs.includes(r.manufacturer));
+}
+
 async function loadCatalog() {
   // Phase 3B.1 — read from the unified materials table filtered to Belgard.
   // Replaces the prior direct read from belgard_materials. The materials
@@ -108,13 +133,15 @@ async function loadCatalog() {
   // grouping/rendering code uses (product_name, collection, category_id,
   // swatch_url, primary_image_url, color, size_spec, cut_sheet_url,
   // spec_pdf_url) is present on each row.
+  const prefs = await loadManufacturerPrefs();
+  if (prefs && !prefs.includes('Belgard')) { ctx.catalog = []; return; }
   const { data, error } = await supabase
     .from('materials')
     .select('*')
     .eq('manufacturer', 'Belgard')
     .order('product_name', { ascending: true });
   if (error) throw new Error(`materials (Belgard): ${error.message}`);
-  ctx.catalog = data || [];
+  ctx.catalog = applyMfgPrefs(data || [], prefs);
 }
 
 async function loadCategories() {
@@ -176,7 +203,7 @@ async function loadThirdParty() {
     .neq('manufacturer', 'Belgard')
     .order('manufacturer', { ascending: true });
   if (error) throw new Error(`materials (third-party): ${error.message}`);
-  ctx.thirdParty = data || [];
+  ctx.thirdParty = applyMfgPrefs(data || [], await loadManufacturerPrefs());
 }
 
 async function loadBidAssets() {
