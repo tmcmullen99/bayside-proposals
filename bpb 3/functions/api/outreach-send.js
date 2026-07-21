@@ -125,6 +125,7 @@ export async function onRequestPost(context) {
       body: JSON.stringify({
         from: `${cfg.from_name} <${cfg.from_email}>`,
         to: [p.email],
+        reply_to: cfg.reply_to_email || 'tim@paverportal.com',
         subject, text, html,
         headers: { 'List-Unsubscribe': `<https://paverportal.com/api/outreach-track?a=unsub&s=${sendRow.id}>` },
       }),
