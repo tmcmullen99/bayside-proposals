@@ -24,7 +24,7 @@
  *   - Snapshot wiring: pushUndoSnapshot('toggle material') before each pill click
  *     so Cmd+Z reverses one click per stroke.
  *
- * Phase 4.1 Sprint A: McMullen palette → Bayside palette for non-region UI.
+ * Phase 4.1 Sprint A: McMullen palette → Paver Portal palette for non-region UI.
  *
  * Phase 6.1 (Cam To Plan import) additions — all additive, no existing behavior changed:
  *   - state.scale: { pixelsPerFoot, p1Frac, p2Frac, realDistanceInches, calibratedAt } | null
@@ -534,7 +534,7 @@ function redraw() {
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.fill();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#5d7e69';
+    ctx.strokeStyle = '#9c7440';
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(px.x - 4, px.y);
@@ -542,7 +542,7 @@ function redraw() {
     ctx.moveTo(px.x, px.y - 4);
     ctx.lineTo(px.x, px.y + 4);
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#5d7e69';
+    ctx.strokeStyle = '#9c7440';
     ctx.stroke();
     ctx.restore();
   }
@@ -689,7 +689,7 @@ function drawDraft(draft) {
     ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.lineWidth = 3;
-    ctx.strokeStyle = i === 0 ? '#5d7e69' : '#dc2626';
+    ctx.strokeStyle = i === 0 ? '#9c7440' : '#dc2626';
     ctx.stroke();
   }
   ctx.restore();
@@ -705,9 +705,9 @@ function drawCalibrationPreview() {
     ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.lineWidth = 3;
-    ctx.strokeStyle = '#5d7e69';
+    ctx.strokeStyle = '#9c7440';
     ctx.stroke();
-    ctx.fillStyle = '#5d7e69';
+    ctx.fillStyle = '#9c7440';
     ctx.font = 'bold 12px DM Sans';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -723,7 +723,7 @@ function drawCalibrationPreview() {
     ctx.strokeStyle = 'rgba(255,255,255,0.9)';
     ctx.stroke();
     ctx.lineWidth = 3;
-    ctx.strokeStyle = '#5d7e69';
+    ctx.strokeStyle = '#9c7440';
     ctx.setLineDash([10, 5]);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -733,9 +733,9 @@ function drawCalibrationPreview() {
     ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.lineWidth = 3;
-    ctx.strokeStyle = '#5d7e69';
+    ctx.strokeStyle = '#9c7440';
     ctx.stroke();
-    ctx.fillStyle = '#5d7e69';
+    ctx.fillStyle = '#9c7440';
     ctx.font = 'bold 12px DM Sans';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1315,7 +1315,7 @@ function refreshSidePanel() {
     }
 
     // Phase 6.1: when scale is set, show "(auto)" hint next to SQFT label
-    const sqftLabel = state.scale ? 'SQFT <span style="color:#5d7e69;font-weight:600;">(auto)</span>' : 'SQFT';
+    const sqftLabel = state.scale ? 'SQFT <span style="color:#9c7440;font-weight:600;">(auto)</span>' : 'SQFT';
 
     card.innerHTML = `
       <div class="sm-region-card-row">

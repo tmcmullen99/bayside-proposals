@@ -155,7 +155,7 @@ async function handleForceSend(env, body) {
   const template = tmpls[0];
 
   const baseUrl = (env.PORTAL_BASE_URL || 'https://portal-baysidepavers.com').replace(/\/$/, '');
-  const fromEmail = env.RESEND_FROM_EMAIL || 'Bayside Pavers <tim@mcmullen.properties>';
+  const fromEmail = env.RESEND_FROM_EMAIL || 'Paver Portal <tim@mcmullen.properties>';
 
   const ctx = {
     first_name: (client.name || 'there').split(/\s+/)[0],
@@ -282,7 +282,7 @@ function substitute(s, ctx) {
 }
 
 function buildText(paragraphs, ctx) {
-  const sig = '— Tim McMullen\nBayside Pavers\ntim@mcmullen.properties';
+  const sig = '— Tim McMullen\nPaver Portal\ntim@mcmullen.properties';
   return paragraphs.join('\n\n') + `\n\n${sig}\n\n---\nIf you'd prefer no more check-ins, click here to opt out: ${ctx.unsubscribe_url}`;
 }
 
@@ -298,12 +298,12 @@ function buildHtml(paragraphs, ctx) {
       return introHtml + ul;
     }
     if (p.trim() === ctx.proposal_url) {
-      return `<p style="margin:16px 0;"><a href="${esc(ctx.proposal_url)}" style="display:inline-block;background:#5d7e69;color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;">View your proposal →</a></p>`;
+      return `<p style="margin:16px 0;"><a href="${esc(ctx.proposal_url)}" style="display:inline-block;background:#9c7440;color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;">View your proposal →</a></p>`;
     }
-    const linked = esc(p).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#4a6654;text-decoration:underline;">$1</a>');
+    const linked = esc(p).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#7d5c31;text-decoration:underline;">$1</a>');
     return `<p style="margin:0 0 16px;color:#353535;font-size:15px;line-height:1.6;white-space:pre-wrap;">${linked}</p>`;
   }).join('');
-  const sig = `<p style="margin:22px 0 0;color:#353535;font-size:15px;line-height:1.6;white-space:pre-wrap;">— Tim McMullen\nBayside Pavers\ntim@mcmullen.properties</p>`;
+  const sig = `<p style="margin:22px 0 0;color:#353535;font-size:15px;line-height:1.6;white-space:pre-wrap;">— Tim McMullen\nPaver Portal\ntim@mcmullen.properties</p>`;
   const footer = `<hr style="border:0;border-top:1px solid #e8e8e3;margin:24px 0 16px;"><p style="margin:0;color:#999;font-size:12px;line-height:1.5;">You're getting this because we recently sent you a proposal. If you'd prefer no more check-ins, <a href="${esc(ctx.unsubscribe_url)}" style="color:#777;">click here to opt out</a>.</p>`;
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fafafa;"><tr><td align="center" style="padding:24px 16px;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="560" style="max-width:560px;background:#fff;border:1px solid #e8e8e3;border-radius:10px;"><tr><td style="padding:28px 32px;">${body}${sig}${footer}</td></tr></table></td></tr></table></body></html>`;
 }

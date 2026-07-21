@@ -49,7 +49,7 @@
 const MODEL = 'claude-sonnet-4-6';
 const MAX_IMAGES_PER_REQUEST = 20;
 
-const MATCH_PROMPT = `You are analyzing images extracted from a Bayside Pavers bid PDF to help enrich a paver/hardscape materials catalog. For each image, decide whether it is a usable catalog asset for a specific material on the provided list.
+const MATCH_PROMPT = `You are analyzing images extracted from a Paver Portal bid PDF to help enrich a paver/hardscape materials catalog. For each image, decide whether it is a usable catalog asset for a specific material on the provided list.
 
 You receive:
   1. A MATERIALS LIST (numbered 0-based) — the catalog products selected for this proposal
@@ -68,7 +68,7 @@ For EACH image, return exactly one match entry with these fields:
   - reasoning: one concise sentence
 
 RETURN is_match: false for:
-  - Any logo (Bayside Pavers, Belgard, Trex, Tru-Scapes, JobNimbus, etc.)
+  - Any logo (Paver Portal, Belgard, Trex, Tru-Scapes, JobNimbus, etc.)
   - Page decorations (borders, arrows, icons, section dividers)
   - Architectural renderings or 3D design mockups (these are PROPERTY-specific, not reusable catalog assets)
   - Installation photos showing the material in situ (property-specific)

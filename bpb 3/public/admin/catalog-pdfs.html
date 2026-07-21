@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Catalog PDFs · Admin · Bayside Proposal Builder</title>
+<title>Catalog PDFs · Admin · Paver Portal Proposal Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/admin/admin-shell.css">
 <style>
@@ -15,7 +15,7 @@
     background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
     padding: 24px 26px; margin-bottom: 24px;
   }
-  .cp-panel h2 { font-size: 18px; font-weight: 600; color: #1a1f2e; margin: 0 0 6px; }
+  .cp-panel h2 { font-size: 18px; font-weight: 600; color: #33281c; margin: 0 0 6px; }
   .cp-panel-sub { font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 18px; }
 
   .cp-form-row {
@@ -26,10 +26,10 @@
   .cp-form-row input[type="text"], .cp-form-row select {
     width: 100%; padding: 9px 12px; font-size: 14px;
     border: 1px solid #d8dad7; border-radius: 6px;
-    background: #faf8f3; color: #1a1f2e; font-family: inherit;
+    background: #faf8f3; color: #33281c; font-family: inherit;
   }
   .cp-form-row input[type="text"]:focus, .cp-form-row select:focus {
-    outline: none; border-color: #5d7e69; background: #fff;
+    outline: none; border-color: #9c7440; background: #fff;
   }
 
   .cp-drop-zone {
@@ -37,12 +37,12 @@
     text-align: center; background: #faf8f3;
     transition: border-color 0.15s, background 0.15s; cursor: pointer;
   }
-  .cp-drop-zone:hover { border-color: #5d7e69; background: #f5f7f5; }
-  .cp-drop-zone.is-dragover { border-color: #5d7e69; background: #ecf1ed; }
-  .cp-drop-zone.has-file { border-color: #5d7e69; background: #ecf1ed; }
+  .cp-drop-zone:hover { border-color: #9c7440; background: #f5f7f5; }
+  .cp-drop-zone.is-dragover { border-color: #9c7440; background: #ecf1ed; }
+  .cp-drop-zone.has-file { border-color: #9c7440; background: #ecf1ed; }
   .cp-drop-zone input[type="file"] { display: none; }
   .cp-drop-text { font-size: 14px; color: #666; }
-  .cp-drop-filename { font-size: 14px; color: #1a1f2e; font-weight: 600; margin-top: 6px; }
+  .cp-drop-filename { font-size: 14px; color: #33281c; font-weight: 600; margin-top: 6px; }
   .cp-drop-hint { font-size: 12px; color: #888; margin-top: 6px; }
 
   .cp-btn {
@@ -50,8 +50,8 @@
     font-weight: 600; font-size: 14px; cursor: pointer;
     transition: background 0.15s; font-family: inherit;
   }
-  .cp-btn-primary { background: #5d7e69; color: #fff; }
-  .cp-btn-primary:hover:not(:disabled) { background: #4a6654; }
+  .cp-btn-primary { background: #9c7440; color: #fff; }
+  .cp-btn-primary:hover:not(:disabled) { background: #7d5c31; }
   .cp-btn-primary:disabled { background: #999; cursor: not-allowed; }
   .cp-btn-secondary { background: #fff; color: #353535; border: 1px solid #c9d3cb; }
   .cp-btn-secondary:hover:not(:disabled) { background: #f5f5f5; }
@@ -74,9 +74,9 @@
   }
   .cp-table td { padding: 14px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
   .cp-table tr:hover td { background: #fcfaf5; }
-  .cp-pdf-name { font-weight: 600; color: #1a1f2e; }
+  .cp-pdf-name { font-weight: 600; color: #33281c; }
   .cp-pdf-meta { font-size: 12px; color: #888; margin-top: 2px; }
-  .cp-pdf-meta a { color: #5d7e69; }
+  .cp-pdf-meta a { color: #9c7440; }
   .cp-row-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
   .cp-source-pill {
@@ -113,16 +113,16 @@
     padding: 20px 26px; border-bottom: 1px solid #eee;
     display: flex; justify-content: space-between; align-items: center;
   }
-  .cp-modal-header h2 { font-size: 18px; font-weight: 600; margin: 0; color: #1a1f2e; }
+  .cp-modal-header h2 { font-size: 18px; font-weight: 600; margin: 0; color: #33281c; }
   .cp-modal-header .cp-modal-eyebrow {
     font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: #5d7e69; font-weight: 700; margin-bottom: 4px;
+    color: #9c7440; font-weight: 700; margin-bottom: 4px;
   }
   .cp-modal-close {
     background: transparent; border: none; font-size: 24px; cursor: pointer;
     color: #888; line-height: 1; padding: 4px 10px; border-radius: 6px;
   }
-  .cp-modal-close:hover { background: #f5f5f5; color: #1a1f2e; }
+  .cp-modal-close:hover { background: #f5f5f5; color: #33281c; }
 
   .cp-modal-body {
     flex: 1; overflow-y: auto; padding: 22px 26px;
@@ -137,7 +137,7 @@
   }
   .cp-product-picker h3 {
     font-size: 12px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.1em; color: #5d7e69; margin: 0 0 10px;
+    letter-spacing: 0.1em; color: #9c7440; margin: 0 0 10px;
   }
   .cp-product-search {
     width: 100%; padding: 7px 10px; font-size: 13px;
@@ -152,7 +152,7 @@
   }
   .cp-product-item:hover { background: #faf8f3; }
   .cp-product-item.is-active {
-    background: #ecf1ed; border-color: #c9d3cb; color: #1a1f2e;
+    background: #ecf1ed; border-color: #c9d3cb; color: #33281c;
   }
   .cp-product-item .cp-product-page {
     font-size: 11px; color: #888; font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
@@ -174,7 +174,7 @@
   .cp-canvas-wrap canvas { max-width: 100%; height: auto; display: block; }
 
   .cp-json-output {
-    background: #1a1f2e; color: #c4d2e1;
+    background: #33281c; color: #c4d2e1;
     border-radius: 8px; padding: 14px 16px;
     font-family: 'JetBrains Mono', 'SF Mono', Menlo, ui-monospace, monospace;
     font-size: 11px; line-height: 1.6;
@@ -187,7 +187,7 @@
     overflow: hidden; margin-top: 8px;
   }
   .cp-progress-fill {
-    height: 100%; background: #5d7e69;
+    height: 100%; background: #9c7440;
     transition: width 0.3s ease; width: 0;
   }
 </style>
@@ -198,7 +198,7 @@
 <header class="ash-topbar">
   <div class="ash-topbar-inner">
     <a href="/admin/" class="ash-brand">
-      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-bayside">Paver Portal Proposal Builder</span>
       <span class="ash-brand-divider">/</span>
       <span class="ash-brand-section">Admin</span>
     </a>

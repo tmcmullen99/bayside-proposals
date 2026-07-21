@@ -48,7 +48,7 @@ const PHASE_ORDER = ['pre_consult', 'design_in_progress', 'post_review', 'coolin
 const SAMPLE = {
   client_first_name: 'Sarah',
   proposal_address: '123 Main St, Campbell',
-  designer_name: 'Bayside',
+  designer_name: 'Paver Portal',
 };
 
 const ctx = {

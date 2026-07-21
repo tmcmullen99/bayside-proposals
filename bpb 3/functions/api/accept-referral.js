@@ -307,7 +307,7 @@ export async function onRequestPost({ request, env }) {
     // Phase 4 closeout (R3): use PUBLIC_BASE_URL constant rather than
     // deriving from request.url so emails always link to the real domain.
     const signinUrl = PUBLIC_BASE_URL + '/account/signin.html';
-    const designerName = (designerProfile && designerProfile.display_name) || 'your Bayside designer';
+    const designerName = (designerProfile && designerProfile.display_name) || 'your Paver Portal designer';
     const refeeFirstName = firstName || 'there';
 
     let homeownerEmailSent = false;
@@ -325,7 +325,7 @@ export async function onRequestPost({ request, env }) {
           body: JSON.stringify({
             from:    RESEND_FROM,
             to:      [email],
-            subject: 'Your Bayside Pavers account is ready',
+            subject: 'Your Paver Portal account is ready',
             html:    buildHomeownerWelcomeHtml({ name: refeeFirstName, email, initialPassword, signinUrl, designerName }),
             text:    buildHomeownerWelcomeText({ name: refeeFirstName, email, initialPassword, signinUrl, designerName }),
           }),
@@ -402,12 +402,12 @@ function buildHomeownerWelcomeHtml({ name, email, initialPassword, signinUrl, de
 '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f7f7f4;padding:40px 20px;">' +
 '<tr><td align="center">' +
 '<table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">' +
-'<tr><td style="background:#5d7e69;padding:32px 40px;text-align:center;">' +
-'<h1 style="margin:0;color:#fff;font-size:24px;font-weight:600;letter-spacing:-0.01em;">Welcome to Bayside Pavers</h1>' +
+'<tr><td style="background:#9c7440;padding:32px 40px;text-align:center;">' +
+'<h1 style="margin:0;color:#fff;font-size:24px;font-weight:600;letter-spacing:-0.01em;">Welcome to Paver Portal</h1>' +
 '</td></tr>' +
 '<tr><td style="padding:36px 40px 24px;">' +
 '<p style="margin:0 0 18px;font-size:16px;line-height:1.6;">Hi ' + escapeHtml(name) + ',</p>' +
-'<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#58595b;">Your Bayside Pavers account is set up. ' + escapeHtml(designerName) + ' is your assigned designer — they will reach out to confirm your scheduled appointment.</p>' +
+'<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#58595b;">Your Paver Portal account is set up. ' + escapeHtml(designerName) + ' is your assigned designer — they will reach out to confirm your scheduled appointment.</p>' +
 '<div style="background:#f7f7f4;border-radius:6px;padding:20px 24px;margin:24px 0;">' +
 '<p style="margin:0 0 8px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#58595b;font-weight:600;">Your sign-in</p>' +
 '<p style="margin:0 0 6px;font-size:14px;"><strong>Email:</strong> ' + escapeHtml(email) + '</p>' +
@@ -415,10 +415,10 @@ function buildHomeownerWelcomeHtml({ name, email, initialPassword, signinUrl, de
 '</div>' +
 '<p style="margin:0 0 24px;font-size:13px;line-height:1.6;color:#58595b;">That password is your property address (lowercased, no spaces). We will prompt you to set your own when you sign in.</p>' +
 '<div style="text-align:center;margin:32px 0 8px;">' +
-'<a href="' + escapeHtml(signinUrl) + '" style="display:inline-block;background:#5d7e69;color:#fff;text-decoration:none;padding:14px 32px;border-radius:4px;font-size:15px;font-weight:600;">Sign in to your account</a>' +
+'<a href="' + escapeHtml(signinUrl) + '" style="display:inline-block;background:#9c7440;color:#fff;text-decoration:none;padding:14px 32px;border-radius:4px;font-size:15px;font-weight:600;">Sign in to your account</a>' +
 '</div></td></tr>' +
 '<tr><td style="padding:24px 40px;background:#f7f7f4;border-top:1px solid #e4e4df;text-align:center;">' +
-'<p style="margin:0;font-size:12px;color:#70726f;">Bayside Pavers · Creating backyards people love</p>' +
+'<p style="margin:0;font-size:12px;color:#70726f;">Paver Portal · Creating backyards people love</p>' +
 '</td></tr></table></td></tr></table></body></html>';
 }
 
@@ -426,7 +426,7 @@ function buildHomeownerWelcomeText({ name, email, initialPassword, signinUrl, de
   return [
     'Hi ' + name + ',',
     '',
-    'Your Bayside Pavers account is set up. ' + designerName + ' is your assigned designer.',
+    'Your Paver Portal account is set up. ' + designerName + ' is your assigned designer.',
     '',
     'Your sign-in:',
     '  Email:    ' + email,
@@ -437,7 +437,7 @@ function buildHomeownerWelcomeText({ name, email, initialPassword, signinUrl, de
     '',
     'Sign in: ' + signinUrl,
     '',
-    '— Bayside Pavers',
+    '— Paver Portal',
   ].join('\n');
 }
 
@@ -450,11 +450,11 @@ function buildDesignerNotifyHtml({ designerName, refereeName, referrerName, refe
 '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f7f7f4;padding:40px 20px;">' +
 '<tr><td align="center">' +
 '<table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">' +
-'<tr><td style="background:#5d7e69;padding:24px 40px;">' +
+'<tr><td style="background:#9c7440;padding:24px 40px;">' +
 '<h1 style="margin:0;color:#fff;font-size:18px;font-weight:600;">New referral signed up</h1>' +
 '</td></tr>' +
 '<tr><td style="padding:28px 40px;">' +
-'<p style="margin:0 0 18px;font-size:15px;color:#58595b;">Hi ' + escapeHtml(designerName) + ', a new referral just created their Bayside account. They are heading to Acuity now to schedule.</p>' +
+'<p style="margin:0 0 18px;font-size:15px;color:#58595b;">Hi ' + escapeHtml(designerName) + ', a new referral just created their Paver Portal account. They are heading to Acuity now to schedule.</p>' +
 '<div style="background:#f7f7f4;border-radius:6px;padding:18px 22px;margin:18px 0;">' +
 '<p style="margin:0 0 12px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#58595b;font-weight:600;">New homeowner</p>' +
 '<p style="margin:6px 0;font-size:14px;"><strong>Name:</strong> ' + escapeHtml(refereeName) + '</p>' +
@@ -469,7 +469,7 @@ phoneRow +
 '<p style="margin:18px 0 8px;font-size:13px;color:#58595b;">They were redirected to Acuity to schedule. You will get a separate confirmation from Acuity once they book a slot.</p>' +
 '</td></tr>' +
 '<tr><td style="padding:18px 40px;background:#f7f7f4;border-top:1px solid #e4e4df;text-align:center;">' +
-'<p style="margin:0;font-size:11px;color:#70726f;">Bayside Pavers · Internal notification</p>' +
+'<p style="margin:0;font-size:11px;color:#70726f;">Paver Portal · Internal notification</p>' +
 '</td></tr></table></td></tr></table></body></html>';
 }
 
@@ -477,7 +477,7 @@ function buildDesignerNotifyText({ designerName, refereeName, referrerName, refe
   return [
     'Hi ' + designerName + ',',
     '',
-    'A new referral just created their Bayside account. They are heading to Acuity now to schedule.',
+    'A new referral just created their Paver Portal account. They are heading to Acuity now to schedule.',
     '',
     'NEW HOMEOWNER:',
     '  Name:    ' + refereeName,
@@ -490,7 +490,7 @@ function buildDesignerNotifyText({ designerName, refereeName, referrerName, refe
     '',
     'You will get a separate confirmation from Acuity once they book a slot.',
     '',
-    '— Bayside Pavers · Internal notification',
+    '— Paver Portal · Internal notification',
   ].filter(Boolean).join('\n');
 }
 

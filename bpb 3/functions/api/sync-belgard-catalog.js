@@ -147,7 +147,7 @@ export async function onRequestPost(context) {
   try {
     const res = await fetchWithTimeout(url, {
       headers: {
-        'user-agent': 'Mozilla/5.0 (compatible; BaysideProposalBuilder/1.0; +https://bayside-proposals.pages.dev)',
+        'user-agent': 'Mozilla/5.0 (compatible; Paver PortalProposalBuilder/1.0; +https://bayside-proposals.pages.dev)',
         'accept': 'text/html,application/xhtml+xml'
       }
     });

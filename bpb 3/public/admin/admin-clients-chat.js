@@ -401,7 +401,7 @@ function injectStyles() {
     .acc-eyebrow {
       font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 10px; letter-spacing: 0.18em;
-      color: #5d7e69; text-transform: uppercase;
+      color: #9c7440; text-transform: uppercase;
       margin-bottom: 4px; font-weight: 600;
     }
     .acc-title {
@@ -459,8 +459,8 @@ function injectStyles() {
       font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
       padding: 1px 6px; border-radius: 4px; font-weight: 600;
     }
-    .acc-role-master { background: #1a1f2e; color: #fff; }
-    .acc-role-designer { background: #5d7e69; color: #fff; }
+    .acc-role-master { background: #33281c; color: #fff; }
+    .acc-role-designer { background: #9c7440; color: #fff; }
     .acc-role-homeowner { background: #ece9dd; color: #58595b; }
     .acc-msg-body {
       padding: 10px 14px; border-radius: 12px;
@@ -472,7 +472,7 @@ function injectStyles() {
       border-bottom-left-radius: 4px;
     }
     .acc-msg-out .acc-msg-body {
-      background: #5d7e69; color: #fff;
+      background: #9c7440; color: #fff;
       border-bottom-right-radius: 4px;
     }
 
@@ -492,20 +492,20 @@ function injectStyles() {
       transition: border-color 0.12s, box-shadow 0.12s;
     }
     .acc-composer textarea:focus {
-      outline: none; border-color: #5d7e69;
-      box-shadow: 0 0 0 3px #e8eee9;
+      outline: none; border-color: #9c7440;
+      box-shadow: 0 0 0 3px #f1e7d3;
     }
     .acc-send {
       font-family: inherit; font-size: 14px; font-weight: 600;
       padding: 10px 18px; border-radius: 8px;
       border: 1px solid transparent; cursor: pointer;
-      background: #5d7e69; color: #fff;
+      background: #9c7440; color: #fff;
       box-shadow: 0 2px 8px rgba(93, 126, 105, 0.18);
       transition: background 0.12s, transform 0.1s, opacity 0.12s;
       flex-shrink: 0;
     }
     .acc-send:hover:not(:disabled) {
-      background: #4a6654; transform: translateY(-1px);
+      background: #7d5c31; transform: translateY(-1px);
     }
     .acc-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 

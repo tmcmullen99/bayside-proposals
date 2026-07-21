@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Belgard Sync · Admin · Bayside Proposal Builder</title>
+<title>Belgard Sync · Admin · Paver Portal Proposal Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/admin/admin-shell.css">
 <style>
@@ -26,11 +26,11 @@
   .bs-stat-num {
     font-size: 28px;
     font-weight: 700;
-    color: #1a1f2e;
+    color: #33281c;
     line-height: 1;
   }
   .bs-stat-num.is-missing { color: #b04040; }
-  .bs-stat-num.is-populated { color: #4a6654; }
+  .bs-stat-num.is-populated { color: #7d5c31; }
   .bs-stat-label {
     font-size: 11px;
     color: #666;
@@ -51,7 +51,7 @@
   .bs-panel h2 {
     font-size: 18px;
     font-weight: 600;
-    color: #1a1f2e;
+    color: #33281c;
     margin: 0 0 6px;
   }
   .bs-panel-sub {
@@ -96,8 +96,8 @@
     transition: background 0.15s;
     font-family: inherit;
   }
-  .bs-btn-primary { background: #5d7e69; color: #fff; }
-  .bs-btn-primary:hover { background: #4a6654; }
+  .bs-btn-primary { background: #9c7440; color: #fff; }
+  .bs-btn-primary:hover { background: #7d5c31; }
   .bs-btn-primary:disabled { background: #999; cursor: not-allowed; }
 
   .bs-btn-secondary {
@@ -117,7 +117,7 @@
   }
   .bs-progress-label {
     font-size: 13px;
-    color: #4a6654;
+    color: #7d5c31;
     font-weight: 600;
     margin-bottom: 6px;
   }
@@ -129,7 +129,7 @@
   }
   .bs-progress-fill {
     height: 100%;
-    background: #5d7e69;
+    background: #9c7440;
     transition: width 0.3s ease;
   }
   .bs-progress-log {
@@ -142,7 +142,7 @@
     line-height: 1.5;
   }
   .bs-progress-log-entry-error { color: #b04040; }
-  .bs-progress-log-entry-ok    { color: #4a6654; }
+  .bs-progress-log-entry-ok    { color: #7d5c31; }
 
   /* Review table */
   .bs-review-stats {
@@ -151,8 +151,8 @@
     margin-bottom: 14px;
     font-size: 13px;
   }
-  .bs-review-stat strong { color: #1a1f2e; }
-  .bs-review-stat.ready  { color: #4a6654; }
+  .bs-review-stat strong { color: #33281c; }
+  .bs-review-stat.ready  { color: #7d5c31; }
   .bs-review-stat.full   { color: #b07820; }
   .bs-review-stat.miss   { color: #b04040; }
 
@@ -199,19 +199,19 @@
     justify-content: center;
     font-size: 10px;
     color: #999;
-    background: linear-gradient(135deg, #faf8f3, #e8eee9);
+    background: linear-gradient(135deg, #faf8f3, #f1e7d3);
   }
 
   .bs-product-name {
     font-weight: 600;
-    color: #1a1f2e;
+    color: #33281c;
   }
   .bs-product-meta {
     font-size: 12px;
     color: #888;
     margin-top: 2px;
   }
-  .bs-product-meta a { color: #5d7e69; }
+  .bs-product-meta a { color: #9c7440; }
 
   .bs-row-status {
     font-size: 11px;
@@ -226,7 +226,7 @@
   .bs-row-status.ready { background: #d4e4d8; color: #2d5a3a; }
   .bs-row-status.full  { background: #fff3d4; color: #7a5a10; }
   .bs-row-status.miss  { background: #f4d4d4; color: #7a2020; }
-  .bs-row-status.done  { background: #e8eee9; color: #4a6654; }
+  .bs-row-status.done  { background: #f1e7d3; color: #7d5c31; }
 
   .bs-apply-bar {
     display: flex;
@@ -257,7 +257,7 @@
 <header class="ash-topbar">
   <div class="ash-topbar-inner">
     <a href="/admin/" class="ash-brand">
-      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-bayside">Paver Portal Proposal Builder</span>
       <span class="ash-brand-divider">/</span>
       <span class="ash-brand-section">Admin</span>
     </a>

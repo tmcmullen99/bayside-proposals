@@ -299,7 +299,7 @@ rowsHtml +
 '</p>' +
 '</td></tr>' +
 '<tr><td style="padding:18px 32px;background:#f7f7f4;border-top:1px solid #e4e4df;text-align:center;">' +
-'<p style="margin:0;font-size:11px;color:#70726f;">Bayside Proposal Builder · Engagement intelligence</p>' +
+'<p style="margin:0;font-size:11px;color:#70726f;">Paver Portal Proposal Builder · Engagement intelligence</p>' +
 '</td></tr>' +
 '</table></td></tr></table></body></html>';
 }

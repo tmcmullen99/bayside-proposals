@@ -375,7 +375,7 @@ async function sendFirstViewEmail(env, opts) {
 
 function buildFirstViewHtml({ address, deviceLabel, sessionShort, whenLocal, engagementUrl, proposalUrl }) {
   const proposalLinkRow = proposalUrl
-    ? `<p style="margin:6px 0 0;font-size:12px;color:#999;">or jump to the live proposal at <a href="${escapeHtml(proposalUrl)}" style="color:#5d7e69;">${escapeHtml(proposalUrl)}</a></p>`
+    ? `<p style="margin:6px 0 0;font-size:12px;color:#999;">or jump to the live proposal at <a href="${escapeHtml(proposalUrl)}" style="color:#9c7440;">${escapeHtml(proposalUrl)}</a></p>`
     : '';
   return '<!DOCTYPE html>\n' +
 '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
@@ -384,7 +384,7 @@ function buildFirstViewHtml({ address, deviceLabel, sessionShort, whenLocal, eng
 '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f7f7f4;padding:32px 20px;">' +
 '<tr><td align="center">' +
 '<table role="presentation" cellpadding="0" cellspacing="0" width="560" style="max-width:560px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">' +
-'<tr><td style="background:#5d7e69;padding:24px 32px;">' +
+'<tr><td style="background:#9c7440;padding:24px 32px;">' +
 '<div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#dad7c5;font-weight:600;margin-bottom:4px;">Proposal viewed</div>' +
 '<h1 style="margin:0;color:#fff;font-size:20px;font-weight:600;letter-spacing:-0.01em;">' + escapeHtml(address) + '</h1>' +
 '</td></tr>' +
@@ -396,7 +396,7 @@ function buildFirstViewHtml({ address, deviceLabel, sessionShort, whenLocal, eng
 '<div><strong style="color:#353535;">First seen:</strong> ' + escapeHtml(whenLocal) + ' Pacific</div>' +
 '</div>' +
 '<div style="text-align:center;margin:24px 0 12px;">' +
-'<a href="' + escapeHtml(engagementUrl) + '" style="display:inline-block;background:#5d7e69;color:#fff;text-decoration:none;padding:12px 28px;border-radius:4px;font-size:14px;font-weight:600;">View live engagement →</a>' +
+'<a href="' + escapeHtml(engagementUrl) + '" style="display:inline-block;background:#9c7440;color:#fff;text-decoration:none;padding:12px 28px;border-radius:4px;font-size:14px;font-weight:600;">View live engagement →</a>' +
 '</div>' +
 proposalLinkRow +
 '<p style="margin:18px 0 0;font-size:11px;line-height:1.5;color:#a0a09c;">' +
@@ -404,7 +404,7 @@ proposalLinkRow +
 '</p>' +
 '</td></tr>' +
 '<tr><td style="padding:18px 32px;background:#f7f7f4;border-top:1px solid #e4e4df;text-align:center;">' +
-'<p style="margin:0;font-size:11px;color:#70726f;">Bayside Proposal Builder · Engagement intelligence</p>' +
+'<p style="margin:0;font-size:11px;color:#70726f;">Paver Portal Proposal Builder · Engagement intelligence</p>' +
 '</td></tr>' +
 '</table></td></tr></table></body></html>';
 }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Install Guide Parse · Admin · Bayside Proposal Builder</title>
+<title>Install Guide Parse · Admin · Paver Portal Proposal Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/admin/admin-shell.css">
 <style>
@@ -26,10 +26,10 @@
   .ig-stat-num {
     font-size: 28px;
     font-weight: 700;
-    color: #1a1f2e;
+    color: #33281c;
     line-height: 1;
   }
-  .ig-stat-num.is-populated { color: #4a6654; }
+  .ig-stat-num.is-populated { color: #7d5c31; }
   .ig-stat-num.is-missing { color: #b04040; }
   .ig-stat-label {
     font-size: 11px;
@@ -51,7 +51,7 @@
   .ig-panel h2 {
     font-size: 18px;
     font-weight: 600;
-    color: #1a1f2e;
+    color: #33281c;
     margin: 0 0 6px;
   }
   .ig-panel-sub {
@@ -68,11 +68,11 @@
     border: 1px solid #e5e5e5;
     border-radius: 6px;
     font-size: 12px;
-    color: #5d7e69;
+    color: #9c7440;
     text-decoration: none;
     font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
   }
-  .ig-pdf-link:hover { background: #f5f5f5; color: #1a1f2e; }
+  .ig-pdf-link:hover { background: #f5f5f5; color: #33281c; }
 
   /* Buttons */
   .ig-btn {
@@ -86,8 +86,8 @@
     transition: background 0.15s;
     font-family: inherit;
   }
-  .ig-btn-primary { background: #5d7e69; color: #fff; }
-  .ig-btn-primary:hover { background: #4a6654; }
+  .ig-btn-primary { background: #9c7440; color: #fff; }
+  .ig-btn-primary:hover { background: #7d5c31; }
   .ig-btn-primary:disabled { background: #999; cursor: not-allowed; }
 
   .ig-btn-secondary {
@@ -114,14 +114,14 @@
   }
   .ig-progress-label {
     font-size: 13px;
-    color: #4a6654;
+    color: #7d5c31;
     font-weight: 600;
   }
   .ig-progress-spinner {
     display: inline-block;
     width: 12px; height: 12px;
     border: 2px solid #c9d3cb;
-    border-top-color: #5d7e69;
+    border-top-color: #9c7440;
     border-radius: 50%;
     animation: ig-spin 0.8s linear infinite;
     margin-right: 8px;
@@ -149,7 +149,7 @@
   .ig-section-title {
     font-size: 16px;
     font-weight: 600;
-    color: #1a1f2e;
+    color: #33281c;
     margin: 0 0 4px;
   }
   .ig-section-pages {
@@ -165,7 +165,7 @@
     padding: 3px 9px;
     border-radius: 10px;
     background: #eef2ef;
-    color: #4a6654;
+    color: #7d5c31;
     white-space: nowrap;
   }
 
@@ -254,7 +254,7 @@
   }
   .ig-existing-title {
     font-weight: 600;
-    color: #1a1f2e;
+    color: #33281c;
     font-size: 14px;
   }
   .ig-existing-meta {
@@ -264,7 +264,7 @@
   }
   .ig-existing-cats {
     font-size: 11px;
-    color: #4a6654;
+    color: #7d5c31;
   }
 
   .ig-error {
@@ -286,7 +286,7 @@
 <header class="ash-topbar">
   <div class="ash-topbar-inner">
     <a href="/admin/" class="ash-brand">
-      <span class="ash-brand-bayside">Bayside Proposal Builder</span>
+      <span class="ash-brand-bayside">Paver Portal Proposal Builder</span>
       <span class="ash-brand-divider">/</span>
       <span class="ash-brand-section">Admin</span>
     </a>
@@ -305,7 +305,7 @@
     <div class="ash-eyebrow">Tools · Install guide</div>
     <h1 class="ash-title">Install guide parse</h1>
     <p class="ash-lede">
-      Parse the Bayside install-guide PDF into structured sections. Master-only.
+      Parse the Paver Portal install-guide PDF into structured sections. Master-only.
       Claude reads the master Belgard PDF natively and extracts ~5 ICPI-standard prep sections,
       each linkable to the catalog categories the section applies to. Sections drive the dynamic
       "Why preparation matters" content on published proposals.

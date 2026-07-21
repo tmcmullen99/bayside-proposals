@@ -104,7 +104,7 @@ export async function onRequestGet({ request, env }) {
         method: 'GET',
         signal: controller.signal,
         headers: {
-          'User-Agent': 'BaysideProposalBuilder/1.0 (+https://bayside-proposals.pages.dev)',
+          'User-Agent': 'Paver PortalProposalBuilder/1.0 (+https://bayside-proposals.pages.dev)',
           'Accept': 'application/pdf',
         },
       });

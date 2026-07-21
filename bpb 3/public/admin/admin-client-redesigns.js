@@ -278,7 +278,7 @@ function renderReshapeDiff(s) {
 
   // Dual overlays: gray dashed = original, solid colored = requested.
   const overlays = s.modified_polygons.map((mp) => {
-    const color = (typeof mp.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(mp.color)) ? mp.color : '#5d7e69';
+    const color = (typeof mp.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(mp.color)) ? mp.color : '#9c7440';
     const origPoints = (mp.original_polygon || []).map(p =>
       ((Number(p.x) || 0) * w).toFixed(1) + ',' + ((Number(p.y) || 0) * h).toFixed(1)
     ).join(' ');
@@ -300,7 +300,7 @@ function renderReshapeDiff(s) {
   const totalPctSqft = totalOrigSqft > 0 ? Math.round((totalDeltaSqft / totalOrigSqft) * 100) : 0;
 
   const rows = s.modified_polygons.map((mp) => {
-    const color = (typeof mp.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(mp.color)) ? mp.color : '#5d7e69';
+    const color = (typeof mp.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(mp.color)) ? mp.color : '#9c7440';
     const origSqft = Number(mp.original_area_sqft) || 0;
     const modSqft  = Number(mp.modified_area_sqft) || 0;
     const dSqft    = modSqft - origSqft;
@@ -369,7 +369,7 @@ function renderReshapeDiff(s) {
       <div class="rd-markup-stage" style="aspect-ratio: ${w} / ${h};">${stageInner}</div>
       <p style="font-size:12px;color:#70726f;margin:8px 0 12px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;">
         <span><span style="display:inline-block;width:18px;height:0;border-top:2px dashed #9aa0a6;vertical-align:middle;margin-right:6px;"></span>Original polygon</span>
-        <span><span style="display:inline-block;width:18px;height:8px;background:rgba(93,126,105,0.32);border:2px solid #5d7e69;vertical-align:middle;margin-right:6px;border-radius:2px;"></span>Requested polygon</span>
+        <span><span style="display:inline-block;width:18px;height:8px;background:rgba(93,126,105,0.32);border:2px solid #9c7440;vertical-align:middle;margin-right:6px;border-radius:2px;"></span>Requested polygon</span>
       </p>
       <table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff;border:1px solid #eee;border-radius:6px;overflow:hidden;">
         <thead>

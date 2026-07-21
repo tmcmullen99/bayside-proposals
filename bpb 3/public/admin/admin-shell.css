@@ -2,18 +2,18 @@
    admin-shell.css — Sprint 7 · Left-side navigation
    Repurposes the existing .ash-tabs element as a fixed left sidebar.
    All other classes (topbar, landing tiles, buttons, status) preserved.
-   Design tokens follow the Bayside palette already established in editor.
+   Design tokens follow the Paver Portal palette already established in editor.
    ═════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --ash-green:        #5d7e69;
-  --ash-green-dark:   #4a6654;
-  --ash-green-soft:   #e8eee9;
+  --ash-green:        #9c7440;
+  --ash-green-dark:   #7d5c31;
+  --ash-green-soft:   #f1e7d3;
   --ash-green-paler:  #f4f7f4;
   --ash-charcoal:     #353535;
   --ash-tan:          #dad7c5;
   --ash-cream:        #faf8f3;
-  --ash-navy:         #1a1f2e;
+  --ash-navy:         #33281c;
   --ash-border:       #e5e5e5;
   --ash-border-soft:  #f0f0f0;
   --ash-muted:        #666;
@@ -21,7 +21,7 @@
   --ash-danger:       #b04040;
   --ash-warn-soft:    #fff4d4;
   --ash-warn-text:    #7a5a10;
-  --ash-master-bg:    #1a1f2e;
+  --ash-master-bg:    #33281c;
   --ash-master-fg:    #faf8f3;
 
   /* Sprint 7 — sidebar layout vars */

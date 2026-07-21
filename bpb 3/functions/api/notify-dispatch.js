@@ -139,7 +139,7 @@ export async function onRequestPost({ request, env }) {
       const finalSubject = cfg.test_mode
         ? '[TEST → ' + realRecipient + (realCcs.length ? ' + cc ' + realCcs.join(', ') : '') + '] ' + subject
         : subject;
-      const fromAddr = (cfg.from_name || 'Bayside Pavers') + ' <' + cfg.from_email + '>';
+      const fromAddr = (cfg.from_name || 'Paver Portal') + ' <' + cfg.from_email + '>';
       const resendBody = { from: fromAddr, to: toAddr, subject: finalSubject, html, text };
       if (ccAddrs.length > 0) resendBody.cc = ccAddrs;
 
@@ -264,7 +264,7 @@ function nextSendableTime(date, prefs) {
 }
 
 function buildEmailHtml({ bodyMdRendered, deepLink, cfg, testBanner }) {
-  const businessName = escapeHtml(cfg.business_name || 'Bayside Pavers');
+  const businessName = escapeHtml(cfg.business_name || 'Paver Portal');
   const businessAddress = escapeHtml(cfg.business_address || '');
   const businessPhone = escapeHtml(cfg.business_phone || '');
   const bodyHtml = mdToHtml(bodyMdRendered);
@@ -272,14 +272,14 @@ function buildEmailHtml({ bodyMdRendered, deepLink, cfg, testBanner }) {
     ? '<tr><td style="background:#fff4d4;border-left:3px solid #c5a050;padding:10px 16px;font-size:12px;color:#7a5a10;"><strong>TEST MODE</strong> — would have sent to <code>' + escapeHtml(testBanner) + '</code></td></tr>'
     : '';
   const buttonHtml = deepLink
-    ? '<p style="margin:20px 0 0;"><a href="' + escapeAttr(deepLink) + '" style="display:inline-block;background:#5d7e69;color:#fff;padding:11px 24px;border-radius:6px;text-decoration:none;font-weight:500;font-size:14px;">Open</a></p>'
+    ? '<p style="margin:20px 0 0;"><a href="' + escapeAttr(deepLink) + '" style="display:inline-block;background:#9c7440;color:#fff;padding:11px 24px;border-radius:6px;text-decoration:none;font-weight:500;font-size:14px;">Open</a></p>'
     : '';
   return '<!DOCTYPE html>\n<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>' +
     '<body style="margin:0;padding:0;background:#faf8f3;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#353535;">' +
     '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#faf8f3;padding:32px 16px;"><tr><td align="center">' +
     '<table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,0.06);">' +
     testBannerHtml +
-    '<tr><td style="background:#5d7e69;padding:22px 32px;text-align:left;"><div style="font-family:Georgia,serif;font-size:22px;font-weight:600;color:#fff;letter-spacing:-0.01em;">' + businessName + '</div></td></tr>' +
+    '<tr><td style="background:#9c7440;padding:22px 32px;text-align:left;"><div style="font-family:Georgia,serif;font-size:22px;font-weight:600;color:#fff;letter-spacing:-0.01em;">' + businessName + '</div></td></tr>' +
     '<tr><td style="padding:28px 32px 18px;font-size:15px;line-height:1.6;color:#353535;">' + bodyHtml + buttonHtml + '</td></tr>' +
     '<tr><td style="padding:18px 32px 26px;border-top:1px solid #ece9dd;background:#faf8f3;"><p style="margin:0;font-size:11px;color:#888;line-height:1.5;">' +
     businessName + (businessAddress ? ' &middot; ' + businessAddress : '') + (businessPhone ? ' &middot; ' + businessPhone : '') +
@@ -289,7 +289,7 @@ function buildEmailHtml({ bodyMdRendered, deepLink, cfg, testBanner }) {
 function buildEmailText({ bodyMdRendered, deepLink, cfg }) {
   let text = bodyMdRendered.trim() + '\n';
   if (deepLink) text += '\nOpen: ' + deepLink + '\n';
-  text += '\n---\n' + (cfg.business_name || 'Bayside Pavers');
+  text += '\n---\n' + (cfg.business_name || 'Paver Portal');
   if (cfg.business_address) text += ' · ' + cfg.business_address;
   if (cfg.business_phone) text += ' · ' + cfg.business_phone;
   return text;
@@ -306,7 +306,7 @@ function mdToHtml(md) {
     }
     if (lines.every(l => /^>\s/.test(l) || l.trim() === '')) {
       const inner = lines.filter(l => l.trim()).map(l => renderInline(l.replace(/^>\s?/, ''))).join('<br>');
-      return '<blockquote style="margin:0 0 14px;padding:8px 14px;border-left:3px solid #5d7e69;background:#f7f5ee;color:#555;font-style:italic;">' + inner + '</blockquote>';
+      return '<blockquote style="margin:0 0 14px;padding:8px 14px;border-left:3px solid #9c7440;background:#f7f5ee;color:#555;font-style:italic;">' + inner + '</blockquote>';
     }
     return '<p style="margin:0 0 14px;">' + lines.map(renderInline).join('<br>') + '</p>';
   }).join('\n');
@@ -316,7 +316,7 @@ function renderInline(text) {
   return escapeHtml(text)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, t, u) => '<a href="' + escapeAttr(u) + '" style="color:#5d7e69;">' + t + '</a>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, t, u) => '<a href="' + escapeAttr(u) + '" style="color:#9c7440;">' + t + '</a>');
 }
 
 function escapeHtml(s) {

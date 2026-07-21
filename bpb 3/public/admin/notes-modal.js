@@ -58,10 +58,10 @@ function injectStylesOnce() {
     }
     .qn-eyebrow {
       font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
-      color: #5d7e69; font-weight: 700; margin-bottom: 3px;
+      color: #9c7440; font-weight: 700; margin-bottom: 3px;
     }
     .qn-title {
-      font-size: 16px; font-weight: 600; color: #1a1f2e;
+      font-size: 16px; font-weight: 600; color: #33281c;
       letter-spacing: -0.005em;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
@@ -89,7 +89,7 @@ function injectStylesOnce() {
     }
     .qn-textarea:focus {
       outline: none;
-      border-color: #5d7e69;
+      border-color: #9c7440;
       box-shadow: 0 0 0 3px #eef3ef;
     }
     .qn-meta {
@@ -119,15 +119,15 @@ function injectStylesOnce() {
       cursor: pointer;
     }
     .qn-btn:hover:not(:disabled) {
-      border-color: #5d7e69;
-      color: #4a6654;
+      border-color: #9c7440;
+      color: #7d5c31;
       background: #eef3ef;
     }
     .qn-btn.is-primary {
-      background: #5d7e69; color: #fff; border-color: #5d7e69;
+      background: #9c7440; color: #fff; border-color: #9c7440;
     }
     .qn-btn.is-primary:hover:not(:disabled) {
-      background: #4a6654; border-color: #4a6654;
+      background: #7d5c31; border-color: #7d5c31;
     }
     .qn-btn:disabled { opacity: 0.55; cursor: not-allowed; }
     .qn-toast {

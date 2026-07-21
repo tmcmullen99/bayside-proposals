@@ -145,29 +145,29 @@ export async function onRequestPost(context) {
       const projectAddr = [proposal.project_address, proposal.project_city]
         .filter(Boolean).join(', ') || 'their proposal';
       const adminLink = 'https://portal-baysidepavers.com/admin/clients';
-      const fromEmail = env.RESEND_FROM || 'Bayside Pavers <tim@mcmullen.properties>';
+      const fromEmail = env.RESEND_FROM || 'Paver Portal <tim@mcmullen.properties>';
 
       const emailHtml = `
 <!doctype html>
 <html><body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #353535; max-width: 560px; margin: 0 auto; padding: 32px 24px;">
-  <h2 style="color: #5d7e69; font-size: 18px; margin: 0 0 16px;">🔔 Design Retainer interest</h2>
+  <h2 style="color: #9c7440; font-size: 18px; margin: 0 0 16px;">🔔 Design Retainer interest</h2>
   <p style="font-size: 15px; line-height: 1.6;">Hi ${escapeText(designerName)},</p>
   <p style="font-size: 15px; line-height: 1.6;">
     <strong>${escapeText(client.name)}</strong> just clicked
     <em>"I'm interested"</em> on the Design Retainer CTA on their
     ${escapeText(projectAddr)} proposal.
   </p>
-  <div style="background: #f4f8f5; border-left: 3px solid #5d7e69; padding: 14px 18px; margin: 20px 0; border-radius: 6px;">
+  <div style="background: #f4f8f5; border-left: 3px solid #9c7440; padding: 14px 18px; margin: 20px 0; border-radius: 6px;">
     <strong>Recommended next step:</strong> Call or text within 24 hours to discuss the
     $2,500 retainer terms and collect payment.
   </div>
   <p style="font-size: 14px; line-height: 1.6;">
     <strong>Client contact:</strong><br>
     ${escapeText(client.name)}<br>
-    <a href="mailto:${escapeText(client.email)}" style="color: #5d7e69;">${escapeText(client.email)}</a>
+    <a href="mailto:${escapeText(client.email)}" style="color: #9c7440;">${escapeText(client.email)}</a>
   </p>
   <p style="font-size: 13px; color: #666; margin-top: 30px;">
-    <a href="${adminLink}" style="color: #5d7e69;">Open in admin →</a>
+    <a href="${adminLink}" style="color: #9c7440;">Open in admin →</a>
   </p>
 </body></html>
       `;

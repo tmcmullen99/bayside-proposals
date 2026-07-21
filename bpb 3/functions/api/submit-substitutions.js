@@ -31,7 +31,7 @@ export async function onRequestPost({ request, env }) {
     const SUPABASE_URL   = env.SUPABASE_URL;
     const SERVICE_ROLE   = env.SUPABASE_SERVICE_ROLE_KEY;
     const RESEND_API_KEY = env.RESEND_API_KEY;
-    const RESEND_FROM    = env.RESEND_FROM || 'Bayside Pavers <tim@mcmullen.properties>';
+    const RESEND_FROM    = env.RESEND_FROM || 'Paver Portal <tim@mcmullen.properties>';
     const DESIGNER_EMAIL = env.DESIGNER_NOTIFICATION_EMAIL || 'tim@mcmullen.properties';
 
     if (!SUPABASE_URL || !SERVICE_ROLE) return json(500, { error: 'Server not configured' });
@@ -266,7 +266,7 @@ function buildDesignerEmailHtml({ clientName, clientEmail, projectAddress, propo
     const toLabel = it.to ? ((it.to.product_name || 'Material') + (it.to.color ? ' / ' + it.to.color : '')) : '<em style="color:#a22;">Remove from this section</em>';
     return (
       '<tr><td style="padding:14px 16px;border:1px solid #e7e3d6;background:#fdfcf8;border-radius:6px;">' +
-        '<div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5d7e69;font-weight:700;margin-bottom:4px;">' + escapeHtml(it.regionName) + '</div>' +
+        '<div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#9c7440;font-weight:700;margin-bottom:4px;">' + escapeHtml(it.regionName) + '</div>' +
         '<div style="font-size:14px;color:#353535;line-height:1.45;">' +
           escapeHtml(fromLabel) +
           ' <span style="color:#999;">→</span> ' +
@@ -285,16 +285,16 @@ function buildDesignerEmailHtml({ clientName, clientEmail, projectAddress, propo
 '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f7f7f4;padding:40px 20px;">' +
 '<tr><td align="center">' +
 '<table role="presentation" cellpadding="0" cellspacing="0" width="640" style="max-width:640px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">' +
-'<tr><td style="background:#5d7e69;padding:28px 36px;">' +
+'<tr><td style="background:#9c7440;padding:28px 36px;">' +
 '<h1 style="margin:0;color:#fff;font-size:20px;font-weight:600;">Material change request</h1>' +
 '<p style="margin:6px 0 0;color:#dad7c5;font-size:13px;">From ' + escapeHtml(clientName || 'a homeowner') + (projectAddress ? ' · ' + escapeHtml(projectAddress) : '') + '</p>' +
 '</td></tr>' +
 '<tr><td style="padding:28px 36px 8px;">' +
-(homeownerNote ? '<div style="background:#dad7c5;border-left:3px solid #5d7e69;padding:14px 16px;margin-bottom:24px;border-radius:4px;font-size:14px;color:#353535;line-height:1.55;font-style:italic;">"' + escapeHtml(homeownerNote) + '"</div>' : '') +
+(homeownerNote ? '<div style="background:#dad7c5;border-left:3px solid #9c7440;padding:14px 16px;margin-bottom:24px;border-radius:4px;font-size:14px;color:#353535;line-height:1.55;font-style:italic;">"' + escapeHtml(homeownerNote) + '"</div>' : '') +
 '<div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#999;font-weight:700;margin-bottom:12px;">Requested swaps (' + items.length + ')</div>' +
 '<table role="presentation" cellpadding="0" cellspacing="0" width="100%">' + itemsHtml + '</table>' +
 '<div style="text-align:center;margin:24px 0 0;">' +
-'<a href="' + escapeHtml(proposalUrl) + '" style="display:inline-block;background:#5d7e69;color:#fff;text-decoration:none;padding:12px 28px;border-radius:4px;font-size:14px;font-weight:600;">View the proposal</a>' +
+'<a href="' + escapeHtml(proposalUrl) + '" style="display:inline-block;background:#9c7440;color:#fff;text-decoration:none;padding:12px 28px;border-radius:4px;font-size:14px;font-weight:600;">View the proposal</a>' +
 '</div>' +
 '<p style="margin:24px 0 0;font-size:12px;color:#a0a09c;line-height:1.5;">' +
 'Reply to this email to respond directly to ' + escapeHtml(clientName || 'the homeowner') + '. ' +
@@ -302,7 +302,7 @@ function buildDesignerEmailHtml({ clientName, clientEmail, projectAddress, propo
 '</p>' +
 '</td></tr>' +
 '<tr><td style="padding:20px 36px;background:#f7f7f4;border-top:1px solid #e4e4df;text-align:center;">' +
-'<p style="margin:0;font-size:12px;color:#70726f;">Bayside Pavers Builder · ' + escapeHtml(PUBLIC_BASE_URL) + '</p>' +
+'<p style="margin:0;font-size:12px;color:#70726f;">Paver Portal Builder · ' + escapeHtml(PUBLIC_BASE_URL) + '</p>' +
 '</td></tr>' +
 '</table></td></tr></table></body></html>';
 }

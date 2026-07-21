@@ -193,11 +193,11 @@ async function generateMagicLink(env, client) {
 
 async function sendInviteEmail(env, client, magicLink, note) {
   const firstName = ((client.name || '').trim().split(/\s+/)[0]) || 'there';
-  const subject = `🔓 Your Bayside Portal account is ready, ${firstName}`;
+  const subject = `🔓 Your Paver Portal Portal account is ready, ${firstName}`;
 
   const noteBlock = note
     ? `\n${note}\n`
-    : `\nTim from Bayside Pavers set up a Bayside Portal account for you so you can review your proposal, request changes, and lock in your project — all in one place.\n`;
+    : `\nTim from Paver Portal set up a Paver Portal Portal account for you so you can review your proposal, request changes, and lock in your project — all in one place.\n`;
 
   const text = [
     `Hi ${firstName},`,
@@ -212,24 +212,24 @@ async function sendInviteEmail(env, client, magicLink, note) {
     ``,
     `Questions before signing in? Just reply to this email — Tim will get it directly.`,
     ``,
-    `— Bayside Portal`,
+    `— Paver Portal Portal`,
   ].join('\n');
 
   const noteHtml = note
-    ? `<div style="background:#faf8f3;border-left:3px solid #5d7e69;padding:14px 16px;margin-bottom:22px;border-radius:4px;font-size:14px;line-height:1.55;color:#0e1218;">${esc(note).replace(/\r?\n/g, '<br>')}</div>`
-    : `<p style="font-size:15px;line-height:1.6;color:#0e1218;margin:0 0 22px;">Tim from Bayside Pavers set up a Bayside Portal account for you so you can review your proposal, request changes, and lock in your project — all in one place.</p>`;
+    ? `<div style="background:#faf8f3;border-left:3px solid #9c7440;padding:14px 16px;margin-bottom:22px;border-radius:4px;font-size:14px;line-height:1.55;color:#0e1218;">${esc(note).replace(/\r?\n/g, '<br>')}</div>`
+    : `<p style="font-size:15px;line-height:1.6;color:#0e1218;margin:0 0 22px;">Tim from Paver Portal set up a Paver Portal Portal account for you so you can review your proposal, request changes, and lock in your project — all in one place.</p>`;
 
   const html = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Inter','Onest',sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#0e1218;background:#fff;">
-  <div style="border-bottom:3px solid #5d7e69;padding-bottom:14px;margin-bottom:22px;">
-    <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#5d7e69;font-weight:700;margin-bottom:6px;">YOUR BAYSIDE PORTAL ACCOUNT</div>
+  <div style="border-bottom:3px solid #9c7440;padding-bottom:14px;margin-bottom:22px;">
+    <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#9c7440;font-weight:700;margin-bottom:6px;">YOUR PAVER PORTAL PORTAL ACCOUNT</div>
     <h1 style="font-size:22px;margin:0;color:#0e1218;line-height:1.3;font-weight:600;">Hi ${esc(firstName)} — your account is ready.</h1>
   </div>
 
   ${noteHtml}
 
   <div style="margin:24px 0;text-align:center;">
-    <a href="${esc(magicLink)}" style="display:inline-block;background:#5d7e69;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Sign in to Bayside Portal →</a>
+    <a href="${esc(magicLink)}" style="display:inline-block;background:#9c7440;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">Sign in to Paver Portal Portal →</a>
     <div style="font-size:12px;color:#999;margin-top:10px;">No password needed · 2 minutes to set up</div>
   </div>
 
@@ -245,7 +245,7 @@ async function sendInviteEmail(env, client, magicLink, note) {
   </div>
 
   <div style="border-top:1px solid #eee;padding-top:14px;color:#999;font-size:11px;line-height:1.5;text-align:center;">
-    Bayside Portal · McMullen Properties
+    Paver Portal Portal · McMullen Properties
   </div>
 </div>`.trim();
 

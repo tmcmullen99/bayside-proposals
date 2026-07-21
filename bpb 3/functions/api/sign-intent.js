@@ -150,7 +150,7 @@ export async function onRequestPost({ request, env }) {
     const subject = `🔒 ${viewer_name} wants to lock in ${addressStr}${totalStr !== '—' ? ` · ${totalStr}` : ''}`;
 
     const textLines = [
-      `${viewer_name} just clicked "Lock in your project" on a Bayside proposal page.`,
+      `${viewer_name} just clicked "Lock in your project" on a Paver Portal proposal page.`,
       '',
       `Property:   ${addressStr}`,
       `Bid total:  ${totalStr}`,
@@ -170,8 +170,8 @@ export async function onRequestPost({ request, env }) {
 
     const html = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#0e1218;background:#fff;">
-  <div style="border-bottom:3px solid #5d7e69;padding-bottom:14px;margin-bottom:22px;">
-    <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#5d7e69;font-weight:700;margin-bottom:6px;">CONTRACT SIGNATURE REQUEST · BAYSIDE PORTAL</div>
+  <div style="border-bottom:3px solid #9c7440;padding-bottom:14px;margin-bottom:22px;">
+    <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#9c7440;font-weight:700;margin-bottom:6px;">CONTRACT SIGNATURE REQUEST · PAVER PORTAL PORTAL</div>
     <h1 style="font-size:22px;margin:0;color:#0e1218;line-height:1.25;font-weight:600;">${esc(viewer_name)} is ready to sign.</h1>
   </div>
 
@@ -179,11 +179,11 @@ export async function onRequestPost({ request, env }) {
     <tr><td style="padding:8px 0;color:#666;font-size:13px;width:120px;">Property</td>
         <td style="padding:8px 0;text-align:right;font-weight:600;font-size:14px;">${esc(addressStr)}</td></tr>
     ${totalStr !== '—' ? `<tr><td style="padding:8px 0;color:#666;font-size:13px;">Bid total</td>
-        <td style="padding:8px 0;text-align:right;font-weight:700;color:#5d7e69;font-size:18px;">${esc(totalStr)}</td></tr>` : ''}
+        <td style="padding:8px 0;text-align:right;font-weight:700;color:#9c7440;font-size:18px;">${esc(totalStr)}</td></tr>` : ''}
     <tr><td style="padding:8px 0;color:#666;font-size:13px;">Email</td>
-        <td style="padding:8px 0;text-align:right;"><a href="mailto:${esc(viewer_email)}" style="color:#5d7e69;text-decoration:none;">${esc(viewer_email)}</a></td></tr>
+        <td style="padding:8px 0;text-align:right;"><a href="mailto:${esc(viewer_email)}" style="color:#9c7440;text-decoration:none;">${esc(viewer_email)}</a></td></tr>
     ${viewer_phone ? `<tr><td style="padding:8px 0;color:#666;font-size:13px;">Phone</td>
-        <td style="padding:8px 0;text-align:right;"><a href="tel:${esc(viewer_phone)}" style="color:#5d7e69;text-decoration:none;">${esc(viewer_phone)}</a></td></tr>` : ''}
+        <td style="padding:8px 0;text-align:right;"><a href="tel:${esc(viewer_phone)}" style="color:#9c7440;text-decoration:none;">${esc(viewer_phone)}</a></td></tr>` : ''}
   </table>
 
   ${viewer_message ? `
@@ -193,7 +193,7 @@ export async function onRequestPost({ request, env }) {
     </div>` : ''}
 
   <div style="margin:28px 0 22px;">
-    <a href="${jnSearchUrl}" style="display:inline-block;background:#5d7e69;color:#fff;text-decoration:none;padding:13px 22px;border-radius:8px;font-weight:600;font-size:14px;margin-right:8px;margin-bottom:8px;">📋 Open in JobNimbus →</a>
+    <a href="${jnSearchUrl}" style="display:inline-block;background:#9c7440;color:#fff;text-decoration:none;padding:13px 22px;border-radius:8px;font-weight:600;font-size:14px;margin-right:8px;margin-bottom:8px;">📋 Open in JobNimbus →</a>
     ${proposalUrl ? `<a href="${proposalUrl}" style="display:inline-block;background:#fff;color:#0e1218;text-decoration:none;padding:13px 22px;border-radius:8px;font-weight:600;font-size:14px;border:1px solid #ddd;margin-bottom:8px;">View proposal</a>` : ''}
   </div>
 
@@ -202,7 +202,7 @@ export async function onRequestPost({ request, env }) {
   </div>
 
   <div style="border-top:1px solid #eee;padding-top:14px;color:#999;font-size:11px;line-height:1.5;">
-    Signature intent ID: <code style="background:#f5f5f5;padding:2px 6px;border-radius:3px;font-family:monospace;">${intentId ? intentId.slice(0, 8) : '(unknown)'}</code> · Marked notified in Bayside Portal.
+    Signature intent ID: <code style="background:#f5f5f5;padding:2px 6px;border-radius:3px;font-family:monospace;">${intentId ? intentId.slice(0, 8) : '(unknown)'}</code> · Marked notified in Paver Portal Portal.
   </div>
 </div>`.trim();
 
@@ -242,7 +242,7 @@ export async function onRequestPost({ request, env }) {
       const first_name = nameParts.shift() || '';
       const last_name  = nameParts.join(' ') || '';
       const description = [
-        `Bayside Portal — Contract signature requested`,
+        `Paver Portal Portal — Contract signature requested`,
         ``,
         `Property:  ${addressStr}`,
         totalStr !== '—' ? `Bid total: ${totalStr}` : null,
@@ -268,7 +268,7 @@ export async function onRequestPost({ request, env }) {
           city:          propRow.project_city || '',
           description,
           status_name:   'Contract Pending',
-          tags:          'Bayside Portal, Contract Pending',
+          tags:          'Paver Portal Portal, Contract Pending',
         }),
       });
       if (jnResp.ok) {

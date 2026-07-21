@@ -143,7 +143,7 @@ function htmlError(status, title, detail) {
     padding: 40px; text-align: center;
   }
   .code {
-    color: #5d7e69; font-weight: 600;
+    color: #9c7440; font-weight: 600;
     font-size: 13px; letter-spacing: 0.12em;
     text-transform: uppercase; margin-bottom: 12px;
   }

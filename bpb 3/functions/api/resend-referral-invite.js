@@ -176,7 +176,7 @@ export async function onRequestPost({ request, env }) {
             to:      [referral.referred_email],
             reply_to: callerClient.email,
             subject: 'Reminder: ' + (referrerName.split(/[\s,&]+/)[0] || 'a friend') +
-                     ' wants you to claim your $500 from Bayside',
+                     ' wants you to claim your $500 from Paver Portal',
             html:    buildInviteHtml({ referrerName, refeeFirstName: refeeFirst, landingUrl, isResend: true, personalNote }),
             text:    buildInviteText({ referrerName, refeeFirstName: refeeFirst, landingUrl, isResend: true, personalNote }),
           }),
@@ -226,13 +226,13 @@ export async function onRequestOptions() {
 // cold system nudge.
 // ───────────────────────────────────────────────────────────────────────────
 function buildInviteHtml({ referrerName, refeeFirstName, landingUrl, isResend, personalNote }) {
-  const referrerFirst = (referrerName || '').split(/[\s,&]+/)[0] || 'a Bayside customer';
+  const referrerFirst = (referrerName || '').split(/[\s,&]+/)[0] || 'a Paver Portal customer';
   const opener = isResend
-    ? 'Just a quick reminder — ' + escapeHtml(referrerName) + ' referred you to Bayside Pavers a few days ago, and you have $500 sitting on the table:'
-    : escapeHtml(referrerName) + ' just referred you to Bayside Pavers — they thought you might be interested in what we are designing for their backyard, and they wanted you to have an unfair advantage:';
+    ? 'Just a quick reminder — ' + escapeHtml(referrerName) + ' referred you to Paver Portal a few days ago, and you have $500 sitting on the table:'
+    : escapeHtml(referrerName) + ' just referred you to Paver Portal — they thought you might be interested in what we are designing for their backyard, and they wanted you to have an unfair advantage:';
 
   const noteBlock = personalNote
-    ? '<div style="background:#faf8f3;border-left:4px solid #5d7e69;padding:14px 18px;margin:22px 0 24px;border-radius:0 4px 4px 0;font-size:15px;line-height:1.65;color:#353535;font-style:italic;">' +
+    ? '<div style="background:#faf8f3;border-left:4px solid #9c7440;padding:14px 18px;margin:22px 0 24px;border-radius:0 4px 4px 0;font-size:15px;line-height:1.65;color:#353535;font-style:italic;">' +
       escapeHtml(personalNote).replace(/\n/g, '<br>') +
       '<div style="margin-top:10px;font-size:13px;color:#70726f;font-style:normal;">— ' + escapeHtml(referrerFirst) + '</div>' +
       '</div>'
@@ -240,12 +240,12 @@ function buildInviteHtml({ referrerName, refeeFirstName, landingUrl, isResend, p
 
   return '<!DOCTYPE html>\n' +
 '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
-'<title>Reminder: claim your Bayside referral</title></head>' +
+'<title>Reminder: claim your Paver Portal referral</title></head>' +
 '<body style="margin:0;padding:0;background:#f7f7f4;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#1f2125;">' +
 '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f7f7f4;padding:40px 20px;">' +
 '<tr><td align="center">' +
 '<table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">' +
-'<tr><td style="background:#5d7e69;padding:32px 40px;text-align:center;">' +
+'<tr><td style="background:#9c7440;padding:32px 40px;text-align:center;">' +
 '<h1 style="margin:0;color:#fff;font-size:22px;font-weight:600;letter-spacing:-0.01em;">' +
 (isResend ? 'A friendly nudge' : 'A neighborly recommendation') +
 '</h1></td></tr>' +
@@ -255,20 +255,20 @@ function buildInviteHtml({ referrerName, refeeFirstName, landingUrl, isResend, p
 noteBlock +
 '<div style="background:#dad7c5;border-radius:6px;padding:18px 22px;margin:20px 0 24px;text-align:center;">' +
 '<p style="margin:0 0 4px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#58595b;font-weight:600;">Your referral perk</p>' +
-'<p style="margin:0;font-size:22px;font-weight:600;color:#5d7e69;letter-spacing:-0.01em;">$500 off your first project</p>' +
+'<p style="margin:0;font-size:22px;font-weight:600;color:#9c7440;letter-spacing:-0.01em;">$500 off your first project</p>' +
 '</div>' +
 '<p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#58595b;">' +
 'Schedule a free design appointment with our team — no obligation. We will come out, walk your yard, and give you a real proposal. ' + escapeHtml(referrerFirst) + ' gets $500 toward their next project too.' +
 '</p>' +
 '<div style="text-align:center;margin:32px 0 12px;">' +
-'<a href="' + escapeHtml(landingUrl) + '" style="display:inline-block;background:#5d7e69;color:#fff;text-decoration:none;padding:14px 32px;border-radius:4px;font-size:15px;font-weight:600;">Claim your $500 &amp; schedule</a>' +
+'<a href="' + escapeHtml(landingUrl) + '" style="display:inline-block;background:#9c7440;color:#fff;text-decoration:none;padding:14px 32px;border-radius:4px;font-size:15px;font-weight:600;">Claim your $500 &amp; schedule</a>' +
 '</div>' +
 '<p style="margin:18px 0 0;font-size:12px;line-height:1.5;color:#a0a09c;text-align:center;">' +
 'This invitation was sent because ' + escapeHtml(referrerName) + ' referred you. Reply to this email to reach them directly.' +
 '</p>' +
 '</td></tr>' +
 '<tr><td style="padding:24px 40px;background:#f7f7f4;border-top:1px solid #e4e4df;text-align:center;">' +
-'<p style="margin:0;font-size:12px;color:#70726f;">Bayside Pavers · Creating backyards people love</p>' +
+'<p style="margin:0;font-size:12px;color:#70726f;">Paver Portal · Creating backyards people love</p>' +
 '</td></tr>' +
 '</table></td></tr></table></body></html>';
 }
@@ -276,8 +276,8 @@ noteBlock +
 function buildInviteText({ referrerName, refeeFirstName, landingUrl, isResend, personalNote }) {
   const referrerFirst = (referrerName || '').split(/[\s,&]+/)[0] || 'A friend';
   const opener = isResend
-    ? 'Just a quick reminder — ' + referrerName + ' referred you to Bayside Pavers a'
-    : referrerName + ' just referred you to Bayside Pavers — they thought you might be';
+    ? 'Just a quick reminder — ' + referrerName + ' referred you to Paver Portal a'
+    : referrerName + ' just referred you to Paver Portal — they thought you might be';
   const opener2 = isResend
     ? 'few days ago, and you have $500 sitting on the table.'
     : 'interested in what we are designing for their backyard.';
@@ -306,7 +306,7 @@ function buildInviteText({ referrerName, refeeFirstName, landingUrl, isResend, p
     'This invitation was sent because ' + referrerName + ' referred you.',
     'Reply to this email to reach them directly.',
     '',
-    '— Bayside Pavers · Creating backyards people love'
+    '— Paver Portal · Creating backyards people love'
   );
   return lines.join('\n');
 }

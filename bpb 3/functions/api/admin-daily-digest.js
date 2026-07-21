@@ -6,7 +6,7 @@
  *   - Tonight's nurture preview (what'll fire at 23:00 UTC)
  *   - Last 24h nurture activity
  *
- * Auth: requires header `x-bayside-cron-secret` matching env BAYSIDE_CRON_SECRET.
+ * Auth: requires header `x-bayside-cron-secret` matching env PAVER PORTAL_CRON_SECRET.
  *
  * Query params:
  *   ?dry_run=true  — return the rendered HTML without sending
@@ -15,7 +15,7 @@
  * Env vars:
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  *   RESEND_API_KEY, RESEND_FROM_EMAIL
- *   BAYSIDE_CRON_SECRET
+ *   PAVER PORTAL_CRON_SECRET
  *   PORTAL_BASE_URL
  *   DIGEST_RECIPIENT  — optional override (default tim@mcmullen.properties)
  */
@@ -40,7 +40,7 @@ export async function onRequestOptions() {
 
 export async function onRequestPost({ request, env }) {
   const provided = request.headers.get('x-bayside-cron-secret');
-  if (!env.BAYSIDE_CRON_SECRET || provided !== env.BAYSIDE_CRON_SECRET) {
+  if (!env.PAVER PORTAL_CRON_SECRET || provided !== env.PAVER PORTAL_CRON_SECRET) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 
@@ -56,7 +56,7 @@ export async function onRequestPost({ request, env }) {
   const toOverride = url.searchParams.get('to');
   const recipient = toOverride || env.DIGEST_RECIPIENT || 'tim@mcmullen.properties';
   const baseUrl = (env.PORTAL_BASE_URL || 'https://portal-baysidepavers.com').replace(/\/$/, '');
-  const fromEmail = env.RESEND_FROM_EMAIL || 'Bayside Portal <tim@mcmullen.properties>';
+  const fromEmail = env.RESEND_FROM_EMAIL || 'Paver Portal Portal <tim@mcmullen.properties>';
 
   const supabaseHeaders = {
     apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -165,7 +165,7 @@ function renderDigest(state, nurture, baseUrl) {
         ? `${nurturePreview.length} nurture send${nurturePreview.length === 1 ? '' : 's'} tonight`
         : 'Quiet morning'));
 
-  const subject = `Bayside Portal Morning · ${subjectAttention} · ${dayStr}`;
+  const subject = `Paver Portal Portal Morning · ${subjectAttention} · ${dayStr}`;
 
   const html = renderHtml({
     dayStr, today, yesterday, thisWeek, pipeline,
@@ -233,7 +233,7 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
   const kpi = (label, n, yest) => `
     <td width="25%" valign="top" style="padding:14px 12px; background:#fff; border:1px solid #e8e8e3; border-radius:8px;">
       <div style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#999; font-weight:600; margin-bottom:6px;">${esc(label)}</div>
-      <div style="font-size:22px; font-weight:700; color:${n === 0 ? '#aaa' : '#1a1f2e'}; line-height:1;">${n}</div>
+      <div style="font-size:22px; font-weight:700; color:${n === 0 ? '#aaa' : '#33281c'}; line-height:1;">${n}</div>
       <div style="font-size:11px; color:#999; margin-top:4px; font-family:Menlo,Monaco,monospace;">vs ${yest} yesterday${deltaArrow(n, yest)}</div>
     </td>
   `;
@@ -254,7 +254,7 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
   `;
 
   const pipeStrip = `
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#1a1f2e; color:#fff; border-radius:8px; margin-bottom:22px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#33281c; color:#fff; border-radius:8px; margin-bottom:22px;">
       <tr>
         <td valign="top" style="padding:16px 18px;">
           <div style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:#aab2c1; font-weight:600; margin-bottom:5px;">Active pipeline</div>
@@ -283,12 +283,12 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
           <tr><td style="padding-bottom:8px;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff; border:1px solid #e8e8e3; border-radius:8px;">
               <tr><td style="padding:11px 14px;">
-                <div style="font-size:14px; color:#1a1f2e; margin-bottom:3px;">
+                <div style="font-size:14px; color:#33281c; margin-bottom:3px;">
                   <strong>${esc(it.client_name || 'Unknown')}</strong>
                   <span style="color:#999; font-size:12px;">  ·  ${esc(it.client_email || '')}  ·  ${esc(timeAgo(it.last_inbound_at))}</span>
                 </div>
-                ${it.last_inbound_body ? `<div style="padding:7px 11px; background:#faf8f3; border-left:2px solid #5d7e69; border-radius:3px; font-size:13px; color:#353535; margin:4px 0 6px;">${esc(truncate(it.last_inbound_body, 180))}</div>` : ''}
-                <a href="${esc(baseUrl)}/admin/conversations.html?client_id=${esc(it.client_id)}" style="display:inline-block; color:#fff; background:#5d7e69; padding:6px 12px; border-radius:5px; font-size:12px; font-weight:600; text-decoration:none;">Open thread →</a>
+                ${it.last_inbound_body ? `<div style="padding:7px 11px; background:#faf8f3; border-left:2px solid #9c7440; border-radius:3px; font-size:13px; color:#353535; margin:4px 0 6px;">${esc(truncate(it.last_inbound_body, 180))}</div>` : ''}
+                <a href="${esc(baseUrl)}/admin/conversations.html?client_id=${esc(it.client_id)}" style="display:inline-block; color:#fff; background:#9c7440; padding:6px 12px; border-radius:5px; font-size:12px; font-weight:600; text-decoration:none;">Open thread →</a>
               </td></tr>
             </table>
           </td></tr>
@@ -304,16 +304,16 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
           <tr><td style="padding-bottom:8px;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff; border:1px solid #e8e8e3; border-radius:8px;">
               <tr><td style="padding:11px 14px;">
-                <div style="font-size:14px; color:#1a1f2e; margin-bottom:3px;">
+                <div style="font-size:14px; color:#33281c; margin-bottom:3px;">
                   <strong>${esc(it.project_address || '—')}</strong>
-                  ${it.bid_total_amount != null ? `<span style="color:#5d7e69; font-weight:600;">  ·  ${fmtMoney(it.bid_total_amount)}</span>` : ''}
+                  ${it.bid_total_amount != null ? `<span style="color:#9c7440; font-weight:600;">  ·  ${fmtMoney(it.bid_total_amount)}</span>` : ''}
                 </div>
                 <div style="font-size:12px; color:#777; margin-bottom:6px;">
                   <strong style="color:#353535;">${it.views_today}</strong> views
                   · <strong style="color:#353535;">${it.sessions_today}</strong> session${it.sessions_today === 1 ? '' : 's'}
                   · Last view ${timeAgo(it.last_view)}
                 </div>
-                ${it.slug ? `<a href="${esc(baseUrl)}/p/${esc(it.slug)}" style="display:inline-block; color:#fff; background:#5d7e69; padding:6px 12px; border-radius:5px; font-size:12px; font-weight:600; text-decoration:none;">View proposal →</a>` : ''}
+                ${it.slug ? `<a href="${esc(baseUrl)}/p/${esc(it.slug)}" style="display:inline-block; color:#fff; background:#9c7440; padding:6px 12px; border-radius:5px; font-size:12px; font-weight:600; text-decoration:none;">View proposal →</a>` : ''}
               </td></tr>
             </table>
           </td></tr>
@@ -336,19 +336,19 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
           <tr><td style="padding-bottom:8px;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff; border:1px solid #e8e8e3; border-radius:8px;">
               <tr><td style="padding:11px 14px;">
-                <div style="font-size:14px; color:#1a1f2e; margin-bottom:3px;">
+                <div style="font-size:14px; color:#33281c; margin-bottom:3px;">
                   <strong>${esc(p.client_name || 'Unknown')}</strong>
                   <span style="color:#999; font-size:12px;">  ·  ${esc(p.client_email || '')}</span>
                 </div>
                 <div style="font-size:12px; color:#777; margin-bottom:6px;">
                   ${esc(p.project_address || '—')}
-                  · <span style="display:inline-block; padding:1px 7px; border-radius:999px; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; font-weight:600; background:#eef3ef; color:#5d7e69;">${esc(fmtPhaseLabel(p.phase))}</span>
+                  · <span style="display:inline-block; padding:1px 7px; border-radius:999px; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; font-weight:600; background:#eef3ef; color:#9c7440;">${esc(fmtPhaseLabel(p.phase))}</span>
                   · day ${p.day_offset}
                 </div>
                 <div style="padding:7px 11px; background:#faf8f3; border-left:2px solid #c89346; border-radius:3px; font-size:13px; color:#353535; margin:4px 0 6px;">
                   <strong>Subject:</strong> ${esc(p.template_subject || '')}
                 </div>
-                <a href="${esc(baseUrl)}/admin/nurture-clients" style="display:inline-block; color:#5d7e69; font-size:12px; font-weight:600; text-decoration:underline;">Open in nurture pipeline →</a>
+                <a href="${esc(baseUrl)}/admin/nurture-clients" style="display:inline-block; color:#9c7440; font-size:12px; font-weight:600; text-decoration:underline;">Open in nurture pipeline →</a>
               </td></tr>
             </table>
           </td></tr>
@@ -361,20 +361,20 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
     ? ''
     : `
       <h2 style="margin:0 0 10px; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#353535; font-weight:700; padding-bottom:6px; border-bottom:1px solid #e8e8e3;">
-        Sent in last 24h <span style="display:inline-block; background:#5d7e69; color:#fff; padding:1px 7px; border-radius:999px; font-size:11px; margin-left:4px;">${nurtureRecent.length}</span>
+        Sent in last 24h <span style="display:inline-block; background:#9c7440; color:#fff; padding:1px 7px; border-radius:999px; font-size:11px; margin-left:4px;">${nurtureRecent.length}</span>
       </h2>
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:22px;">
         ${nurtureRecent.map((r) => `
           <tr><td style="padding-bottom:8px;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff; border:1px solid #e8e8e3; border-radius:8px;">
               <tr><td style="padding:11px 14px;">
-                <div style="font-size:14px; color:#1a1f2e; margin-bottom:3px;">
+                <div style="font-size:14px; color:#33281c; margin-bottom:3px;">
                   <strong>${esc(r.client_name || 'Unknown')}</strong>
                   <span style="color:#999; font-size:12px;">  ·  ${esc(timeAgo(r.sent_at))}${r.recipient_override_email ? '  ·  redirected to ' + esc(r.recipient_override_email) : ''}</span>
                 </div>
                 <div style="font-size:12px; color:#777; margin-bottom:4px;">
                   ${esc(r.project_address || '—')}
-                  · <span style="display:inline-block; padding:1px 7px; border-radius:999px; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; font-weight:600; background:#eef3ef; color:#5d7e69;">${esc(fmtPhaseLabel(r.phase))}</span>
+                  · <span style="display:inline-block; padding:1px 7px; border-radius:999px; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; font-weight:600; background:#eef3ef; color:#9c7440;">${esc(fmtPhaseLabel(r.phase))}</span>
                   · day ${r.day_offset}
                 </div>
                 <div style="font-size:13px; color:#353535;">${esc(r.rendered_subject || '')}</div>
@@ -394,8 +394,8 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="620" style="max-width:620px; background:#fff; border:1px solid #e8e8e3; border-radius:10px;">
         <tr><td style="padding:24px 28px;">
 
-          <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:#5d7e69; font-weight:700; margin-bottom:5px;">BAYSIDE PORTAL · MORNING DIGEST</div>
-          <h1 style="margin:0 0 4px; font-size:24px; font-weight:600; color:#1a1f2e; letter-spacing:-0.005em;">${esc(dayStr)}</h1>
+          <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:#9c7440; font-weight:700; margin-bottom:5px;">PAVER PORTAL PORTAL · MORNING DIGEST</div>
+          <h1 style="margin:0 0 4px; font-size:24px; font-weight:600; color:#33281c; letter-spacing:-0.005em;">${esc(dayStr)}</h1>
           <p style="margin:0 0 20px; font-size:14px; color:#777;">${needsReply.length > 0 ? `${needsReply.length} client${needsReply.length === 1 ? '' : 's'} waiting on you.` : 'You are caught up.'}</p>
 
           ${kpis}
@@ -407,7 +407,7 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
           ${needsReplyHtml}
 
           <h2 style="margin:0 0 10px; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#353535; font-weight:700; padding-bottom:6px; border-bottom:1px solid #e8e8e3;">
-            Active in the last 24 hours ${hotToday.length > 0 ? `<span style="display:inline-block; background:#5d7e69; color:#fff; padding:1px 7px; border-radius:999px; font-size:11px; margin-left:4px;">${hotToday.length}</span>` : ''}
+            Active in the last 24 hours ${hotToday.length > 0 ? `<span style="display:inline-block; background:#9c7440; color:#fff; padding:1px 7px; border-radius:999px; font-size:11px; margin-left:4px;">${hotToday.length}</span>` : ''}
           </h2>
           ${hotHtml}
 
@@ -419,11 +419,11 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
           ${nurtureRecentHtml}
 
           <p style="margin:18px 0 0; font-size:12px; color:#999;">
-            <a href="${esc(baseUrl)}/admin/today.html" style="color:#5d7e69; text-decoration:underline;">Open Today dashboard →</a>
-            · <a href="${esc(baseUrl)}/admin/nurture-clients" style="color:#5d7e69; text-decoration:underline;">Nurture pipeline →</a>
-            · <a href="${esc(baseUrl)}/admin/nurture-queue.html" style="color:#5d7e69; text-decoration:underline;">7-day queue →</a>
-            · <a href="${esc(baseUrl)}/admin/notes-search.html" style="color:#5d7e69; text-decoration:underline;">Notes search →</a>
-            · <a href="${esc(baseUrl)}/admin/jot.html" style="color:#5d7e69; text-decoration:underline;">Jot a note →</a>
+            <a href="${esc(baseUrl)}/admin/today.html" style="color:#9c7440; text-decoration:underline;">Open Today dashboard →</a>
+            · <a href="${esc(baseUrl)}/admin/nurture-clients" style="color:#9c7440; text-decoration:underline;">Nurture pipeline →</a>
+            · <a href="${esc(baseUrl)}/admin/nurture-queue.html" style="color:#9c7440; text-decoration:underline;">7-day queue →</a>
+            · <a href="${esc(baseUrl)}/admin/notes-search.html" style="color:#9c7440; text-decoration:underline;">Notes search →</a>
+            · <a href="${esc(baseUrl)}/admin/jot.html" style="color:#9c7440; text-decoration:underline;">Jot a note →</a>
           </p>
 
         </td></tr>
@@ -435,7 +435,7 @@ function renderHtml({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, 
 
 function renderText({ dayStr, today, yesterday, thisWeek, pipeline, needsReply, hotToday, baseUrl, nurturePreview, nurtureRecent, nurtureTest, nurtureRedirect }) {
   const lines = [];
-  lines.push(`Bayside Portal Morning Digest · ${dayStr}`);
+  lines.push(`Paver Portal Portal Morning Digest · ${dayStr}`);
   lines.push('');
   if (needsReply.length > 0) lines.push(`${needsReply.length} client${needsReply.length === 1 ? '' : 's'} waiting on you.`);
   lines.push('');

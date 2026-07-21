@@ -17,7 +17,7 @@ const CORS = {
 };
 
 const TIM_EMAIL = 'tim@mcmullen.properties';
-const FROM_ADDRESS = 'Bayside Portal <tim@mcmullen.properties>';
+const FROM_ADDRESS = 'Paver Portal Portal <tim@mcmullen.properties>';
 const ACUITY_URL = 'https://baysidepaversfreeconsultation.as.me/';
 
 export async function onRequestOptions() {
@@ -25,7 +25,7 @@ export async function onRequestOptions() {
 }
 
 // GET: validate a refer_code and return the referrer's first name
-// (used by /refer.html to display "Elisa thinks you'd love Bayside Pavers")
+// (used by /refer.html to display "Elisa thinks you'd love Paver Portal")
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const code = (url.searchParams.get('code') || '').trim();
@@ -129,8 +129,8 @@ async function emailReferralLead(env, referrer, referral) {
   const subject = `🎁 New referral: ${referral.referred_name} (from ${referrer.name})`;
   const html = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#0e1218;">
-  <div style="border-bottom:3px solid #5d7e69;padding-bottom:14px;margin-bottom:22px;">
-    <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#5d7e69;font-weight:700;margin-bottom:6px;">NEW REFERRAL LEAD · BAYSIDE PORTAL</div>
+  <div style="border-bottom:3px solid #9c7440;padding-bottom:14px;margin-bottom:22px;">
+    <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#9c7440;font-weight:700;margin-bottom:6px;">NEW REFERRAL LEAD · PAVER PORTAL PORTAL</div>
     <h1 style="font-size:22px;margin:0;color:#0e1218;line-height:1.25;font-weight:600;">${esc(referrer.name)} just referred someone new.</h1>
   </div>
 
@@ -138,9 +138,9 @@ async function emailReferralLead(env, referrer, referral) {
     <tr><td style="padding:8px 0;color:#666;font-size:13px;width:120px;">Name</td>
         <td style="padding:8px 0;text-align:right;font-weight:600;">${esc(referral.referred_name)}</td></tr>
     <tr><td style="padding:8px 0;color:#666;font-size:13px;">Email</td>
-        <td style="padding:8px 0;text-align:right;"><a href="mailto:${esc(referral.referred_email)}" style="color:#5d7e69;text-decoration:none;">${esc(referral.referred_email)}</a></td></tr>
+        <td style="padding:8px 0;text-align:right;"><a href="mailto:${esc(referral.referred_email)}" style="color:#9c7440;text-decoration:none;">${esc(referral.referred_email)}</a></td></tr>
     ${referral.referred_phone ? `<tr><td style="padding:8px 0;color:#666;font-size:13px;">Phone</td>
-        <td style="padding:8px 0;text-align:right;"><a href="tel:${esc(referral.referred_phone)}" style="color:#5d7e69;text-decoration:none;">${esc(referral.referred_phone)}</a></td></tr>` : ''}
+        <td style="padding:8px 0;text-align:right;"><a href="tel:${esc(referral.referred_phone)}" style="color:#9c7440;text-decoration:none;">${esc(referral.referred_phone)}</a></td></tr>` : ''}
     ${referral.notes ? `<tr><td style="padding:8px 0;color:#666;font-size:13px;vertical-align:top;">Notes</td>
         <td style="padding:8px 0;text-align:right;font-size:13px;">${esc(referral.notes)}</td></tr>` : ''}
   </table>

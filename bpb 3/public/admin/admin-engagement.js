@@ -213,7 +213,7 @@ function renderSplit(s) {
       </div>
       <div class="eng-split-legend">
         <span><span class="eng-split-legend-swatch" style="background:#2b4a73"></span>Mobile ${s.mobileEvents} (${mobilePct}%)</span>
-        <span><span class="eng-split-legend-swatch" style="background:#5d7e69"></span>Desktop ${s.desktopEvents} (${desktopPct}%)</span>
+        <span><span class="eng-split-legend-swatch" style="background:#9c7440"></span>Desktop ${s.desktopEvents} (${desktopPct}%)</span>
       </div>
     </div>
   `;

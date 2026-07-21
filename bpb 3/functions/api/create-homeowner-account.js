@@ -279,7 +279,7 @@ export async function onRequestOptions() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Welcome email — Bayside green + magic-link CTA
+// Welcome email — Paver Portal green + magic-link CTA
 // ───────────────────────────────────────────────────────────────────────────
 function buildWelcomeEmailHtml({ name, designerName, magicLink }) {
   return '<!DOCTYPE html>\n' +

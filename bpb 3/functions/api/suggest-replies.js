@@ -254,8 +254,8 @@ async function callAnthropic(apiKey, ctx) {
 
 function buildReplyPrompt(ctx) {
   return [
-    `You are helping ${ctx.designerName}, a Bayside Pavers designer, write quick reply suggestions in a chat with a homeowner.`,
-    `Bayside Pavers installs hardscape: pavers, porcelain decking, retaining walls, fire features, pool decks. ICPI-certified install.`,
+    `You are helping ${ctx.designerName}, a Paver Portal designer, write quick reply suggestions in a chat with a homeowner.`,
+    `Paver Portal installs hardscape: pavers, porcelain decking, retaining walls, fire features, pool decks. ICPI-certified install.`,
     ``,
     `Context:`,
     `Client: ${ctx.clientName}`,
@@ -297,8 +297,8 @@ function buildOutreachPrompt(ctx) {
     : `Last messages exchanged (oldest first, may be stale):\n${ctx.transcript}`;
 
   return [
-    `You are helping ${ctx.designerName}, a Bayside Pavers designer, draft an OUTREACH message to a homeowner who has gone cold.`,
-    `Bayside Pavers installs hardscape: pavers, porcelain decking, retaining walls, fire features, pool decks. ICPI-certified install.`,
+    `You are helping ${ctx.designerName}, a Paver Portal designer, draft an OUTREACH message to a homeowner who has gone cold.`,
+    `Paver Portal installs hardscape: pavers, porcelain decking, retaining walls, fire features, pool decks. ICPI-certified install.`,
     ``,
     `Situation: ${bucketLine}`,
     ``,

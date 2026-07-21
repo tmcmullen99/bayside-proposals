@@ -619,7 +619,7 @@ function ensureDeleteUiStyles() {
       cursor: pointer; user-select: none;
       margin: 0 8px;
     }
-    .wrc-show-deleted input { accent-color: #5d7e69; cursor: pointer; }
+    .wrc-show-deleted input { accent-color: #9c7440; cursor: pointer; }
     .wrc-show-deleted:hover { color: #353535; }
 
     /* In deleted-mode: tint the cards so the trash bin is visually distinct */
@@ -651,12 +651,12 @@ function ensureDeleteUiStyles() {
       background: #fbe6e6; color: #b91c1c; border-color: #f0caca;
     }
     .wrc-restore-btn {
-      color: #5d7e69; font-size: 12px;
+      color: #9c7440; font-size: 12px;
       border-color: #d4cfc0;
       background: #fff;
     }
     .wrc-restore-btn:hover {
-      background: #e8eee9; color: #4a6654; border-color: #5d7e69;
+      background: #f1e7d3; color: #7d5c31; border-color: #9c7440;
     }
     .wrc-hard-delete-btn:hover {
       background: #b91c1c; color: #fff; border-color: #b91c1c;
@@ -732,7 +732,7 @@ function ensureDeleteUiStyles() {
       padding: 2px 0; font-size: 13px;
     }
     .wrc-del-blast-clean {
-      color: #4a6654; font-style: italic;
+      color: #7d5c31; font-style: italic;
     }
     .wrc-del-blast-err { color: #b91c1c; }
     .wrc-del-hardcheck {
@@ -766,8 +766,8 @@ function ensureDeleteUiStyles() {
     .wrace-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     .wrace-cancel { background: #fff; color: #353535; border-color: #d4cfc0; }
     .wrace-cancel:hover:not(:disabled) { background: #f4f4ef; border-color: #888; }
-    .wrace-save { background: #5d7e69; color: #fff; box-shadow: 0 4px 12px rgba(93, 126, 105, 0.22); }
-    .wrace-save:hover:not(:disabled) { background: #4a6654; transform: translateY(-1px); }
+    .wrace-save { background: #9c7440; color: #fff; box-shadow: 0 4px 12px rgba(93, 126, 105, 0.22); }
+    .wrace-save:hover:not(:disabled) { background: #7d5c31; transform: translateY(-1px); }
     .wrc-del-confirm-danger {
       background: #b91c1c; box-shadow: 0 4px 12px rgba(185, 28, 28, 0.22);
     }

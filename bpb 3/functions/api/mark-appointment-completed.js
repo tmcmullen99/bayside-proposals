@@ -165,7 +165,7 @@ export async function onRequestPost({ request, env }) {
     if (RESEND_API_KEY && rpcResult.referrer_email) {
       try {
         const subject = rpcResult.credit_awarded
-          ? 'Your $500 Bayside referral credit just landed'
+          ? 'Your $500 Paver Portal referral credit just landed'
           : 'Thanks for the referral — appointment complete';
         const r = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -222,14 +222,14 @@ function buildReferrerCreditHtml(r) {
   const newBalance    = formatCents(r.new_credit_cents);
 
   const intro = r.credit_awarded
-    ? '<strong>' + escapeHtml(refereeName) + '</strong> just completed their design appointment with Bayside, which means your $500 referral credit has been added to your account.'
-    : '<strong>' + escapeHtml(refereeName) + '</strong> just completed their design appointment with Bayside. Your account is already at the $2,500 referral cap, so no additional credit was added — but thank you for sending them our way.';
+    ? '<strong>' + escapeHtml(refereeName) + '</strong> just completed their design appointment with Paver Portal, which means your $500 referral credit has been added to your account.'
+    : '<strong>' + escapeHtml(refereeName) + '</strong> just completed their design appointment with Paver Portal. Your account is already at the $2,500 referral cap, so no additional credit was added — but thank you for sending them our way.';
 
   const balanceBlock = '<div style="background:#f7f7f4;border-radius:6px;padding:18px 22px;margin:20px 0;">' +
-    '<p style="margin:0 0 6px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#58595b;font-weight:600;">Your Bayside credit balance</p>' +
+    '<p style="margin:0 0 6px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#58595b;font-weight:600;">Your Paver Portal credit balance</p>' +
     '<p style="margin:0;font-size:22px;font-weight:600;color:#1f2125;">' + escapeHtml(newBalance) + '</p>' +
     (r.cap_reached
-      ? '<p style="margin:6px 0 0;font-size:11px;color:#58595b;">You\'ve hit the $2,500 cap — share Bayside generously, but additional referrals after this won\'t add credit.</p>'
+      ? '<p style="margin:6px 0 0;font-size:11px;color:#58595b;">You\'ve hit the $2,500 cap — share Paver Portal generously, but additional referrals after this won\'t add credit.</p>'
       : '<p style="margin:6px 0 0;font-size:11px;color:#58595b;">Stackable to $2,500 across up to 5 successful referrals.</p>') +
     '</div>';
 
@@ -238,7 +238,7 @@ function buildReferrerCreditHtml(r) {
 '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f7f7f4;padding:40px 20px;">' +
 '<tr><td align="center">' +
 '<table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">' +
-'<tr><td style="background:#5d7e69;padding:28px 40px;text-align:center;">' +
+'<tr><td style="background:#9c7440;padding:28px 40px;text-align:center;">' +
 '<h1 style="margin:0;color:#fff;font-size:22px;font-weight:600;letter-spacing:-0.01em;">' +
 (r.credit_awarded ? 'Credit added to your account' : 'Thanks for the referral') +
 '</h1></td></tr>' +
@@ -246,10 +246,10 @@ function buildReferrerCreditHtml(r) {
 '<p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hi ' + escapeHtml(referrerFirst) + ',</p>' +
 '<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#58595b;">' + intro + '</p>' +
 balanceBlock +
-'<p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#58595b;">Your credit applies to your next Bayside project — your designer will pull it off the bid automatically.</p>' +
+'<p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#58595b;">Your credit applies to your next Paver Portal project — your designer will pull it off the bid automatically.</p>' +
 '</td></tr>' +
 '<tr><td style="padding:18px 40px;background:#f7f7f4;border-top:1px solid #e4e4df;text-align:center;">' +
-'<p style="margin:0;font-size:11px;color:#70726f;">Bayside Pavers · Creating backyards people love</p>' +
+'<p style="margin:0;font-size:11px;color:#70726f;">Paver Portal · Creating backyards people love</p>' +
 '</td></tr></table></td></tr></table></body></html>';
 }
 
@@ -265,12 +265,12 @@ function buildReferrerCreditText(r) {
       ? refereeName + ' just completed their design appointment. Your $500 referral credit has been added.'
       : refereeName + ' just completed their design appointment. Your account is already at the $2,500 cap, so no additional credit was added — but thank you for sending them our way.',
     '',
-    'Your current Bayside credit balance: ' + newBalance,
+    'Your current Paver Portal credit balance: ' + newBalance,
     r.cap_reached ? '(You\'ve hit the $2,500 cap.)' : '(Stackable to $2,500 across up to 5 referrals.)',
     '',
-    'Your credit applies to your next Bayside project — your designer will pull it off the bid automatically.',
+    'Your credit applies to your next Paver Portal project — your designer will pull it off the bid automatically.',
     '',
-    '— Bayside Pavers',
+    '— Paver Portal',
   ].filter(Boolean).join('\n');
 }
 

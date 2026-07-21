@@ -275,7 +275,7 @@ const TABS = [
     role: 'master',
     group: 'tools',
     icon: '📐',
-    description: 'Parse the Bayside install-guide PDF into structured sections. Master-only.',
+    description: 'Parse the Paver Portal install-guide PDF into structured sections. Master-only.',
   },
   {
     id: 'jobnimbus',

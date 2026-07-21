@@ -111,7 +111,7 @@ async function handle({ request, env, params }, method) {
   if (method === 'POST') {
     return new Response(null, { status: 204 });
   }
-  return htmlResponse(200, confirmationPage(businessName || 'Bayside Pavers'));
+  return htmlResponse(200, confirmationPage(businessName || 'Paver Portal'));
 }
 
 // ─── HTML pages ──────────────────────────────────────────────────────
@@ -124,10 +124,10 @@ function confirmationPage(businessName) {
     'body{margin:0;padding:0;background:#faf8f3;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#353535;}' +
     '.wrap{max-width:520px;margin:80px auto;padding:0 20px;text-align:center;}' +
     '.card{background:#fff;border-radius:14px;padding:40px 32px;box-shadow:0 4px 24px rgba(0,0,0,0.06);}' +
-    '.eyebrow{font-family:SF Mono,Menlo,monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#5d7e69;margin-bottom:8px;font-weight:600;}' +
-    'h1{margin:0 0 14px;font-size:22px;font-weight:600;letter-spacing:-0.012em;color:#1a1f2e;}' +
+    '.eyebrow{font-family:SF Mono,Menlo,monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#9c7440;margin-bottom:8px;font-weight:600;}' +
+    'h1{margin:0 0 14px;font-size:22px;font-weight:600;letter-spacing:-0.012em;color:#33281c;}' +
     'p{margin:0 0 12px;font-size:14px;line-height:1.6;color:#666;}' +
-    '.checkmark{width:54px;height:54px;border-radius:50%;background:#e8eee9;color:#5d7e69;display:inline-flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:26px;}' +
+    '.checkmark{width:54px;height:54px;border-radius:50%;background:#f1e7d3;color:#9c7440;display:inline-flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:26px;}' +
     '.foot{margin-top:18px;font-size:11px;color:#888;}' +
     '</style></head><body><div class="wrap"><div class="card">' +
     '<div class="checkmark">✓</div>' +
