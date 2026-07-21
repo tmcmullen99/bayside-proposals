@@ -82,11 +82,26 @@
   </div>
 </main>
 
+<script>
+window.addEventListener('error', function (e) {
+  var b = document.createElement('div');
+  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#b91c1c;color:#fff;font:600 12px monospace;padding:10px 14px;white-space:pre-wrap;';
+  b.textContent = '⚠ Script error: ' + (e.message || 'unknown') + (e.filename ? '  @ ' + e.filename.split('/').pop() + ':' + e.lineno : '');
+  document.body.appendChild(b);
+});
+window.addEventListener('unhandledrejection', function (e) {
+  var b = document.createElement('div');
+  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#b91c1c;color:#fff;font:600 12px monospace;padding:10px 14px;white-space:pre-wrap;';
+  b.textContent = '⚠ Unhandled: ' + (e.reason && (e.reason.message || e.reason) || 'unknown');
+  document.body.appendChild(b);
+});
+</script>
 <script type="module">
 import { supabase } from '/js/supabase-client.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const shortUrl = (u) => String(u).split('//').pop().split('/')[0].replace('www.','').slice(0,34);
 const showMsg = (t, err=false) => { const m=$('msg'); m.textContent=t; m.style.color=err?'var(--err)':'var(--ok)'; m.style.display='block'; setTimeout(()=>m.style.display='none', 5000); };
 
 // gate: founding master only
@@ -145,7 +160,7 @@ async function loadAll() {
     <table><thead><tr><th>Company</th><th>Location</th><th>Contact</th><th>Step</th><th>Status</th><th></th></tr></thead>
     <tbody>${prospects.map(p => `
       <tr>
-        <td><b>${esc(p.company_name)}</b>${p.website ? `<br><a href="${esc(p.website)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--walnut);">${esc(p.website.replace(/^https?:\\/\\/(www\\.)?/,'').slice(0,34))}</a>` : ''}</td>
+        <td><b>${esc(p.company_name)}</b>${p.website ? `<br><a href="${esc(p.website)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--walnut);">${esc(shortUrl(p.website))}</a>` : ''}</td>
         <td style="font-size:12px;">${esc(p.city || '')}, ${esc(p.state || '')}</td>
         <td style="font-size:11.5px;">${esc(p.email || '—')}<br>${esc(p.phone || '')}</td>
         <td>${p.sequence_step} / 6</td>
