@@ -214,7 +214,7 @@
   <div class="login-card">
     <h1>Paver Portal Admin</h1>
     <p>Sign in with your master account.</p>
-    <div class="field"><label>Email</label><input id="li-email" type="email" autocomplete="email" placeholder="you@baysidepavers.com"></div>
+    <div class="field"><label>Email</label><input id="li-email" type="email" autocomplete="email" placeholder="you@paverportal.com"></div>
     <div class="field"><label>Password</label><input id="li-pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
     <button class="btn primary" id="li-go">Sign in</button>
     <div class="login-or">— or —</div>
@@ -679,7 +679,7 @@ function renderDrillBody(d){
 
   const evtSection = events.length ? `<div class="drill-section"><h3>Activity feed</h3>${events.slice(0,12).map(e=>`<div class="evt-row"><div class="etrack-subj">${escHTML(titleCase(e.event_type))}</div><div class="evt-meta">${fmtWhen(e.occurred_at)}</div></div>`).join('')}</div>` : '';
 
-  const link = deal.proposal_slug ? `<div class="drill-section"><a class="drill-link" href="https://portal-baysidepavers.com/p/${encodeURIComponent(deal.proposal_slug)}" target="_blank" rel="noopener">Open proposal page ↗</a></div>` : '';
+  const link = deal.proposal_slug ? `<div class="drill-section"><a class="drill-link" href="/p/${encodeURIComponent(deal.proposal_slug)}" target="_blank" rel="noopener">Open proposal page ↗</a></div>` : '';
 
   return summary + notes + scoreSection + emailSection + sug + timeline + intentsSection + msgSection + threadBlock + evtSection + link;
 }
